@@ -10,17 +10,28 @@ namespace sp
         _init();
     }
 
-    bytes::bytes(uint length):
+    bytes::bytes(uint length): bytes(0, length, 0) {}
+
+    bytes::bytes(uint front, uint length, uint back):
         bytes()
     {
-        alloc(length);
+        _capacity = front + length + back;
+        _offset = front;
+        _length = length;
+        alloc(_capacity);
     }
 
     bytes::bytes(byte* data, uint length, alloc_t type)
     {
         _data = data;
-        _length = length;
+        _capacity = _length = length;
         _type = type;
+        _offset = 0;
+    }
+
+    bytes::~bytes()
+    {
+        clear();
     }
 
 
@@ -34,7 +45,9 @@ namespace sp
     {
         _data = other.data();
         _length = other.size();
-        _type = other.type();
+        _type = other.get_type();
+        _offset = other.get_offset();
+        _capacity = other.get_capacity();
         other._init();
     }
 
@@ -54,7 +67,9 @@ namespace sp
         clear();
         _data = other.data();
         _length = other.size();
-        _type = other.type();
+        _type = other.get_type();
+        _offset = other.get_offset();
+        _capacity = other.get_capacity();
         other._init();
         return *this;
     }
@@ -71,9 +86,25 @@ namespace sp
         return &_data[_offset];
     }
 
-    bytes::alloc_t bytes::type() const
+
+    bytes::alloc_t bytes::get_type() const
     {
         return _type;
+    }
+
+    uint bytes::get_capacity() const
+    {
+        return _capacity;
+    }
+
+    uint bytes::get_offset() const
+    {
+        return _offset;
+    }
+
+    byte* bytes::get_base() const
+    {
+        return _data;
     }
 
 
@@ -102,11 +133,51 @@ namespace sp
     }
 
 
-    void bytes::expand(uint front, uint back, byte value)
+    void bytes::expand(uint front, uint back)
     {
+        uint new_length, new_offset;
+        byte *old_base;
+        bytes::alloc_t old_type;
+        bool reallocate = false;
+
+        /* do nothing */
+        if (front == 0 && back == 0)
+            return;
+        
+        new_length = front + back + _length;
+
+        if (front > _offset)
+        {
+            new_offset = 0;
+            reallocate = true;
+        }
+        else
+            new_offset = _offset - front;
+
+        if (new_length > _capacity)
+            reallocate = true;
 
 
+        if (reallocate)
+        {
+            old_base = _data;
+            old_type = _type;
+            
+            alloc(new_length);
+            _capacity = new_length;
 
+            if (old_base)
+            {
+                for (int i = 0; i < _length; i++)
+                    _data[i + front] = old_base[i + _offset];
+            
+                if (old_type == HEAP)
+                    delete[] old_base;
+            }
+        }
+        
+        _offset = new_offset;
+        _length = new_length;
     }
 
 
@@ -114,7 +185,14 @@ namespace sp
     void bytes::set(byte value)
     {
         for (uint i = 0; i < _length; i++)
-            _data[i] = value;
+            _data[i + _offset] = value;
+    }
+
+    void bytes::set(uint start, uint length, byte value)
+    {
+        length += start;
+        for (uint i = start; i < length; i++)
+            _data[i + _offset] = value;
     }
 
     void bytes::clear()
@@ -128,13 +206,16 @@ namespace sp
     void bytes::_init()
     {
         _data = nullptr;
-        _length = 0;
         _type = INIT;
+        _length = 0;
+        _offset = 0;
+        _capacity = 0;
     }
 
     void bytes::to_heap()
     {
         byte *tmp = nullptr;
+        
         if (_type == HEAP)
             return;
 
@@ -171,7 +252,6 @@ namespace sp
             _data = new byte[length];
         else 
             _data = nullptr;
-        _length = length;
         _type = HEAP;
     }
 

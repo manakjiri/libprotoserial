@@ -80,6 +80,8 @@ namespace sp
         bytes();
         /* HEAP type is assumed */
         bytes(uint length);
+        /* HEAP type is assumed, capacity will be front + length + back */
+        bytes(uint front, uint length, uint back);
         /* just initialization with the given arguments, no copying */
         bytes(byte* data, uint length, alloc_t type);
         /* copy */
@@ -89,20 +91,16 @@ namespace sp
         bytes(bytes && other);
         bytes & operator= (bytes && other);
 
-        /* destructor calls the clear */
+        /* destructor calls the clear() */
         ~bytes();
         
         //bytes(const std::string & from) {}        // convert from string 
         //operator std::string() const {return };
-                
         
-        /* returns the current configured size, if overprovisioning is not used than size == capacity */
+        /* returns the current data size, if overprovisioning is not used than size == capacity */
         uint size() const;
-        /* returns the number of actually allocated bytes */
-        uint capacity() const;
-        /* 
+        /* returns pointer to data */
         byte* data() const;
-        alloc_t type() const;
         
         const byte & at(uint i) const;
         byte & at(uint i);
@@ -110,9 +108,7 @@ namespace sp
         byte & operator[] (uint i);
         
         /* converts the container to HEAP type if necessary and expands it by the requested amount
-        from each side with value: [front B][size B][back B], front or back can be 0 */
-        void expand(uint front, uint back, byte value);
-        /* just as above with value = 0 */
+        [front B][size B][back B], front or back can be 0 */
         void expand(uint front, uint back);
         /* expand the container by other.size() bytes and copy other's contents into that space */
         void prepend(const bytes & other);
@@ -120,14 +116,22 @@ namespace sp
         
         /* set all bytes to value */
         void set(byte value);
+        void set(uint start, uint length, byte value);
         /* safe to call multiple times, frees the resources for the HEAP type and sets up the
         container as if it was just initialized using the default constructor */
         void clear();
-        /* used internally for move, do not use otherwise */
-        void _init();
-
+        
         /* converts the container to HEAP allocated container */
         void to_heap();
+        /* used internally for move, do not use otherwise */
+        void _init();
+        /* returns the number of actually allocated bytes */
+        uint get_capacity() const;
+        uint get_offset() const;
+        alloc_t get_type() const;
+        /* returns pointer to the beggining of the data */
+        byte* get_base() const;
+
 
         
         protected:
