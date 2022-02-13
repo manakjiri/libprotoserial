@@ -3,8 +3,7 @@
 
 namespace sp
 {
-    using byte = uint8_t;
-    using uint = unsigned int;    
+    using byte = std::byte;
 }
 
 

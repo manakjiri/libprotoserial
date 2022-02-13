@@ -20,25 +20,7 @@ byte \
 container \
 stream \
 
-#TESTS = $(patsubst $(SDIR)/%.test.cpp,%,$(SRC))
-#SRC = $(patsubst %,$(SDIR)/%.cpp,$(_OBJ))
-
-#vpath %.c $(SDIR)/
-
-#all: $(TARGET)
-
-all:
-	echo $(TESTS)
+container:
+	$(CC) -o $(TARGET) $(OPT) -I$(IDIR) $(SDIR)/container.test.cpp $(SDIR)/container.cpp $(SDIR)/byte.cpp
 
 
-%.test: $(OBJ)
-	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
-
-
-# builds object files
-$(OBJ): $(SRC)
-	$(CC) -c -o $@ $< $(CFLAGS) 
-
-# builds the final executable from the object files
-$(TARGET): $(OBJ)
-	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)

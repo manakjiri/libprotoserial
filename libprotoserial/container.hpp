@@ -1,8 +1,13 @@
 
 #include <libprotoserial/byte.hpp>
 
+#include <initializer_list>
+#include <string>
+
 namespace sp
 {
+    using uint = unsigned int;
+
 /*     class bytes 
     {
         public:
@@ -73,18 +78,31 @@ namespace sp
 
         enum alloc_t
         {
-            INIT, STATIC, HEAP
+            INIT, 
+            /* the data is stored and managed internally in a heap-allocated space */
+            HEAP,
+            /* the container just acts as a reference to some existing data, it is in read-only mode, 
+            any attempt at modifing the container will result in the invocation of the to_heap() function 
+            and all modifications will than be applied to the internally managed data. */
+            HANDLE,
         };
 
         /* blank of INIT type */
         bytes();
         /* HEAP type is assumed */
         bytes(uint length);
-        /* HEAP type is assumed, capacity will be front + length + back */
+        /* overallocation, HEAP type is assumed, capacity will be equal to front + length + back */
         bytes(uint front, uint length, uint back);
-        /* just initialization with the given arguments, no copying */
+        /* use this if you want to
+        1) wrap existing raw array of bytes by this class - use the HEAP type
+        2) create a read-only handle of some existing data - use the HANDLE type */
         bytes(byte* data, uint length, alloc_t type);
-        /* copy */
+
+        //bytes(std::initializer_list<byte> values);
+        //operator std::string() const {return };
+        bytes(const std::string & from);
+        
+        /* copy - only the currently exposed data gets coppied, overallocation is not used */
         bytes(const bytes & other);
         bytes & operator= (const bytes & other); 
         /* move */
@@ -94,10 +112,8 @@ namespace sp
         /* destructor calls the clear() */
         ~bytes();
         
-        //bytes(const std::string & from) {}        // convert from string 
-        //operator std::string() const {return };
         
-        /* returns the current data size, if overprovisioning is not used than size == capacity */
+        /* returns the current data size, if overallocation is not used than size == capacity */
         uint size() const;
         /* returns pointer to data */
         byte* data() const;
@@ -142,6 +158,8 @@ namespace sp
         void range_check(uint i) const;
         void copy_from(const byte* data, uint length);
         void copy_to(byte* data, uint length) const;
+        /* replaces the _data with a newly allocated and initialized array of length, sets the type to
+        HEAP, does not change the _capacity nor the _length! */
         void alloc(uint length);
     };
 }

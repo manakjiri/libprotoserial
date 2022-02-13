@@ -1,6 +1,5 @@
 #include <libprotoserial/container.hpp>
 
-#include <string>
 #include <stdexcept>
 
 namespace sp
@@ -43,7 +42,7 @@ namespace sp
 
     bytes::bytes(bytes && other)
     {
-        _data = other.data();
+        _data = other.get_base();
         _length = other.size();
         _type = other.get_type();
         _offset = other.get_offset();
@@ -53,10 +52,12 @@ namespace sp
 
     bytes & bytes::operator= (const bytes & other)
     {
-        if (other.size() != size() || _type != HEAP) 
+        _offset = 0;
+        if (other.size() != _capacity || _type != HEAP) 
         {
             clear();
             alloc(other.size());
+            _capacity = _length = other.size();
         }
         copy_from(other.data(), size());
         return *this;
@@ -65,7 +66,7 @@ namespace sp
     bytes & bytes::operator= (bytes && other)
     {
         clear();
-        _data = other.data();
+        _data = other.get_base();
         _length = other.size();
         _type = other.get_type();
         _offset = other.get_offset();
@@ -75,6 +76,19 @@ namespace sp
     }
 
 
+    /* bytes::bytes(std::initializer_list<byte> values):
+        bytes(values.size())
+    {
+        for (uint i = 0; i < _length; i++)
+            _data[i + _offset] ;
+    } */
+
+    bytes::bytes(const std::string & from):
+        bytes(from.size())
+    {
+        copy_from(reinterpret_cast<byte*>(const_cast<char*>(from.c_str())), from.size());
+    }
+
 
     uint bytes::size() const
     {
@@ -83,7 +97,10 @@ namespace sp
 
     byte* bytes::data() const
     {
-        return &_data[_offset];
+        if (_data)
+            return &_data[_offset];
+        else
+            return nullptr;
     }
 
 
@@ -110,16 +127,14 @@ namespace sp
 
     byte & bytes::at(uint i)
     {
-        i += _offset;
         range_check(i);
-        return _data[i];
+        return _data[i + _offset];
     }
 
     const byte & bytes::at(uint i) const
     {
-        i += _offset;
         range_check(i);
-        return _data[i];
+        return _data[i + _offset];
     }
 
     byte & bytes::operator[] (uint i)
@@ -144,31 +159,38 @@ namespace sp
         if (front == 0 && back == 0)
             return;
         
+        /* this will be out now size() */
         new_length = front + back + _length;
 
+        /* _offset says how many overallocated "bumper" bytes we have, so if the requested
+        front is more than that, we know the data needs to be expanded */
         if (front > _offset)
         {
             new_offset = 0;
             reallocate = true;
         }
+        /* if we have enough bytes at the front we may not need to reallocate, just shift the offset */
         else
             new_offset = _offset - front;
-
+        
+        /* if the total requested length is over the capacity, we obviously need to allocate a larger buffer */
         if (new_length > _capacity)
             reallocate = true;
 
-
         if (reallocate)
         {
+            /* keep reference to the old buffer and take note whether we need to delete it */
             old_base = _data;
             old_type = _type;
             
+            /* allocate the new data buffer and update the capacity so it refelects this */
             alloc(new_length);
             _capacity = new_length;
 
             if (old_base)
             {
-                for (int i = 0; i < _length; i++)
+                /* copy the original data */
+                for (uint i = 0; i < _length; i++)
                     _data[i + front] = old_base[i + _offset];
             
                 if (old_type == HEAP)
@@ -176,6 +198,7 @@ namespace sp
             }
         }
         
+        /* finally update the offset and length because we no longer need the old values */
         _offset = new_offset;
         _length = new_length;
     }
@@ -221,6 +244,8 @@ namespace sp
 
         tmp = _data;
         alloc(_length);
+        _capacity = _length;
+        _offset = 0;
         copy_from(tmp, _length);
     }
 
@@ -234,22 +259,26 @@ namespace sp
     {
         if (!data || length == 0)
             return;
+    
+        range_check(length - 1);
         for (uint i = 0; i < length; i++)
-            at(i) = data[i];
+            _data[i + _offset] = data[i];
     }
 
     void bytes::copy_to(byte* data, uint length) const
     {
         if (!data || length == 0)
             return;
+        
+        range_check(length - 1);
         for (uint i = 0; i < length; i++)
-            data[i] = at(i);
+            data[i] = _data[i + _offset];
     }
 
     void bytes::alloc(uint length)
     {
         if (length > 0)
-            _data = new byte[length];
+            _data = new byte[length]();
         else 
             _data = nullptr;
         _type = HEAP;

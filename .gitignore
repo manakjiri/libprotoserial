@@ -1,0 +1,6 @@
+build
+*.out
+*.vg*
+.directory
+.vscode
+
