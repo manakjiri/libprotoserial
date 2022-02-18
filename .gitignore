@@ -1,6 +1,15 @@
 build
+
 *.out
 *.vg*
-.directory
+
 .vscode
 
+
+#OTHER
+
+# Dolphin
+.directory
+
+# Xournal
+*.xopp~

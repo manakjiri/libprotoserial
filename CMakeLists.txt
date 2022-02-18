@@ -29,9 +29,8 @@ enable_testing()
 add_executable(
     test_libprotoserial
     libprotoserial/container.test.cpp 
-    libprotoserial/container.cpp 
     libprotoserial/byte.cpp
-    )
+)
 target_include_directories(test_libprotoserial PRIVATE ".")
 
 target_link_libraries(

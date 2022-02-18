@@ -11,10 +11,15 @@
 
 #include <initializer_list>
 #include <string>
+#include <stdexcept>
+#include <algorithm>
+#include <iostream>
+#include <iomanip>
 
 namespace sp
 {
     using uint = unsigned int;
+    using out_of_range = std::out_of_range;
 
     class bytes 
     {
@@ -30,6 +35,30 @@ namespace sp
         typedef pointer             iterator;
         typedef const_pointer       const_iterator;
 
+        /* struct iterator 
+        {
+            // iterator tags here...
+
+            iterator(pointer ptr) : _ptr(ptr) {}
+
+            reference operator*() const { return *_ptr; }
+            pointer operator->() { return _ptr; }
+
+            // Prefix increment
+            iterator& operator++() { _ptr++; return *this; }  
+
+            // Postfix increment
+            iterator operator++(int) { iterator tmp = *this; ++(*this); return tmp; }
+
+            friend bool operator== (const iterator& a, const iterator& b) { return a._ptr == b._ptr; };
+            friend bool operator!= (const iterator& a, const iterator& b) { return a._ptr != b._ptr; };     
+
+            private:
+
+            pointer _ptr;
+        }; */
+
+        /* default */
         bytes()
         {
             _init(); 
@@ -52,7 +81,11 @@ namespace sp
             _length = length;
         }
 
-        //bytes(std::initializer_list<byte> values);
+        bytes(std::initializer_list<byte> values):
+            bytes(values.size())
+        {
+            std::copy(values.begin(), values.end(), begin());
+        }
         //operator std::string() const {return };
         bytes(const std::string & from) :
             bytes(from.size())
@@ -107,6 +140,13 @@ namespace sp
         /* returns the current data size, if overallocation is not used than size == capacity */
         constexpr size_type size() const {return _length;}
         /* returns pointer to data */
+        constexpr pointer data()
+        {
+            if (_data)
+                return &_data[_offset];
+            else
+                return nullptr;
+        }
         constexpr pointer data() const
         {
             if (_data)
@@ -128,12 +168,14 @@ namespace sp
         constexpr const byte & operator[] (size_type i) const {return at(i);}
         constexpr byte & operator[] (size_type i) {return at(i);}
 
-        constexpr iterator begin() {return &_data[_offset];}
-        constexpr iterator end() {return &_data[_offset + _length];}
-        constexpr const_iterator begin() const {return &_data[_offset];}
-        constexpr const_iterator end() const {return &_data[_offset + _length];}
-        constexpr const_iterator cbegin() const {return &_data[_offset];}
-        constexpr const_iterator cend() const {return &_data[_offset + _length];}
+        constexpr iterator begin() {return data();}
+        constexpr iterator end() {return data() + size();}
+        //iterator begin() {return iterator(data());}
+        //iterator end() {return iterator(data() + size());}
+        constexpr iterator begin() const {return data();}
+        constexpr iterator end() const {return data() + size();}
+        constexpr const_iterator cbegin() const {return data();}
+        constexpr const_iterator cend() const {return data() + size();}
         
         /* expands it by the requested amount such that [front B][size B][back B], front or back can be 0 */
         void expand(size_type front, size_type back)
@@ -189,19 +231,20 @@ namespace sp
         }
         /* expand the container by other.size() bytes and copy other's contents into that space */
         void prepend(const_reference other);
+        /* expand the container by other.size() bytes and copy other's contents into that space */
         void append(const_reference other);
         
         /* set all bytes to value */
         constexpr void set(byte value)
         {
             for (uint i = 0; i < _length; i++)
-                _data[i + _offset] = value;
+                at(i) = value;
         }
         constexpr void set(size_type start, size_type length, byte value)
         {
             length += start;
             for (uint i = start; i < length; i++)
-                _data[i + _offset] = value;
+                at(i) = value;
         }
         /* safe to call multiple times, frees the resources for the HEAP type and sets up the
         container as if it was just initialized using the default constructor */
@@ -214,7 +257,7 @@ namespace sp
         }
         
         /* used internally for move, do not use otherwise */
-        void _init()
+        constexpr void _init()
         {
             _data = nullptr;
             _length = 0;
@@ -233,10 +276,10 @@ namespace sp
         pointer _data;
         size_type _length, _capacity, _offset;
 
-        inline void range_check(size_type i) const
+        constexpr inline void range_check(size_type i) const
         {
             if (i >= _length || !_data)
-                throw std::out_of_range("at index " + std::to_string(i) + " (size " + std::to_string(_length) + ")");
+                throw out_of_range("bytes::range_check at index " + std::to_string(i) + " (size " + std::to_string(_length) + ")");
         }
         void copy_from(const_pointer data, size_type length){
             if (!data || length == 0)
@@ -268,21 +311,20 @@ namespace sp
 
 bool operator==(const sp::bytes & lhs, const sp::bytes rhs)
 {
-    uint size;
-    if ((size = lhs.size()) != rhs.size()) 
-        return false;
-    
-    for (uint i = 0; i < size; i++)
-    {
-        if (lhs.at(i) != rhs.at(i))
-            return false;
-    }
-    return true;
+    return std::equal(lhs.cbegin(), lhs.cend(), rhs.cbegin(), rhs.cend());
 }
 
 bool operator!=(const sp::bytes & lhs, const sp::bytes rhs)
 {
     return !(lhs == rhs);
+}
+
+std::ostream& operator<<(std::ostream& os, const sp::bytes& obj) 
+{
+    os << "[ ";
+    for (sp::bytes::size_type i = 0; i < obj.size(); i++)
+        os << (int)obj[i] << ' ';
+    return os << ']';
 }
 
 
