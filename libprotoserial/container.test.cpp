@@ -17,7 +17,7 @@ ostream& operator<< (ostream& os, const sp::bytes& obj)
 }
 
 
-TEST(Container, Constructor) 
+/* TEST(Container, Constructor) 
 {
     sp::bytes b1(10);
 
@@ -39,47 +39,15 @@ TEST(Container, Access)
     for (uint i = 0; i < b1.size(); i++)
         b1[i] = (sp::byte)(i + 10);
     
-    
-}
+     
+}*/
 
 
-/*int main(int argc, char const *argv[])
+int main(int argc, char const *argv[])
 {
-    static char some_data[20] = "hello world";
-    size_t some_data_len = sizeof(some_data);
-
-    cout << some_data << " " << to_string(some_data_len) << endl;
-    
-    sp::static_bytes data((sp::byte*)some_data, some_data_len);
-
-    cout << data.data() << " " << to_string(data.size()) << endl;
-
-    data[0] = 'H';
-
-    cout << data.data() << " " << to_string(data.size()) << endl;
-
-    sp::dynamic_bytes data2 = data;
-
-    data2[1] = 'E';
-
-    cout << data.data() << " " << to_string(data.size()) << endl;
-    cout << data2.data() << " " << to_string(data2.size()) << endl;
-
-
-    sp::dynamic_bytes data3 = data2;
-
-    data3[2] = 'L';
-    cout << data3.data() << " " << to_string(data3.size()) << endl;
-
-    data3.clear();
-
-
-    sp::static_bytes data4 = data; */
-
-
     //sp::bytes b2 = {1, 2, 3, 4, 5};
 
-    /* sp::bytes b1 (2, 5, 1);
+    sp::bytes b1 (2, 5, 1);
     b1.set((byte)1);
 
     b1[0] = (byte)10;
@@ -109,7 +77,7 @@ TEST(Container, Access)
 
 
     return 0; 
-}*/
+}
 
 
 
