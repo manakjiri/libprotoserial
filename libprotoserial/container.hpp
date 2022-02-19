@@ -59,13 +59,13 @@ namespace sp
         }; */
 
         /* default */
-        bytes()
+        constexpr bytes()
         {
             _init(); 
         }
-        bytes(size_type length) : bytes(0, length, 0) {}
+        constexpr bytes(size_type length) : bytes(0, length, 0) {}
         /* overallocation - capacity will be equal to front + length + back */
-        bytes(size_type front, size_type length, size_type back) :
+        constexpr bytes(size_type front, size_type length, size_type back) :
             bytes()
         {
             _capacity = front + length + back;
@@ -74,14 +74,14 @@ namespace sp
             alloc(_capacity);
         }
         /* use this if you want to wrap existing raw array of bytes by this class */
-        bytes(pointer data, size_type length) :
+        constexpr bytes(pointer data, size_type length) :
             bytes()
         {
             _data = data;
             _length = length;
         }
 
-        bytes(std::initializer_list<byte> values):
+        constexpr bytes(std::initializer_list<byte> values):
             bytes(values.size())
         {
             std::copy(values.begin(), values.end(), begin());
@@ -112,7 +112,7 @@ namespace sp
             return *this;
         }
         /* move */
-        bytes(bytes && other)
+        constexpr bytes(bytes && other)
         {
             _data = other._base();
             _length = other.size();
@@ -120,7 +120,7 @@ namespace sp
             _capacity = other.capacity();
             other._init();
         }
-        bytes & operator= (bytes && other)
+        constexpr bytes & operator= (bytes && other)
         {
             clear();
             _data = other._base();
@@ -131,7 +131,7 @@ namespace sp
             return *this;
         }
 
-        ~bytes()
+        constexpr ~bytes()
         {
             clear();
         }
@@ -178,10 +178,10 @@ namespace sp
         constexpr const_iterator cend() const {return data() + size();}
         
         /* expands it by the requested amount such that [front B][size B][back B], front or back can be 0 */
-        void expand(size_type front, size_type back)
+        constexpr void expand(size_type front, size_type back)
         {
-            size_type new_length, new_offset;
-            pointer old_base;
+            size_type new_length = 0, new_offset = 0;
+            pointer old_base = nullptr;
             bool reallocate = false;
 
             /* do nothing */
@@ -230,9 +230,28 @@ namespace sp
             _length = new_length;
         }
         /* expand the container by other.size() bytes and copy other's contents into that space */
-        void prepend(const_reference other);
+        constexpr void push_front(const bytes & other)
+        {            
+            expand(other.size(), 0);
+            std::copy(other.begin(), other.end(), begin());
+        }
         /* expand the container by other.size() bytes and copy other's contents into that space */
-        void append(const_reference other);
+        constexpr void push_back(const bytes & other)
+        {
+            expand(0, other.size());
+            std::copy(other.begin(), other.end(), end() - other.size());
+        }
+
+        constexpr bytes sub(const_iterator b, const_iterator e) const
+        {
+            bytes ret(e - b);
+            std::copy(b, e, ret.begin());
+            return std::move(ret);
+        }
+        constexpr bytes sub(size_type start, size_type length) const
+        {
+            return std::move(sub(begin() + start, begin() + start + length));
+        }
         
         /* set all bytes to value */
         constexpr void set(byte value)
@@ -299,7 +318,7 @@ namespace sp
                 data[i] = _data[i + _offset];
         }
         /* replaces the _data with a newly allocated and initialized array of length, does not change the _capacity nor the _length! */
-        void alloc(size_type length)
+        constexpr void alloc(size_type length)
         {
             if (length > 0)
                 _data = new byte[length]();
