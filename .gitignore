@@ -13,3 +13,4 @@ build
 
 # Xournal
 *.xopp~
+*.autosave.xopp

@@ -277,5 +277,55 @@ TEST(Bytes, Sub)
     EXPECT_TRUE(b == bc) << "should be: " << bc << " is: " << b;
 }
 
+TEST(Bytes, Shrink)
+{
+    sp::bytes b1(5), bc;
+    b1.set(100_B);
+
+    bc = {100_B, 100_B, 100_B, 100_B, 100_B};
+    EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
+
+    b1.shrink(2, 0);
+    bc = {100_B, 100_B, 100_B};
+    EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
+
+    b1.expand(2, 0);
+    bc = {0_B, 0_B, 100_B, 100_B, 100_B};
+    EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
+
+    b1.shrink(0, 2);
+    bc = {0_B, 0_B, 100_B};
+    EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
+
+    b1.expand(0, 2);
+    bc = {0_B, 0_B, 100_B, 0_B, 0_B};
+    EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
+
+    b1.set(1, 2, 200_B);
+    bc = {0_B, 200_B, 200_B, 0_B, 0_B};
+    EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
+
+    b1.shrink(2, 1);
+    bc = {200_B, 0_B};
+    EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
+
+    b1.expand(1, 0);
+    b1.shrink(1, 1);
+    bc = {200_B};
+    EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
+
+    b1.expand(2, 2);
+    bc = {0_B, 0_B, 200_B, 0_B, 0_B};
+    EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
+
+    b1.shrink(3, 3);
+
+    EXPECT_TRUE(b1.size() == 0);
+
+    b1.expand(1, 5);
+    bc = {0_B, 0_B, 0_B, 0_B, 0_B, 0_B};
+    EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
+}
+
 
 

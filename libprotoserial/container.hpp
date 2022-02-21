@@ -94,12 +94,12 @@ namespace sp
         }
         
         /* copy - only the currently exposed data gets coppied, overallocation is not used */
-        bytes(const bytes & other) :
+        constexpr bytes(const bytes & other) :
             bytes(other.size())
         {
             copy_from(other.data(), size());
         }
-        bytes & operator= (const bytes & other)
+        constexpr bytes & operator= (const bytes & other)
         {
             _offset = 0;
             if (other.size() != _capacity) 
@@ -139,6 +139,8 @@ namespace sp
         
         /* returns the current data size, if overallocation is not used than size == capacity */
         constexpr size_type size() const {return _length;}
+        /* a container is empty when its size is equal to 0 */
+        constexpr bool is_empty() const {return size() == 0;}
         /* returns pointer to data */
         constexpr pointer data()
         {
@@ -176,6 +178,8 @@ namespace sp
         constexpr iterator end() const {return data() + size();}
         constexpr const_iterator cbegin() const {return data();}
         constexpr const_iterator cend() const {return data() + size();}
+
+        constexpr explicit operator bool() const {return !is_empty();}
         
         /* expands it by the requested amount such that [front B][size B][back B], front or back can be 0 */
         constexpr void expand(size_type front, size_type back)
@@ -229,11 +233,51 @@ namespace sp
             _offset = new_offset;
             _length = new_length;
         }
+        /* shrink the container from either side, this does not reallocate the data, just hides it
+        use the shrink_to_fit function after this one to actually reduce the container size */
+        void shrink(size_type front, size_type back)
+        {
+            /* do nothing */
+            if (front == 0 && back == 0)
+                return;
+            
+            /* front plus offset could run past capacity, which we don't want, 
+            similarly size minus back could be negative, which would also be bad.
+            if the combination of arguents yields negative size, the sane thing to do
+            is to set the size to zero and ignore everything otherwise */
+            if (((int)_length - (int)(front + back)) < 0)
+            {
+                set((byte)0);
+                _length = 0;
+            }
+            else
+            {
+                if (back > 0)
+                {
+                    /* zero out the newly hidden back and shrink the _length
+                    this must be done before the front, otherwise the set would be offset */
+                    set(_length - back, back, (byte)0);
+                    _length -= back;
+                }
+                if (front > 0)
+                {
+                    /* zero out the newly hidden front, move the _offset and shrink _length */
+                    set(0, front, (byte)0);
+                    _offset += front;
+                    _length -= front;
+                }
+            }
+        }
         /* expand the container by other.size() bytes and copy other's contents into that space */
         constexpr void push_front(const bytes & other)
         {            
             expand(other.size(), 0);
             std::copy(other.begin(), other.end(), begin());
+        }
+        constexpr void push_front(const byte b)
+        {
+            expand(1, 0);
+            at(0) = b;
         }
         /* expand the container by other.size() bytes and copy other's contents into that space */
         constexpr void push_back(const bytes & other)
@@ -241,16 +285,26 @@ namespace sp
             expand(0, other.size());
             std::copy(other.begin(), other.end(), end() - other.size());
         }
+        constexpr void push_back(const bytes * other)
+        {
+            expand(0, other->size());
+            std::copy(other->begin(), other->end(), end() - other->size());
+        }
+        constexpr void push_back(const byte b)
+        {
+            expand(0, 1);
+            at(size() - 1) = b;
+        }
 
         constexpr bytes sub(const_iterator b, const_iterator e) const
         {
             bytes ret(e - b);
             std::copy(b, e, ret.begin());
-            return std::move(ret);
+            return ret;
         }
         constexpr bytes sub(size_type start, size_type length) const
         {
-            return std::move(sub(begin() + start, begin() + start + length));
+            return sub(begin() + start, begin() + start + length);
         }
         
         /* set all bytes to value */
@@ -300,7 +354,7 @@ namespace sp
             if (i >= _length || !_data)
                 throw out_of_range("bytes::range_check at index " + std::to_string(i) + " (size " + std::to_string(_length) + ")");
         }
-        void copy_from(const_pointer data, size_type length){
+        constexpr void copy_from(const_pointer data, size_type length){
             if (!data || length == 0)
                 return;
         
@@ -308,7 +362,7 @@ namespace sp
             for (uint i = 0; i < length; i++)
                 _data[i + _offset] = data[i];
         }
-        void copy_to(pointer data, size_type length) const
+        constexpr void copy_to(pointer data, size_type length) const
         {
             if (!data || length == 0)
                 return;
@@ -326,6 +380,22 @@ namespace sp
                 _data = nullptr;
         }
     };
+
+    template<typename T>
+    sp::bytes to_bytes(const T& thing)
+    {
+        sp::bytes b(sizeof(thing));
+        std::copy(reinterpret_cast<const byte*>(&thing), reinterpret_cast<const byte*>(&thing)
+            + sizeof(thing), b.begin());
+        return b;
+    }
+
+    /* template<typename T>
+    sp::bytes to_bytes(T&& thing)
+    {
+        T t = std::move(thing);
+        return to_bytes(&t);
+    } */
 }
 
 bool operator==(const sp::bytes & lhs, const sp::bytes rhs)
