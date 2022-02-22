@@ -63,6 +63,21 @@
  * so it should also expose
  * - write(packet[, callback?]) a potentially blocking call
  * - writable() or something similiar
+ * 
+ * 
+ * Let's think again... Some interfaces are, as we said, easier to handle,
+ * like USB. Can these simple ones be a subset of the harder ones, like UART?
+ * 
+ * For something like a uart it may be best to have some contiguous static 
+ * buffer that we use as a ring buffer - here the isr is really simple, it 
+ * just puts each byte it receives into the buffer and increments an index
+ * and handles the index wrap. 
+ * 
+ * It may be best to introduce a start sequence into the packets, something
+ * like 0x5555 or whatever, which we use to lookup the start of the packet
+ * in this large array sort of efficiently. How to handle the wrap?
+ * 
+ * 
  */
 
 
@@ -77,7 +92,7 @@
 namespace sp
 {
 
-    /* things left as an implementation details for subclasses
+    /* things left as implementation details for subclasses
      * - RX ISR and RX buffer (not the packet queue)
      * - address (must be representable by interface::address) and the header
      * - error checking and data encoding
@@ -107,7 +122,7 @@ namespace sp
         {
             public:
 
-            packet(address_type src, address_type dst, bytes && d, const sp::interface *i = nullptr) :
+            packet(address_type src, address_type dst, bytes && d, const sp::interface *i) :
                 _data(d), _timestamp(clock::now()), _interface(i), _source(src), _destination(dst) {}
             
             //packet():packet(0, 0, bytes(), nullptr) {}
@@ -117,7 +132,7 @@ namespace sp
             constexpr address_type source() const noexcept {return _source;}
             constexpr address_type destination() const noexcept {return _destination;}
             //constexpr bytes* data() noexcept {return &_data;}
-            constexpr const bytes* data() const noexcept {return &_data;}
+            constexpr const bytes& data() const noexcept {return _data;}
 
             private:
             bytes _data;
@@ -156,17 +171,20 @@ namespace sp
             emit events for them */
             while(_to_parse_buff != _current_rx_buff)
             {
+                /* get the, most likely filled packet, out of the ring buffer */
                 auto buff = std::move(_rx_ring_buffer.at(_to_parse_buff));
+                /* immediately replace that empty slot with a fresh buffer */
+                _rx_ring_buffer.at(_to_parse_buff) = bytes(0, 0, max_rx_packet_size());
+                increment_to_parse_buff();
                 if (buff)
                 {
+                    /* parse the packet, this will throw when that fails */
                     auto p = parse_packet(std::move(buff));
-                    _rx_ring_buffer.at(_to_parse_buff) = std::move(bytes(0, 0, max_rx_packet_size()));
                     if (p.destination() == _address)
                         packed_rxed_event.emit(p);
                     else
                         other_packed_rxed_event.emit(p);
                 }
-                increment_to_parse_buff();
             }
         }
 
@@ -222,8 +240,8 @@ namespace sp
 
         private:
 
-        inline void increment_current_rx_buff() {if (++_current_rx_buff > _rx_ring_buffer.size()) _current_rx_buff = 0;}
-        inline void increment_to_parse_buff() {if (++_to_parse_buff > _rx_ring_buffer.size()) _to_parse_buff = 0;}
+        inline void increment_current_rx_buff() {if (++_current_rx_buff >= _rx_ring_buffer.size()) _current_rx_buff = 0;}
+        inline void increment_to_parse_buff() {if (++_to_parse_buff >= _rx_ring_buffer.size()) _to_parse_buff = 0;}
 
         /* a ring buffer of bytes objects */
         std::vector<bytes> _rx_ring_buffer;
@@ -238,7 +256,20 @@ namespace sp
         address_type _address;
         bool _initialized = false;
     };
+
 }
+
+bool operator==(const sp::interface::packet & lhs, const sp::interface::packet & rhs)
+{
+    return lhs.interface()->name() == rhs.interface()->name() && lhs.source() == rhs.source()
+         && lhs.destination() == rhs.destination() && lhs.data() == rhs.data();
+}
+
+bool operator!=(const sp::interface::packet & lhs, const sp::interface::packet & rhs)
+{
+    return !(lhs == rhs);
+}
+
 
 
 

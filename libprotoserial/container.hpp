@@ -180,10 +180,13 @@ namespace sp
         constexpr const_iterator cend() const {return data() + size();}
 
         constexpr explicit operator bool() const {return !is_empty();}
+
+        /* bool operator==(const bytes & other) const {return std::equal(cbegin(), other.cend(), cbegin(), other.cend());}
+        bool operator!=(const bytes & other) const {return !((*this) == other);} */
         
         /* expands the container by the requested amount such that [front B][size B][back B], 
         front or back can be 0, in which case nothing happens */
-        void expand(const size_type front, const size_type back)
+        constexpr void expand(const size_type front, const size_type back)
         {
             reserve(front, back);
             _offset = _offset - front;
@@ -191,24 +194,27 @@ namespace sp
         }
         /* capacity of the container will be equal or greater than size() + front + back, size() does not change,
         this function merely reserves requested capacity by reallocation if necesary, front or back can be 0 */
-        void reserve(const size_type front, const size_type back)
+        constexpr void reserve(const size_type front, const size_type back)
         {
             /* do nothing if the container has enough margin already */
             if (_offset >= front && _back() >= back)
                 return;
 
             /* keep reference to the old buffer since we need to reallocate it */
-            std::unique_ptr<value_type> old_base(_data);
+            //std::unique_ptr<value_type> old_base(_data);
+            pointer old_base = _data;
             
             /* allocate the new data buffer and update the capacity so it refelects this */
             _capacity = front + _length + back;
             alloc(_capacity);
 
-            if (old_base.get())
+            if (old_base)
             {
                 /* copy the original data */
                 for (size_type i = 0; i < _length; i++)
-                    _data[i + front] = old_base.get()[i + _offset];
+                    _data[i + front] = old_base[i + _offset];
+
+                delete[] old_base;
             }
 
             /* finally update the offset because we no longer need the old value */

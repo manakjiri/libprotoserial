@@ -1,7 +1,7 @@
 CC = g++
 
 TARGET = test.out
-OPT = -pedantic -Wall -std=c++20 -g
+OPT = -pedantic -Wall -std=c++20 -g -pg
 
 SDIR = libprotoserial
 IDIR = .

@@ -19,11 +19,15 @@ namespace sp
         {
             address_type destination = 0;
             address_type source = 0;
+            size_type size_check = 0;
             size_type size = 0;
 
             header() = default;
             header(const packet & p):
-                destination(p.destination()), source(p.source()), size(p.data()->size()) {}
+                destination(p.destination()), source(p.source()), size(p.data().size())
+                {size_check = ~size;}
+
+            bool is_size_valid() const {return size == (size_type)(~size_check) && size > 0;}
         };
 
         struct __attribute__ ((__packed__)) footer
@@ -43,6 +47,7 @@ namespace sp
         void enable_isr() noexcept {_isr_enabled = true;}
         void disable_isr() noexcept {_isr_enabled = false;}
         bytes::size_type max_rx_packet_size() const noexcept {return _max_packet_size;}
+        bytes::size_type max_data_size() const noexcept {return max_rx_packet_size() - sizeof(header) - sizeof(footer);}
         bool can_transmit() noexcept {return true;}
         
         packet parse_packet(bytes && buff) const 
@@ -66,11 +71,13 @@ namespace sp
         
         bytes serialize_packet(packet && p) const 
         {
-            auto b = to_bytes(header(p));
+            if (p.data().size() > max_data_size()) throw packet_too_long();
+            /* preallocate the container since we know the final size */
+            auto b = bytes(0, 0, sizeof(header) + p.data().size() + sizeof(footer));
+            b.push_back(to_bytes(header(p)));
             b.push_back(p.data());
-            auto f = to_bytes(footer(b));
-            b.push_back(f);
-            std::cout << "serialize_packet returning: " << b << std::endl;
+            b.push_back(to_bytes(footer(b)));
+            //std::cout << "serialize_packet returning: " << b << std::endl;
             return b;
         }
 
@@ -92,10 +99,10 @@ namespace sp
                     /* try to get the packet size once we have enough of the header */
                     if (_rx_buffer->size() >= sizeof(header))
                     {
-                        _rxed_packet_size = reinterpret_cast<header*>(_rx_buffer->data())->size 
-                            + sizeof(header) + sizeof(footer);
+                        auto h = reinterpret_cast<header*>(_rx_buffer->data());
+                        _rxed_packet_size = h->size + sizeof(header) + sizeof(footer);
                         /* someting's wrong //TODO handle better - rx_error perhaps? */
-                        if (_rxed_packet_size > max_rx_packet_size())
+                        if (_rxed_packet_size > max_rx_packet_size() || !h->is_size_valid())
                         {
                             _rxed_packet_size = 0;
                             rx_done();
@@ -108,7 +115,7 @@ namespace sp
                     so it is ready for next RX and call the rx_done() */
                     _rxed_packet_size = 0;
                     rx_done();
-                }
+                } 
             }
         }
 
