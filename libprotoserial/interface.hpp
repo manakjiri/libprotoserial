@@ -91,15 +91,15 @@ namespace sp
         typedef uint    address_type;
 
         struct packet_too_short : std::exception {
-            const char * what () const throw (){return "packet_too_short";}
+            const char * what () const throw () {return "packet_too_short";}
         };
 
         struct packet_too_long : std::exception {
-            const char * what () const throw (){return "packet_too_long";}
+            const char * what () const throw () {return "packet_too_long";}
         };
 
         struct bad_checksum : std::exception {
-            const char * what () const throw (){return "bad_checksum";}
+            const char * what () const throw () {return "bad_checksum";}
         };
 
         /* interface packet representation */

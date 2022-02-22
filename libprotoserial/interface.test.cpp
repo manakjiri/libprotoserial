@@ -1,10 +1,18 @@
 
 #include <iostream>
+#include <cstdlib>
 
 #include "libprotoserial/loopback_interface.hpp"
 
 using namespace std;
 using namespace sp::byte_literal;
+
+sp::bytes random_bytes(sp::bytes::size_type size)
+{
+    sp::bytes b(size);
+    std::generate(b.begin(), b.end(), [](){return std::rand();});
+    return b;    
+}
 
 
 int main(int argc, char const *argv[])
@@ -15,7 +23,7 @@ int main(int argc, char const *argv[])
         return !c ? (b | 42_B) : b;
     });
 
-    interface.packed_rxed_event.subscribe([&](sp::interface::packet p){
+    interface.packed_rxed_event.subscribe([](sp::interface::packet p){
         cout << "packed_received_event" << endl;
         cout << "  dst: " << p.destination() << "  src: " << p.source() << endl;
         cout << "  interface: " << p.interface()->name() << endl;

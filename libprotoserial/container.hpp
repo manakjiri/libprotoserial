@@ -81,7 +81,7 @@ namespace sp
             _length = length;
         }
 
-        constexpr bytes(std::initializer_list<byte> values):
+        constexpr bytes(std::initializer_list<value_type> values):
             bytes(values.size())
         {
             std::copy(values.begin(), values.end(), begin());
@@ -157,18 +157,18 @@ namespace sp
                 return nullptr;
         }
         
-        constexpr const byte & at(size_type i) const
+        constexpr const value_type & at(size_type i) const
         {
             range_check(i);
             return _data[i + _offset];
         }
-        constexpr byte & at(size_type i)
+        constexpr value_type & at(size_type i)
         {
             range_check(i);
             return _data[i + _offset];
         }
-        constexpr const byte & operator[] (size_type i) const {return at(i);}
-        constexpr byte & operator[] (size_type i) {return at(i);}
+        constexpr const value_type & operator[] (size_type i) const {return at(i);}
+        constexpr value_type & operator[] (size_type i) {return at(i);}
 
         constexpr iterator begin() {return data();}
         constexpr iterator end() {return data() + size();}
@@ -181,61 +181,42 @@ namespace sp
 
         constexpr explicit operator bool() const {return !is_empty();}
         
-        /* expands it by the requested amount such that [front B][size B][back B], front or back can be 0 */
-        constexpr void expand(size_type front, size_type back)
+        /* expands the container by the requested amount such that [front B][size B][back B], 
+        front or back can be 0, in which case nothing happens */
+        void expand(const size_type front, const size_type back)
         {
-            size_type new_length = 0, new_offset = 0;
-            pointer old_base = nullptr;
-            bool reallocate = false;
-
-            /* do nothing */
-            if (front == 0 && back == 0)
+            reserve(front, back);
+            _offset = _offset - front;
+            _length = _length + front + back;
+        }
+        /* capacity of the container will be equal or greater than size() + front + back, size() does not change,
+        this function merely reserves requested capacity by reallocation if necesary, front or back can be 0 */
+        void reserve(const size_type front, const size_type back)
+        {
+            /* do nothing if the container has enough margin already */
+            if (_offset >= front && _back() >= back)
                 return;
-            
-            /* this will be out now size() */
-            new_length = front + back + _length;
 
-            /* _offset says how many overallocated "bumper" bytes we have, so if the requested
-            front is more than that, we know the data needs to be expanded */
-            if (front > _offset)
+            /* keep reference to the old buffer since we need to reallocate it */
+            std::unique_ptr<value_type> old_base(_data);
+            
+            /* allocate the new data buffer and update the capacity so it refelects this */
+            _capacity = front + _length + back;
+            alloc(_capacity);
+
+            if (old_base.get())
             {
-                new_offset = 0;
-                reallocate = true;
+                /* copy the original data */
+                for (size_type i = 0; i < _length; i++)
+                    _data[i + front] = old_base.get()[i + _offset];
             }
-            /* if we have enough bytes at the front we may not need to reallocate, just shift the offset */
-            else
-                new_offset = _offset - front;
-            
-            /* if the total requested length is over the capacity, we obviously need to allocate a larger buffer */
-            if (new_length > _capacity)
-                reallocate = true;
 
-            if (reallocate)
-            {
-                /* keep reference to the old buffer and take note whether we need to delete it */
-                old_base = _data;
-                
-                /* allocate the new data buffer and update the capacity so it refelects this */
-                alloc(new_length);
-                _capacity = new_length;
-
-                if (old_base)
-                {
-                    /* copy the original data */
-                    for (uint i = 0; i < _length; i++)
-                        _data[i + front] = old_base[i + _offset];
-                
-                    delete[] old_base;
-                }
-            }
-            
-            /* finally update the offset and length because we no longer need the old values */
-            _offset = new_offset;
-            _length = new_length;
+            /* finally update the offset because we no longer need the old value */
+            _offset = front;
         }
         /* shrink the container from either side, this does not reallocate the data, just hides it
         use the shrink_to_fit function after this one to actually reduce the container size */
-        void shrink(size_type front, size_type back)
+        void shrink(const size_type front, const size_type back)
         {
             /* do nothing */
             if (front == 0 && back == 0)
@@ -247,7 +228,7 @@ namespace sp
             is to set the size to zero and ignore everything otherwise */
             if (((int)_length - (int)(front + back)) < 0)
             {
-                set((byte)0);
+                set((value_type)0);
                 _length = 0;
             }
             else
@@ -256,67 +237,67 @@ namespace sp
                 {
                     /* zero out the newly hidden back and shrink the _length
                     this must be done before the front, otherwise the set would be offset */
-                    set(_length - back, back, (byte)0);
+                    set(_length - back, back, (value_type)0);
                     _length -= back;
                 }
                 if (front > 0)
                 {
                     /* zero out the newly hidden front, move the _offset and shrink _length */
-                    set(0, front, (byte)0);
+                    set(0, front, (value_type)0);
                     _offset += front;
                     _length -= front;
                 }
             }
         }
         /* expand the container by other.size() bytes and copy other's contents into that space */
-        constexpr void push_front(const bytes & other)
+        void push_front(const bytes & other)
         {            
             expand(other.size(), 0);
             std::copy(other.begin(), other.end(), begin());
         }
-        constexpr void push_front(const byte b)
+        void push_front(const value_type b)
         {
             expand(1, 0);
             at(0) = b;
         }
         /* expand the container by other.size() bytes and copy other's contents into that space */
-        constexpr void push_back(const bytes & other)
+        void push_back(const bytes & other)
         {
             expand(0, other.size());
             std::copy(other.begin(), other.end(), end() - other.size());
         }
-        constexpr void push_back(const bytes * other)
+        void push_back(const bytes * other)
         {
             expand(0, other->size());
             std::copy(other->begin(), other->end(), end() - other->size());
         }
-        constexpr void push_back(const byte b)
+        void push_back(const value_type b)
         {
             expand(0, 1);
             at(size() - 1) = b;
         }
 
-        constexpr bytes sub(const_iterator b, const_iterator e) const
+        bytes sub(const_iterator b, const_iterator e) const
         {
             bytes ret(e - b);
             std::copy(b, e, ret.begin());
             return ret;
         }
-        constexpr bytes sub(size_type start, size_type length) const
+        bytes sub(size_type start, size_type length) const
         {
             return sub(begin() + start, begin() + start + length);
         }
         
         /* set all bytes to value */
-        constexpr void set(byte value)
+        constexpr void set(value_type value)
         {
             for (uint i = 0; i < _length; i++)
                 at(i) = value;
         }
-        constexpr void set(size_type start, size_type length, byte value)
+        constexpr void set(size_type start, size_type length, value_type value)
         {
             length += start;
-            for (uint i = start; i < length; i++)
+            for (size_type i = start; i < length; i++)
                 at(i) = value;
         }
         /* safe to call multiple times, frees the resources for the HEAP type and sets up the
@@ -340,6 +321,7 @@ namespace sp
         /* returns the number of actually allocated bytes */
         constexpr size_type capacity() const {return _capacity;}
         constexpr size_type _shift() const {return _offset;}
+        constexpr size_type _back() const {return _capacity - _offset - _length;}
         /* returns pointer to the beggining of the data */
         constexpr pointer _base() const {return _data;}
 
@@ -375,7 +357,7 @@ namespace sp
         constexpr void alloc(size_type length)
         {
             if (length > 0)
-                _data = new byte[length]();
+                _data = new value_type[length]();
             else 
                 _data = nullptr;
         }
@@ -385,17 +367,10 @@ namespace sp
     sp::bytes to_bytes(const T& thing)
     {
         sp::bytes b(sizeof(thing));
-        std::copy(reinterpret_cast<const byte*>(&thing), reinterpret_cast<const byte*>(&thing)
+        std::copy(reinterpret_cast<const byte*>(&thing), reinterpret_cast<const bytes::value_type*>(&thing)
             + sizeof(thing), b.begin());
         return b;
     }
-
-    /* template<typename T>
-    sp::bytes to_bytes(T&& thing)
-    {
-        T t = std::move(thing);
-        return to_bytes(&t);
-    } */
 }
 
 bool operator==(const sp::bytes & lhs, const sp::bytes rhs)
