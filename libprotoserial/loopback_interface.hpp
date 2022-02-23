@@ -1,7 +1,7 @@
 
 #include "libprotoserial/interface.hpp"
 
-#include "etl/crc32.h"
+#include "submodules/etl/include/etl/crc32.h"
 
 namespace sp
 {

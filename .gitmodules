@@ -1,0 +1,3 @@
+[submodule "submodules/etl"]
+	path = submodules/etl
+	url = git@github.com:ETLCPP/etl.git
