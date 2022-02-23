@@ -124,6 +124,10 @@ namespace sp
 
             packet(address_type src, address_type dst, bytes && d, const sp::interface *i) :
                 _data(d), _timestamp(clock::now()), _interface(i), _source(src), _destination(dst) {}
+
+            /* object can be passed to the interface::write() function */
+            packet(address_type dst, bytes && d) :
+                packet(0, dst, d, nullptr) {}
             
             //packet():packet(0, 0, bytes(), nullptr) {}
 
@@ -142,31 +146,48 @@ namespace sp
         };
         
         
-        /* the RX ISR must be disabled when initializing, interface will enable it automatically
-        after initialization */
         interface(std::string name, address_type address, uint max_queue_size) : 
             _max_queue_size(max_queue_size), _name(name), _address(address) {}
-
         
         void main_task()
         {
             /* if there is something in the queue, transmit it */
             if (!_tx_queue.empty() && can_transmit())
             {
-                if (transmit(std::move(_tx_queue.front())))
+                if (do_transmit(std::move(_tx_queue.front())))
                     _tx_queue.pop();
             }
-
+            /* receive */
+            do_receive();
+            if (is_received())
+            {
+                auto p = get_received();
+                if (p.destination() == _address)
+                    packed_rxed_event.emit(p);
+                else
+                    other_packed_rxed_event.emit(p);
+            }
         }
 
-        bool is_writable() const {return _tx_queue.size() <= _max_queue_size;}
-        std::string name() const {return _name;}
-
+        /* fills the source address field,
+        serializes the provided packet object (whis will throw if the packet is malformed)
+        and puts the serialized buffer into the TX queue */
         void write(packet && p)
         {
             while(!is_writable()) {main_task();} //?
+            //TODO fillout the address field and the interface field
+            //TODO check for obvious problems like empty data
             _tx_queue.push(std::move(serialize_packet(std::move(p))));
         }
+
+        /* if this function returns true then the write() function will not block
+        baceuse there is enough space in the queue for your packet */
+        bool is_writable() const {return _tx_queue.size() <= _max_queue_size;}
+        
+        /* returns a unique name of the interface */
+        std::string name() const {return _name;}
+        void reset_address(address_type addr) {_address = addr;}
+        address_type get_address() const {return _address;}
 
 
         /* emitted by the main_task function when a new packet is received where the destination address matches
@@ -178,14 +199,24 @@ namespace sp
 
         protected:
 
+        /* TX (serialize_packet => can_transmit => do_transmit) */
         /* packet serialization is implemented here, exceptions can be thrown 
         the serialized packet well be passed to transmit after can_transmit() returns true */
         virtual bytes serialize_packet(packet && p) const = 0;
+        /* return true when the interface is ready to transmit */
         virtual bool can_transmit() noexcept = 0;
         /* transmit is implemented here, called from the main_task after can_transmit() returns true, 
         if the transmit fails for whatever reason, the transmit() function can return false and the 
         transmit will be reattempted with the same packet later */
-        virtual bool transmit(bytes && buff) noexcept = 0;
+        virtual bool do_transmit(bytes && buff) noexcept = 0;
+        
+        /* RX (do_receive => is_received => get_received) */
+        /* called from the main_task, this is where the derived class should handle packet parsing */
+        virtual void do_receive() = 0;
+        /* return true when a parsed packet can be retrieved using get_received() */
+        virtual bool is_received() const noexcept = 0;
+        /* called after is_received() returns true */
+        virtual packet get_received() noexcept = 0;
 
         private:
 
@@ -195,7 +226,6 @@ namespace sp
 
         std::string _name;
         address_type _address;
-        bool _initialized = false;
     };
 
 }
