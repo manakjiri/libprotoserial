@@ -150,48 +150,19 @@ namespace sp
         
         void main_task()
         {
-            /* initialize and enable the RX ISR at first */
-            if (!_initialized)
-            {
-                _rx_ring_buffer.reserve(_max_queue_size);
-                for (uint i = 0; i < _max_queue_size; i++)
-                    _rx_ring_buffer.emplace_back(bytes(0, 0, max_rx_packet_size()));
-                
-                _rx_buffer = &_rx_ring_buffer.at(_current_rx_buff);
-                _initialized = true;
-                enable_isr();
-            }
             /* if there is something in the queue, transmit it */
             if (!_tx_queue.empty() && can_transmit())
             {
-                transmit(std::move(_tx_queue.front()));
-                _tx_queue.pop();
+                if (transmit(std::move(_tx_queue.front())))
+                    _tx_queue.pop();
             }
-            /* parse all the received data, this will parse all unparsed containers and
-            emit events for them */
-            while(_to_parse_buff != _current_rx_buff)
-            {
-                /* get the, most likely filled packet, out of the ring buffer */
-                auto buff = std::move(_rx_ring_buffer.at(_to_parse_buff));
-                /* immediately replace that empty slot with a fresh buffer */
-                _rx_ring_buffer.at(_to_parse_buff) = bytes(0, 0, max_rx_packet_size());
-                increment_to_parse_buff();
-                if (buff)
-                {
-                    /* parse the packet, this will throw when that fails */
-                    auto p = parse_packet(std::move(buff));
-                    if (p.destination() == _address)
-                        packed_rxed_event.emit(p);
-                    else
-                        other_packed_rxed_event.emit(p);
-                }
-            }
+
         }
 
-        bool is_writable() {return _tx_queue.size() <= _max_queue_size;}
+        bool is_writable() const {return _tx_queue.size() <= _max_queue_size;}
         std::string name() const {return _name;}
 
-        void write(packet p)
+        void write(packet && p)
         {
             while(!is_writable()) {main_task();} //?
             _tx_queue.push(std::move(serialize_packet(std::move(p))));
@@ -207,51 +178,21 @@ namespace sp
 
         protected:
 
-        /* reenebles the RX ISR */
-        virtual void enable_isr() noexcept = 0;
-        /* disables the RX ISR */
-        virtual void disable_isr() noexcept = 0;
-        /* returns the maximum needed size of the rx buffer */
-        virtual bytes::size_type max_rx_packet_size() const noexcept = 0;
-        /* called from the main_task() as soon as a new packet is received into the ring buffer, 
-        this function should parse that raw buffer into an interface::packet instance */
-        virtual packet parse_packet(bytes && buff) const = 0;
         /* packet serialization is implemented here, exceptions can be thrown 
         the serialized packet well be passed to transmit after can_transmit() returns true */
         virtual bytes serialize_packet(packet && p) const = 0;
         virtual bool can_transmit() noexcept = 0;
-        /* transmit is implemented here, called from the main_task after can_transmit() */
-        virtual void transmit(bytes && buff) noexcept = 0;
-
-        /* call this from the RX ISR as soon as the _rx_buffer is ready to be processed,
-        after this call a fresh _rx_buffer will be put in place ready for another packet */
-        void rx_done()
-        {
-            disable_isr();
-            increment_current_rx_buff();
-            _rx_buffer = &_rx_ring_buffer.at(_current_rx_buff);
-            enable_isr();
-        }
-
-        /* one of _rx_ring_buffer, it will be always initialized as bytes(0, 0, max_rx_packet_size()),
-        so one needs to just call _rx_buffer->push_back(new_byte) for simple single-byte RX
-        or _rx_buffer->expand(0, number_of_new_bytes); and copy the bytes into _rx_buffer for cases like USB RX*/
-        bytes *_rx_buffer;
+        /* transmit is implemented here, called from the main_task after can_transmit() returns true, 
+        if the transmit fails for whatever reason, the transmit() function can return false and the 
+        transmit will be reattempted with the same packet later */
+        virtual bool transmit(bytes && buff) noexcept = 0;
 
         private:
 
-        inline void increment_current_rx_buff() {if (++_current_rx_buff >= _rx_ring_buffer.size()) _current_rx_buff = 0;}
-        inline void increment_to_parse_buff() {if (++_to_parse_buff >= _rx_ring_buffer.size()) _to_parse_buff = 0;}
-
-        /* a ring buffer of bytes objects */
-        std::vector<bytes> _rx_ring_buffer;
         /* queue of serialized packets ready to be transmitted */
         std::queue<bytes> _tx_queue;
         uint _max_queue_size = 0;
-        /* indexes in the _rx_ring_buffer, _current_rx_buff current buffer which is used for RX
-        _to_parse_buff buffer which will be parsed next */
-        uint _current_rx_buff = 0, _to_parse_buff = 0;
-        /* name of the interface, usually something along the lines "uart2", "usb0" */
+
         std::string _name;
         address_type _address;
         bool _initialized = false;
