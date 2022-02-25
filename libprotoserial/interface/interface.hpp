@@ -89,7 +89,6 @@
 
 #include <string>
 #include <queue>
-#include <stdexcept>
 
 namespace sp
 {
@@ -109,14 +108,6 @@ namespace sp
 
         struct data_too_long : std::exception {
             const char * what () const throw () {return "data_too_long";}
-        };
-
-        struct bad_checksum : std::exception {
-            const char * what () const throw () {return "bad_checksum";}
-        };
-
-        struct bad_size : std::exception {
-            const char * what () const throw () {return "bad_size";}
         };
 
         /* interface packet representation */

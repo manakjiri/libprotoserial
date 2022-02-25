@@ -3,6 +3,7 @@
 #define _SP_INTERFACE_LOOPBACK
 
 #include "libprotoserial/interface/buffered.hpp"
+#include "libprotoserial/interface/parsers.hpp"
 
 namespace sp
 {
@@ -33,28 +34,8 @@ namespace sp
 
         bytes::size_type max_data_size() const noexcept {return _max_packet_size - sizeof(header) - sizeof(footer) - preamble_length;}
         bool can_transmit() noexcept {return true;}
-        
-        packet parse_packet(bytes && buff) const 
-        {
-            bytes b = buff;
-            std::cout << "parse_packet got: " << buff << std::endl;
-            /* copy the header into the header struct */
-            header h;
-            std::copy(b.begin(), b.begin() + sizeof(h), reinterpret_cast<byte*>(&h));
-            if (!h.is_size_valid()) throw bad_size();
-            /* copy the footer, shrink the container by the footer size and compute the checksum */
-            footer f_parsed;
-            std::copy(b.end() - sizeof(footer), b.end(), reinterpret_cast<byte*>(&f_parsed));
-            b.shrink(0, sizeof(footer));
-            footer f_computed(b);
-            if (f_parsed.hash != f_computed.hash) throw bad_checksum();
-            /* shrink the container by the header and return the packet object */
-            b.shrink(sizeof(h), 0);
-            return packet(interface::address_type(h.source), interface::address_type(h.destination), 
-                std::move(b), static_cast<const interface*>(this));
-        }
 
-        void do_receive()
+        void do_receive() //FIXME modularize etc...
         {
             /* while we are trying to parse the buffer, the ISR is continually filling it
             (not in this case, obviously, but in the real world it will) 
@@ -99,7 +80,7 @@ namespace sp
                                 /* parse the packet */
                                 try
                                 {
-                                    put_received(std::move(parse_packet(std::move(b))));
+                                    put_received(std::move(parsers::parse_packet<header, footer>(std::move(b), this)));
                                     /* parsing succeeded, move the read pointer */
                                     _read += packet_size + preamble_length;
                                 }
