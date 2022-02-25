@@ -240,6 +240,14 @@ bool operator!=(const sp::interface::packet & lhs, const sp::interface::packet &
     return !(lhs == rhs);
 }
 
+std::ostream& operator<<(std::ostream& os, const sp::interface::packet& p) 
+{
+    os << "dst: " << p.destination() << ", src: " << p.source();
+    os << ", int: " << (p.interface() ? p.interface()->name() : "null");
+    os << ", " << p.data();
+    return os;
+}
+
 
 #endif
 

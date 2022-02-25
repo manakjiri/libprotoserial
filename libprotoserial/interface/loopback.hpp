@@ -5,6 +5,7 @@
 #include "libprotoserial/interface/buffered.hpp"
 #include "libprotoserial/interface/parsers.hpp"
 
+#define SP_LOOPBACK_DEBUG
 namespace sp
 {
     namespace detail
@@ -13,7 +14,6 @@ namespace sp
         class loopback_interface : public buffered_interface
         {
             public: 
-            //typename typename header::size_type;
 
             typedef std::function<byte(byte)>   transfer_function;
 
@@ -82,20 +82,23 @@ namespace sp
                                     {
                                         put_received(std::move(parsers::parse_packet<header, footer>(std::move(b), this)));
                                         /* parsing succeeded, move the read pointer */
-                                        _read += packet_size + preamble_length;
+                                        read += packet_size + preamble_length;
                                     }
                                     catch(std::exception &e)
                                     {
                                         /* parsing failed, move away from that invalid start */
-                                        _read = start;
+                                        read = start;
+                                        #ifdef SP_LOOPBACK_DEBUG
                                         std::cerr << "main exception: " << e.what() << '\n';
+                                        #endif
                                         //throw;
                                     }
+                                    _read = read;
                                 }
                             }
                             else
                             {
-                                std::cout << "invalid size" << std::endl;
+                                //std::cout << "invalid size" << std::endl;
                                 invalid_size = true;
                             }
                         }
@@ -107,7 +110,10 @@ namespace sp
                 }
                 if (invalid_size && _write != _read)
                     ++_read;
+                
+#ifdef SP_LOOPBACK_DEBUG
                 std::cout << "do_receive returning at: " << _read._current - _read._begin << " of " << _write._current - _write._begin << std::endl;
+#endif
             }
             
             bytes serialize_packet(packet && p) const 
@@ -125,7 +131,9 @@ namespace sp
                 b.push_back(p.data());
                 /* footer */
                 b.push_back(to_bytes(footer(b.begin() + preamble_length, b.end())));
+#ifdef SP_LOOPBACK_DEBUG
                 std::cout << "serialize_packet returning: " << b << std::endl;
+#endif
                 return b;
             }
 

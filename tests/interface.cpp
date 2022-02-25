@@ -4,45 +4,57 @@
 
 #include "libprotoserial/interface.hpp"
 
+#include "helpers/random.hpp"
+
 using namespace std;
 using namespace sp::literals;
 
-uint random(uint from, uint to)
+void test_interface(sp::interface & interface, uint loops, function<sp::bytes(void)> data_gen, 
+    function<sp::interface::address_type(void)> addr_gen)
 {
-    return from + (std::rand() % (to - from + 1));
+    std::unique_ptr<sp::interface::packet> tmp;
+    uint i = 0;
+
+    interface.packed_rxed_event.subscribe([&](sp::interface::packet p){
+        if (*tmp != p) 
+            cout << "loop: " << i << "\nORIG: " << *tmp << "\nGOT:  " << p << endl;
+    });
+
+    for (; i < loops; i++)
+    {
+        cout << i << endl;
+
+        tmp.reset(new sp::interface::packet(addr_gen(), 1, data_gen(), &interface));
+        
+        interface.write(sp::interface::packet(*tmp));
+
+        for (int j = 0; j < 3; j++)
+            interface.main_task();
+    }
 }
 
-bool chance(uint percent)
-{
-    return random(1, 100) <= percent;
-}
-
-sp::byte random_byte()
-{
-    return (sp::byte)std::rand();
-}
-
-sp::bytes random_bytes(sp::bytes::size_type size)
-{
-    sp::bytes b(size);
-    std::generate(b.begin(), b.end(), random_byte);
-    return b;    
-}
-
-sp::bytes random_bytes(uint from, uint to)
-{
-    return random_bytes(random(from, to));
-}
 
 
 int main(int argc, char const *argv[])
 {
-    sp::loopback_interface interface(0, 1, 10, 64, 1024, [](sp::byte b){
+    sp::loopback_interface interface(0, 1, 10, 64, 256);
+
+    auto data = [l = 0]() mutable {
+        sp::bytes b(++l);
+        std::generate(b.begin(), b.end(), [pos = 0]() mutable { return (sp::byte)(++pos); });
+        return b;
+    };
+    auto addr = [&](){return (sp::interface::address_type)2;};
+
+    test_interface(interface, interface.max_data_size(), data, addr);
+    
+    
+    /* sp::loopback_interface interface(0, 1, 10, 64, 1024, [](sp::byte b){
         if (chance(1)) b |= random_byte();
         return b;
-    });
+    }); */
 
-    std::unique_ptr<sp::interface::packet> tmp;
+    /* std::unique_ptr<sp::interface::packet> tmp;
 
     interface.packed_rxed_event.subscribe([&](sp::interface::packet p){
         cout << "packed_received_event" << endl;
@@ -57,19 +69,14 @@ int main(int argc, char const *argv[])
             cout << "  interface: " << o.interface()->name() << endl;
             cout << "  data: " << o.data() << endl;
         }
-    });
+    }); */
 
-    /* interface.write(sp::interface::packet(2, 1, sp::bytes({10_B, 11_B, 12_B})));
-    interface.write(sp::interface::packet(3, 1, sp::bytes({20_B, 21_B, 22_B})));
-    interface.write(sp::interface::packet(4, 1, sp::bytes({30_B, 31_B, 32_B}))); */
 
-    for (int i = 0; i < 11; i++)
+    /* for (int i = 0; i < 11; i++)
     {
         //if (i % 10 == 0)
             cout << i << endl;
         
-        /* if (i == 39) 
-            cout << "now" << endl; */
 
         tmp.reset(new sp::interface::packet(random(2, 100), 1, 
             random_bytes(1, interface.max_data_size()), &interface));
@@ -87,7 +94,7 @@ int main(int argc, char const *argv[])
             std::cerr << "main exception: " << e.what() << '\n';
         }
         
-    }
+    } */
     
 
     return 0;

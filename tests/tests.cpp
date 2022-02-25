@@ -1,5 +1,8 @@
 
 #include <libprotoserial/container.hpp>
+#include <libprotoserial/interface.hpp>
+
+#include "helpers/random.hpp"
 
 #include "gtest/gtest.h"
 
@@ -327,5 +330,56 @@ TEST(Bytes, Shrink)
     EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
 }
 
+
+
+
+
+void test_interface(sp::interface & interface, uint loops, function<sp::bytes(void)> data_gen, 
+    function<sp::interface::address_type(void)> addr_gen)
+{
+    std::unique_ptr<sp::interface::packet> tmp;
+    uint i = 0;
+
+    interface.packed_rxed_event.subscribe([&](sp::interface::packet p){
+        EXPECT_TRUE(*tmp == p) << "loop: " << i << "\nORIG: " << *tmp << "\nGOT:  " << p << endl;
+    });
+
+    for (; i < loops; i++)
+    {
+#ifdef SP_LOOPBACK_DEBUG
+        cout << i << endl;
+#endif
+        tmp.reset(new sp::interface::packet(addr_gen(), 1, data_gen(), &interface));
+        
+        interface.write(sp::interface::packet(*tmp));
+
+        for (int j = 0; j < 3; j++)
+            interface.main_task();
+    }
+}
+
+TEST(Interface, UnalteredSequential)
+{
+    sp::loopback_interface interface(0, 1, 10, 64, 256);
+
+    auto data = [l = 0]() mutable {
+        sp::bytes b(++l);
+        std::generate(b.begin(), b.end(), [pos = 0]() mutable { return (sp::byte)(++pos); });
+        return b;
+    };
+    auto addr = [&](){return (sp::interface::address_type)2;};
+
+    test_interface(interface, interface.max_data_size(), data, addr);
+}
+
+/* TEST(Interface, UnalteredRandom)
+{
+    sp::loopback_interface interface(0, 1, 10, 64, 256);
+
+    auto data = [&](){return random_bytes(1, interface.max_data_size());};
+    auto addr = [&](){return random(2, 100);};
+
+    test_interface(interface, 1000, data, addr);
+} */
 
 
