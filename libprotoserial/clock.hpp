@@ -1,3 +1,7 @@
+
+#ifndef _SP_CLOCK
+#define _SP_CLOCK
+
 #include <chrono>
 #include <cstdint>
 
@@ -32,3 +36,4 @@ namespace sp
 
 #endif
 }
+#endif

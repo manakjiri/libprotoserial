@@ -1,3 +1,5 @@
+#ifndef _SP_INTERFACE_BUFFERED
+#define _SP_INTERFACE_BUFFERED
 
 #include "libprotoserial/interface/interface.hpp"
 
@@ -81,4 +83,6 @@ namespace sp
     };
 } // namespace sp
 
+
+#endif
 

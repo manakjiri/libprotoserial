@@ -20,6 +20,9 @@
  * 
  */
 
+#ifndef _SP_OBSERVER
+#define _SP_OBSERVER
+
 #include <list>
 #include <tuple>
 #include <algorithm>
@@ -104,5 +107,7 @@ namespace sp
 
 }
 
+
+#endif
 
 

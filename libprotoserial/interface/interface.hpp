@@ -80,6 +80,8 @@
  * 
  */
 
+#ifndef _SP_INTERFACE_INTERFACE
+#define _SP_INTERFACE_INTERFACE
 
 #include "libprotoserial/container.hpp"
 #include "libprotoserial/clock.hpp"
@@ -164,14 +166,14 @@ namespace sp
             }
             /* receive */
             do_receive();
-            if (is_received())
+            /* if (is_received())
             {
                 auto p = get_received();
                 if (p.destination() == _address)
                     packed_rxed_event.emit(p);
                 else
                     other_packed_rxed_event.emit(p);
-            }
+            } */
         }
 
         /* fills the source address field,
@@ -220,9 +222,16 @@ namespace sp
         /* called from the main_task, this is where the derived class should handle packet parsing */
         virtual void do_receive() = 0;
         /* return true when a parsed packet can be retrieved using get_received() */
-        virtual bool is_received() const noexcept = 0;
+        //virtual bool is_received() const noexcept = 0;
         /* called after is_received() returns true */
-        virtual packet get_received() noexcept = 0;
+        //virtual packet get_received() noexcept = 0;
+        void put_received(packet && p)
+        {
+            if (p.destination() == _address)
+                packed_rxed_event.emit(p);
+            else
+                other_packed_rxed_event.emit(p);
+        }
 
         private:
 
@@ -248,5 +257,5 @@ bool operator!=(const sp::interface::packet & lhs, const sp::interface::packet &
 }
 
 
-
+#endif
 

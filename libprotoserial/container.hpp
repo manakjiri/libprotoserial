@@ -5,6 +5,8 @@
  * 
  */
 
+#ifndef _SP_CONTAINER
+#define _SP_CONTAINER
 
 
 #include <libprotoserial/byte.hpp>
@@ -400,5 +402,7 @@ std::ostream& operator<<(std::ostream& os, const sp::bytes& obj)
 
 
 //sp::dynamic_bytes & operator+ (const sp::dynamic_bytes & lhs, const sp::dynamic_bytes rhs);
+
+#endif
 
 
