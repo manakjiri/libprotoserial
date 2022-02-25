@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.15)
 project(libprotoserial)
 
 # GoogleTest requires at least C++11
@@ -15,20 +15,9 @@ FetchContent_MakeAvailable(googletest)
 
 enable_testing()
 
-
-#file (GLOB_RECURSE libprotoserial_HEADERS CONFIGURE_DEPENDS "libprotoserial/*.hpp")
-#set (libprotoserial_INCLUDE_DIRS "")
-#foreach (_headerFile ${libprotoserial_HEADERS})
-#    get_filename_component(_dir ${_headerFile} PATH)
-#    list (APPEND libprotoserial_INCLUDE_DIRS ${_dir})
-#endforeach()
-#list (REMOVE_DUPLICATES libprotoserial_INCLUDE_DIRS)
-
-
-
 add_executable(
     test_libprotoserial
-    libprotoserial/container.test.cpp 
+    tests/tests.cpp
 )
 target_include_directories(test_libprotoserial PRIVATE ".")
 

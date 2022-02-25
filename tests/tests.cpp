@@ -4,7 +4,7 @@
 #include "gtest/gtest.h"
 
 using namespace std;
-using namespace sp::byte_literal;
+using namespace sp::literals;
 
 
 

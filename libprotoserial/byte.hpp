@@ -4,11 +4,15 @@
 #include <limits>
 #include <type_traits>
 
+#ifndef _SP_BYTE
+#define _SP_BYTE
+
+
 namespace sp
 {
     using byte = std::byte;
 
-    namespace byte_literal
+    namespace literals
     {
         constexpr byte operator"" _B (const unsigned long long number)
         {
@@ -18,7 +22,7 @@ namespace sp
 }
 
 
-
+#endif
 
 /* 
 #include <cstddef>

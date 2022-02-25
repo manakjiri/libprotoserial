@@ -5,7 +5,7 @@
 #include "libprotoserial/interface.hpp"
 
 using namespace std;
-using namespace sp::byte_literal;
+using namespace sp::literals;
 
 uint random(uint from, uint to)
 {
@@ -63,7 +63,7 @@ int main(int argc, char const *argv[])
     interface.write(sp::interface::packet(3, 1, sp::bytes({20_B, 21_B, 22_B})));
     interface.write(sp::interface::packet(4, 1, sp::bytes({30_B, 31_B, 32_B}))); */
 
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 11; i++)
     {
         //if (i % 10 == 0)
             cout << i << endl;
@@ -93,10 +93,4 @@ int main(int argc, char const *argv[])
     return 0;
 }
 
-/* 
- * header and footer are perfectly general, it's a shame that they are 
- * tied to the loopback, let's try to pass them in as a template type
- *
- * 
- */
 
