@@ -86,6 +86,7 @@ namespace sp
         {
             std::copy(values.begin(), values.end(), begin());
         }
+
         //operator std::string() const {return };
         bytes(const std::string & from) :
             bytes(from.size())

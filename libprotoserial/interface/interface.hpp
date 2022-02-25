@@ -105,16 +105,16 @@ namespace sp
         the actual address format is interface specific */
         typedef uint    address_type;
 
-        struct packet_too_short : std::exception {
-            const char * what () const throw () {return "packet_too_short";}
-        };
-
-        struct packet_too_long : std::exception {
-            const char * what () const throw () {return "packet_too_long";}
+        struct data_too_long : std::exception {
+            const char * what () const throw () {return "data_too_long";}
         };
 
         struct bad_checksum : std::exception {
             const char * what () const throw () {return "bad_checksum";}
+        };
+
+        struct bad_size : std::exception {
+            const char * what () const throw () {return "bad_size";}
         };
 
         /* interface packet representation */
@@ -127,7 +127,10 @@ namespace sp
 
             /* object can be passed to the interface::write() function */
             packet(address_type dst, bytes && d) :
-                packet(0, dst, d, nullptr) {}
+                packet((address_type)0, dst, std::move(d), nullptr) {}
+
+            packet():
+                packet(0, bytes()) {}
             
             //packet():packet(0, 0, bytes(), nullptr) {}
 
@@ -137,6 +140,8 @@ namespace sp
             constexpr address_type destination() const noexcept {return _destination;}
             //constexpr bytes* data() noexcept {return &_data;}
             constexpr const bytes& data() const noexcept {return _data;}
+            
+            constexpr explicit operator bool() const {return _data && _destination;}
 
             private:
             bytes _data;
@@ -170,7 +175,7 @@ namespace sp
         }
 
         /* fills the source address field,
-        serializes the provided packet object (whis will throw if the packet is malformed)
+        serializes the provided packet object (which will throw if the packet is malformed)
         and puts the serialized buffer into the TX queue */
         void write(packet && p)
         {
@@ -181,14 +186,15 @@ namespace sp
         }
 
         /* if this function returns true then the write() function will not block
-        baceuse there is enough space in the queue for your packet */
+        because there is enough space in the queue for your packet */
         bool is_writable() const {return _tx_queue.size() <= _max_queue_size;}
         
         /* returns a unique name of the interface */
         std::string name() const {return _name;}
         void reset_address(address_type addr) {_address = addr;}
         address_type get_address() const {return _address;}
-
+        /* returns the maximum size of the data portion in a packet, this is interface dependent */
+        virtual bytes::size_type max_data_size() const noexcept = 0;
 
         /* emitted by the main_task function when a new packet is received where the destination address matches
         the interface address */

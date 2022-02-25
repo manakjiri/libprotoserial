@@ -2,7 +2,7 @@
 #include <iostream>
 #include <cstdlib>
 
-#include "libprotoserial/loopback_interface.hpp"
+#include "libprotoserial/interface/loopback.hpp"
 
 using namespace std;
 using namespace sp::byte_literal;
@@ -37,7 +37,7 @@ sp::bytes random_bytes(uint from, uint to)
 
 int main(int argc, char const *argv[])
 {
-    sp::loopback interface(0, 1, 10, 64, [](sp::byte b){
+    sp::loopback_interface interface(0, 1, 10, 64, 1024, [](sp::byte b){
         if (chance(1)) b |= random_byte();
         return b;
     });
@@ -45,13 +45,13 @@ int main(int argc, char const *argv[])
     std::unique_ptr<sp::interface::packet> tmp;
 
     interface.packed_rxed_event.subscribe([&](sp::interface::packet p){
+        cout << "packed_received_event" << endl;
+        cout << "  dst: " << p.destination() << "  src: " << p.source() << endl;
+        cout << "  interface: " << p.interface()->name() << endl;
+        cout << "  data: " << p.data() << endl;
         auto& o = *tmp;
         if (o != p) 
         {
-            cout << "packed_received_event" << endl;
-            cout << "  dst: " << p.destination() << "  src: " << p.source() << endl;
-            cout << "  interface: " << p.interface()->name() << endl;
-            cout << "  data: " << p.data() << endl;
             cout << "  PACKETS DO NOT MATCH - ORIGINAL" << endl;
             cout << "  dst: " << o.destination() << "  src: " << o.source() << endl;
             cout << "  interface: " << o.interface()->name() << endl;
@@ -63,9 +63,9 @@ int main(int argc, char const *argv[])
     interface.write(sp::interface::packet(3, 1, sp::bytes({20_B, 21_B, 22_B})));
     interface.write(sp::interface::packet(4, 1, sp::bytes({30_B, 31_B, 32_B}))); */
 
-    for (int i = 0; i < 300; i++)
+    for (int i = 0; i < 10; i++)
     {
-        if (i % 10 == 0)
+        //if (i % 10 == 0)
             cout << i << endl;
         
         /* if (i == 39) 
