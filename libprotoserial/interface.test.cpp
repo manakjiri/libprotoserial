@@ -2,9 +2,7 @@
 #include <iostream>
 #include <cstdlib>
 
-#include "libprotoserial/interface/loopback.hpp"
-#include "libprotoserial/interface/headers.hpp"
-#include "libprotoserial/interface/footers.hpp"
+#include "libprotoserial/interface.hpp"
 
 using namespace std;
 using namespace sp::byte_literal;
@@ -39,7 +37,7 @@ sp::bytes random_bytes(uint from, uint to)
 
 int main(int argc, char const *argv[])
 {
-    sp::loopback_interface<sp::headers::header, sp::footers::footer> interface(0, 1, 10, 64, 1024, [](sp::byte b){
+    sp::loopback_interface interface(0, 1, 10, 64, 1024, [](sp::byte b){
         if (chance(1)) b |= random_byte();
         return b;
     });

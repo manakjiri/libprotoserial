@@ -95,15 +95,16 @@ namespace sp
 
     /* things left as implementation details for subclasses
      * - RX ISR and RX buffer (not the packet queue)
-     * - address (must be representable by interface::address) and the header
+     * - address (must be representable by interface::address)
      * - error checking and data encoding
      * - filling the _name variable in the constructor
      */
     class interface
     {
         public:
-        /* an integer that can hold any used device address, 
-        the actual address format is interface specific */
+        /* an integer that can hold any used device address, the actual address format 
+        is interface specific, address 0 is reserved internally and should never appear 
+        in a packet */
         typedef uint    address_type;
 
         struct data_too_long : std::exception {
@@ -155,16 +156,8 @@ namespace sp
                 if (do_transmit(std::move(_tx_queue.front())))
                     _tx_queue.pop();
             }
-            /* receive */
+            /* receive, this will call the put_received() function if a packet is received */
             do_receive();
-            /* if (is_received())
-            {
-                auto p = get_received();
-                if (p.destination() == _address)
-                    packed_rxed_event.emit(p);
-                else
-                    other_packed_rxed_event.emit(p);
-            } */
         }
 
         /* fills the source address field,
@@ -231,7 +224,7 @@ namespace sp
         uint _max_queue_size = 0;
 
         std::string _name;
-        address_type _address;
+        address_type _address = 0;
     };
 
 }
