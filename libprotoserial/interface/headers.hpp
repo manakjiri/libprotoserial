@@ -21,11 +21,13 @@ namespace sp
             header() = default;
             header(const interface::packet & p):
                 destination(p.destination()), source(p.source()), size(p.data().size())
-                {check = (byte)(destination + source + size);}
+            {
+                check = (byte)(destination + source + size);
+            }
 
             bool is_valid(size_type max_size) const 
             {
-                return check == (byte)(destination + source + size) && size > 0 && size < max_size;
+                return check == (byte)(destination + source + size) && size > 0 && size <= max_size;
             }
         };
     }

@@ -74,8 +74,9 @@ namespace sp
                                 if ((size_t)distance(packet_start, write) + 1 >= packet_size)
                                 {
                                     /* we have received the entire packet, prepare it for parsing */
-                                    bytes b(packet_size);
-                                    std::copy(packet_start, packet_start + packet_size, b.begin());
+                                    //bytes b(packet_size);
+                                    //std::copy(packet_start, packet_start + packet_size, b.begin());
+                                    auto b = parsers::byte_copy(packet_start, packet_start + packet_size);
                                     try
                                     {
                                         /* attempt the parsing */
