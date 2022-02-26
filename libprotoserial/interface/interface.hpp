@@ -107,8 +107,16 @@ namespace sp
         in a packet */
         typedef uint    address_type;
 
-        struct data_too_long : std::exception {
-            const char * what () const throw () {return "data_too_long";}
+        struct bad_data : std::exception {
+            const char * what () const throw () {return "bad_data";}
+        };
+
+        struct no_destination : std::exception {
+            const char * what () const throw () {return "no_destination";}
+        };
+
+        struct not_writable : std::exception {
+            const char * what () const throw () {return "not_writable";}
         };
 
         /* interface packet representation */
@@ -119,7 +127,7 @@ namespace sp
             packet(address_type src, address_type dst, bytes && d, const sp::interface *i) :
                 _data(d), _timestamp(clock::now()), _interface(i), _source(src), _destination(dst) {}
 
-            /* object can be passed to the interface::write() function */
+            /* this object can be passed to the interface::write() function */
             packet(address_type dst, bytes && d) :
                 packet((address_type)0, dst, std::move(d), nullptr) {}
 
@@ -132,8 +140,8 @@ namespace sp
             constexpr const sp::interface* interface() const noexcept {return _interface;}
             constexpr address_type source() const noexcept {return _source;}
             constexpr address_type destination() const noexcept {return _destination;}
-            //constexpr bytes* data() noexcept {return &_data;}
             constexpr const bytes& data() const noexcept {return _data;}
+            constexpr void _complete(address_type src, const sp::interface *i) {_source = src; _interface = i;}
             
             constexpr explicit operator bool() const {return _data && _destination;}
 
@@ -165,10 +173,15 @@ namespace sp
         and puts the serialized buffer into the TX queue */
         void write(packet && p)
         {
-            while(!is_writable()) {main_task();} //?
-            //TODO fillout the address field and the interface field
-            //TODO check for obvious problems like empty data
-            _tx_queue.push(std::move(serialize_packet(std::move(p))));
+            /* sanity checks */
+            if (!is_writable()) throw not_writable();
+            if (p.destination() == 0) throw no_destination();
+            if (p.data().size() > max_data_size() || p.data().is_empty()) throw bad_data();
+            /* complete the packet */
+            p._complete(get_address(), this);
+            auto b = serialize_packet(std::move(p));
+            //while(!is_writable()) {main_task();} // do we want this?
+            _tx_queue.push(std::move(b));
         }
 
         /* if this function returns true then the write() function will not block
@@ -231,8 +244,8 @@ namespace sp
 
 bool operator==(const sp::interface::packet & lhs, const sp::interface::packet & rhs)
 {
-    return lhs.interface()->name() == rhs.interface()->name() && lhs.source() == rhs.source()
-         && lhs.destination() == rhs.destination() && lhs.data() == rhs.data();
+    return ((lhs.interface() && rhs.interface()) ? (lhs.interface()->name() == rhs.interface()->name()) : true) 
+    && lhs.source() == rhs.source() && lhs.destination() == rhs.destination() && lhs.data() == rhs.data();
 }
 
 bool operator!=(const sp::interface::packet & lhs, const sp::interface::packet & rhs)

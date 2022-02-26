@@ -10,9 +10,9 @@
 namespace sp
 {
     class loopback_interface : 
-        public detail::loopback_interface<sp::headers::header, sp::footers::footer> 
+        public detail::loopback_interface<sp::headers::header_8b8b, sp::footers::footer_crc32> 
     {
-        using detail::loopback_interface<sp::headers::header, sp::footers::footer>::loopback_interface;
+        using detail::loopback_interface<sp::headers::header_8b8b, sp::footers::footer_crc32>::loopback_interface;
     };
 }
 

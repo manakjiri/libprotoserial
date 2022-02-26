@@ -369,8 +369,8 @@ void test_interface(sp::interface & interface, uint loops, function<sp::bytes(vo
 
     interface.packed_rxed_event.subscribe([&](sp::interface::packet p){
         //cout << "packed_rxed_event: " << p << endl;
-        EXPECT_TRUE(*tmp == p) << "loop: " << i << "\nORIG: " << *tmp << "\nGOT:  " << p << endl;
-        if (*tmp != p)
+        EXPECT_TRUE(tmp->data() == p.data() && tmp->destination() == p.source()) << "loop: " << i << "\nORIG: " << *tmp << "\nGOT:  " << p << endl;
+        if (tmp->data() != p.data())
             cout << "here" << endl; // breakpoint hook
         received++;
     });
@@ -380,7 +380,7 @@ void test_interface(sp::interface & interface, uint loops, function<sp::bytes(vo
 #ifdef SP_LOOPBACK_DEBUG
         cout << i << endl;
 #endif
-        tmp.reset(new sp::interface::packet(addr_gen(), 1, data_gen(), &interface));
+        tmp.reset(new sp::interface::packet(addr_gen(), data_gen()));
         
         interface.write(sp::interface::packet(*tmp));
 

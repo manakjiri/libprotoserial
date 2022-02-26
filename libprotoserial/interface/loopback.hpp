@@ -148,7 +148,6 @@ namespace sp
             
             bytes serialize_packet(packet && p) const 
             {
-                if (p.data().size() > max_data_size()) throw data_too_long();
                 /* preallocate the container since we know the final size */
                 auto b = bytes(0, 0, preamble_length + sizeof(header) + p.data().size() + sizeof(footer));
                 /* preamble */
@@ -159,6 +158,11 @@ namespace sp
                 b.push_back(to_bytes(header(p)));
                 /* data */
                 b.push_back(p.data());
+                /* swap the dst and the src address, this obviously 
+                only works with the 8b8b header */
+                auto tmp = b[2];
+                b[2] = b[3];
+                b[3] = tmp;
                 /* footer */
                 b.push_back(to_bytes(footer(b.begin() + preamble_length, b.end())));
 #ifdef SP_LOOPBACK_DEBUG
@@ -169,7 +173,9 @@ namespace sp
 
             bool do_transmit(bytes && buff) noexcept 
             {
-                //std::cout << "transmit got: " << buff << std::endl;
+#ifdef SP_LOOPBACK_DEBUG
+                std::cout << "transmit: " << buff << std::endl;
+#endif
                 for (auto i = buff.begin(); i < buff.end(); i++)
                     rx_isr(_wire(*i));
                 return true;
