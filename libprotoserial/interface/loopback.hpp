@@ -10,7 +10,7 @@ namespace sp
 {
     namespace detail
     {
-        template<class header, class footer>
+        template<class Header, class Footer>
         class loopback_interface : public buffered_interface
         {
             public: 
@@ -19,9 +19,9 @@ namespace sp
 
             typedef sp::byte preamble_type;
             const preamble_type preamble = (preamble_type)0x55;
-            const typename header::size_type preamble_length = 2;
+            const typename Header::size_type preamble_length = 2;
 
-            /* PACKET STRUCTURE: [preamble][preamble][header][data >= 1][footer] */
+            /* PACKET STRUCTURE: [preamble][preamble][Header][data >= 1][Footer] */
 
 
             /* use the wire to implement data in transit corrupting function */
@@ -32,7 +32,7 @@ namespace sp
                 _write = get_rx_buffer();
             }
 
-            bytes::size_type max_data_size() const noexcept {return _max_packet_size - sizeof(header) - sizeof(footer) - preamble_length;}
+            bytes::size_type max_data_size() const noexcept {return _max_packet_size - sizeof(Header) - sizeof(Footer) - preamble_length;}
             bool can_transmit() noexcept {return true;}
 
             void do_receive() 
@@ -56,20 +56,20 @@ namespace sp
                     {
                         /* read now points to the position of the preamble, we are no longer concerned with the preamble */
                         auto packet_start = read + 1;
-                        /* check if the header is already loaded into to buffer, if not this function will just return 
+                        /* check if the Header is already loaded into to buffer, if not this function will just return 
                         and try new time around, we cannot move the original _read just yet because of this, 
                         adding 1 to distance since we can also read the write byte */
 #ifdef SP_LOOPBACK_DEBUG
                         std::cout << "do_receive after find: " << packet_start._current - packet_start._begin << " of " << write._current - write._begin << " value: " << (int)*packet_start << std::endl;
 #endif
-                        if ((size_t)distance(packet_start, write) + 1 >= sizeof(header))
+                        if ((size_t)distance(packet_start, write) + 1 >= sizeof(Header))
                         {
-                            /* copy the header into the header structure byte by byte */
-                            header h = parsers::byte_copy<header>(packet_start, packet_start + sizeof(header));
+                            /* copy the Header into the Header structure byte by byte */
+                            Header h = parsers::byte_copy<Header>(packet_start, packet_start + sizeof(Header));
                             if (h.is_valid(max_data_size()))
                             {
                                 /* total packet size */
-                                size_t packet_size = h.size + sizeof(footer) + sizeof(header);
+                                size_t packet_size = h.size + sizeof(Footer) + sizeof(Header);
                                 /* once again, check that there are enough bytes in the buffer, this can still fail */
                                 if ((size_t)distance(packet_start, write) + 1 >= packet_size)
                                 {
@@ -83,7 +83,7 @@ namespace sp
 #ifdef SP_LOOPBACK_DEBUG
                                         std::cout << "do_receive parse_packet gets: " << b << std::endl;
 #endif
-                                        put_received(std::move(parsers::parse_packet<header, footer>(std::move(b), this)));
+                                        put_received(std::move(parsers::parse_packet<Header, Footer>(std::move(b), this)));
                                         /* parsing succeeded, finally move the read pointer, we do not include the
                                         preamble length here because we don't necessarily know how long it was originally */
                                         _read = read + packet_size;
@@ -98,7 +98,6 @@ namespace sp
 #ifdef SP_LOOPBACK_DEBUG
                                         std::cerr << "do_receive parse exception: " << e.what() << '\n';
 #endif
-                                        //throw;
                                     }
 #ifdef SP_LOOPBACK_DEBUG
                                     std::cout << "do_receive returning at: " << _read._current - _read._begin << " of " << _write._current - _write._begin << std::endl;
@@ -108,7 +107,7 @@ namespace sp
                                 else
                                 {
                                     /* once again we just failed the distance check for the whole packet this time, 
-                                    we cannot save the read position because the header check could be wrong as well */
+                                    we cannot save the read position because the Header check could be wrong as well */
                                     _read = read;
 #ifdef SP_LOOPBACK_DEBUG
                                     std::cout << "do_receive distance packet" << std::endl;
@@ -119,7 +118,7 @@ namespace sp
                             }
                             else
                             {
-                                /* we failed the size valid check, so this is either a corrupted header or it's not a header
+                                /* we failed the size valid check, so this is either a corrupted Header or it's not a Header
                                 at all, move the read pointer past this and try again */
                                 _read = read = packet_start;
 #ifdef SP_LOOPBACK_DEBUG
@@ -129,16 +128,15 @@ namespace sp
                         }
                         else
                         {
-                            /* we failed the distance check for the header, we need to wait for the buffer to fill some more,
+                            /* we failed the distance check for the Header, we need to wait for the buffer to fill some more,
                             store the current read position as the global _read so that find returns faster once we come back */
                             _read = read;
 #ifdef SP_LOOPBACK_DEBUG
-                            std::cout << "do_receive distance header" << std::endl;
+                            std::cout << "do_receive distance Header" << std::endl;
                             std::cout << "do_receive returning at: " << _read._current - _read._begin << " of " << _write._current - _write._begin << std::endl;
 #endif
                             return;
                         }
-
                     }
                 }
 #ifdef SP_LOOPBACK_DEBUG
@@ -149,22 +147,22 @@ namespace sp
             bytes serialize_packet(packet && p) const 
             {
                 /* preallocate the container since we know the final size */
-                auto b = bytes(0, 0, preamble_length + sizeof(header) + p.data().size() + sizeof(footer));
+                auto b = bytes(0, 0, preamble_length + sizeof(Header) + p.data().size() + sizeof(Footer));
                 /* preamble */
                 auto pr = bytes(preamble_length);
                 pr.set(preamble);
                 b.push_back(pr);
-                /* header */
-                b.push_back(to_bytes(header(p)));
+                /* Header */
+                b.push_back(to_bytes(Header(p)));
                 /* data */
                 b.push_back(p.data());
                 /* swap the dst and the src address, this obviously 
-                only works with the 8b8b header */
+                only works with the 8b8b Header */
                 auto tmp = b[2];
                 b[2] = b[3];
                 b[3] = tmp;
-                /* footer */
-                b.push_back(to_bytes(footer(b.begin() + preamble_length, b.end())));
+                /* Footer */
+                b.push_back(to_bytes(Footer(b.begin() + preamble_length, b.end())));
 #ifdef SP_LOOPBACK_DEBUG
                 std::cout << "serialize_packet returning: " << b << std::endl;
 #endif
@@ -190,9 +188,9 @@ namespace sp
             private:
             transfer_function _wire;
             buffered_interface::circular_iterator _write, _read;
-            //packet _parsed;
             uint _max_packet_size = 0;
         };
     }
 } // namespace sp
+
 #endif
