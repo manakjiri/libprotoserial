@@ -15,15 +15,18 @@ namespace sp
 
             address_type destination = 0;
             address_type source = 0;
-            size_type size_check = 0;
             size_type size = 0;
+            byte check = (byte)0;
 
             header() = default;
             header(const interface::packet & p):
                 destination(p.destination()), source(p.source()), size(p.data().size())
-                {size_check = ~size;}
+                {check = (byte)(destination + source + size);}
 
-            bool is_size_valid() const {return size == (size_type)(~size_check) && size > 0;}
+            bool is_valid(size_type max_size) const 
+            {
+                return check == (byte)(destination + source + size) && size > 0 && size < max_size;
+            }
         };
     }
 }

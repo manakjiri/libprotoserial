@@ -46,7 +46,9 @@ int main(int argc, char const *argv[])
     };
     auto addr = [&](){return (sp::interface::address_type)2;};
 
-    test_interface(interface, interface.max_data_size(), data, addr);
+    test_interface(interface, 10, data, addr);
+
+    //packet that passed the 32bit CRC but didn't match the TXed:  1 23 5 29 133 0 115 5 41   255 131 8 122
     
     
     /* sp::loopback_interface interface(0, 1, 10, 64, 1024, [](sp::byte b){

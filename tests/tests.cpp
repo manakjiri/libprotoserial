@@ -334,14 +334,45 @@ TEST(Bytes, Shrink)
 
 
 
+
+
+
+
+
+TEST(Interface, CircularIterator)
+{
+    sp::bytes b(10);
+    for (int i = 0; i < b.size(); i++)
+        b[i] = (sp::bytes::value_type)(i);
+    
+    sp::detail::buffered_interface::circular_iterator it(b.begin(), b.end(), b.begin());
+
+    for (int i = 0; i < b.size(); i++, ++it)
+        EXPECT_EQ((sp::bytes::value_type)(i), *it) << "first +=1 loop: " << i;
+
+    for (int i = 0; i < b.size(); i++, ++it)
+        EXPECT_EQ((sp::bytes::value_type)(i), *it) << "second +=1 loop: " << i;
+
+    for (int i = 0; i < b.size(); i += 2, it += 2)
+        EXPECT_EQ((sp::bytes::value_type)(i), *it) << "first +=2 loop: " << i;
+
+    for (int i = 0; i < b.size(); i += 2, it += 2)
+        EXPECT_EQ((sp::bytes::value_type)(i), *it) << "second +=2 loop: " << i;
+    
+}
+
 void test_interface(sp::interface & interface, uint loops, function<sp::bytes(void)> data_gen, 
     function<sp::interface::address_type(void)> addr_gen)
 {
     std::unique_ptr<sp::interface::packet> tmp;
-    uint i = 0;
+    uint i = 0, received = 0;
 
     interface.packed_rxed_event.subscribe([&](sp::interface::packet p){
+        //cout << "packed_rxed_event: " << p << endl;
         EXPECT_TRUE(*tmp == p) << "loop: " << i << "\nORIG: " << *tmp << "\nGOT:  " << p << endl;
+        if (*tmp != p)
+            cout << "here" << endl; // breakpoint hook
+        received++;
     });
 
     for (; i < loops; i++)
@@ -356,6 +387,8 @@ void test_interface(sp::interface & interface, uint loops, function<sp::bytes(vo
         for (int j = 0; j < 3; j++)
             interface.main_task();
     }
+    cout << "received " << received << " out of " << loops << " sent (" << (100.0 * received) / loops << "%)" << endl;
+    EXPECT_TRUE(received > 0);
 }
 
 TEST(Interface, UnalteredSequential)
@@ -372,14 +405,59 @@ TEST(Interface, UnalteredSequential)
     test_interface(interface, interface.max_data_size(), data, addr);
 }
 
-/* TEST(Interface, UnalteredRandom)
+TEST(Interface, UnalteredRandom)
 {
     sp::loopback_interface interface(0, 1, 10, 64, 256);
 
     auto data = [&](){return random_bytes(1, interface.max_data_size());};
     auto addr = [&](){return random(2, 100);};
 
-    test_interface(interface, 1000, data, addr);
-} */
+    test_interface(interface, 10000, data, addr);
+}
+
+TEST(Interface, CorruptedSequential)
+{
+    sp::loopback_interface interface(0, 1, 10, 64, 256, [](sp::byte b){
+        if (chance(1)) b |= random_byte();
+        return b;
+    });
+
+    auto data = [l = 0]() mutable {
+        sp::bytes b(++l);
+        std::generate(b.begin(), b.end(), [pos = 0]() mutable { return (sp::byte)(++pos); });
+        return b;
+    };
+    auto addr = [&](){return (sp::interface::address_type)2;};
+
+    test_interface(interface, interface.max_data_size(), data, addr);
+}
+
+TEST(Interface, CorruptedRandom)
+{
+    sp::loopback_interface interface(0, 1, 10, 64, 256, [](sp::byte b){
+        if (chance(1)) b |= random_byte();
+        return b;
+    });
+
+    auto data = [&](){return random_bytes(1, interface.max_data_size());};
+    auto addr = [&](){return random(2, 100);};
+
+    test_interface(interface, 100000, data, addr);
+}
 
 
+TEST(Interface, HeavilyCorruptedRandom)
+{
+    sp::loopback_interface interface(0, 1, 10, 64, 256, [](sp::byte b){
+        if (chance(5)) b |= random_byte();
+        return b;
+    });
+
+    cout << "this test has a high chance of failing because that level of corruption" << endl; 
+    cout << "may be too much for the checksums in use, so feel free to disable it" << endl;
+
+    auto data = [&](){return random_bytes(1, interface.max_data_size());};
+    auto addr = [&](){return random(2, 100);};
+
+    test_interface(interface, 100000, data, addr);
+}

@@ -19,6 +19,12 @@ namespace sp
             /* iterator pointing into the _rx_buffer, it supports wrapping */
             struct circular_iterator 
             {
+                using iterator_category = std::forward_iterator_tag;
+                using difference_type   = bytes::difference_type;
+                using value_type        = bytes::value_type;
+                using pointer           = bytes::pointer; 
+                using reference         = bytes::reference;
+
                 circular_iterator(bytes::iterator begin, bytes::iterator end, bytes::iterator start) : 
                     _begin(begin), _end(end), _current(start) {}
 
@@ -28,8 +34,8 @@ namespace sp
                 circular_iterator():
                     circular_iterator(nullptr, nullptr, nullptr) {}
 
-                bytes::reference operator*() const { return *_current; }
-                bytes::pointer operator->() { return _current; }
+                reference operator*() const { return *_current; }
+                pointer operator->() { return _current; }
 
                 // Prefix increment
                 circular_iterator& operator++() 
@@ -61,9 +67,9 @@ namespace sp
 
                 /* both iterators need to point within the same buffer and assuming you know which is leading and which lagging,
                 this will return an integer which will be the distance between the two iterators */
-                friend bytes::difference_type distance(const circular_iterator & lagging, const circular_iterator & leading)
+                friend difference_type distance(const circular_iterator & lagging, const circular_iterator & leading)
                 {
-                    bytes::difference_type diff = leading._current - lagging._current;
+                    difference_type diff = leading._current - lagging._current;
                     return diff >= 0 ? diff : diff + (lagging._end - lagging._begin);
                 }
 
@@ -82,7 +88,7 @@ namespace sp
 
             private:
 
-            bytes _rx_buffer;       
+            bytes _rx_buffer;
         };
     }
 } // namespace sp

@@ -5,7 +5,7 @@
 #include "libprotoserial/interface/buffered.hpp"
 #include "libprotoserial/interface/parsers.hpp"
 
-#define SP_LOOPBACK_DEBUG
+//#define SP_LOOPBACK_DEBUG
 namespace sp
 {
     namespace detail
@@ -35,82 +35,111 @@ namespace sp
             bytes::size_type max_data_size() const noexcept {return _max_packet_size - sizeof(header) - sizeof(footer) - preamble_length;}
             bool can_transmit() noexcept {return true;}
 
-            void do_receive() //FIXME modularize, etc...
+            void do_receive() 
             {
                 /* while we are trying to parse the buffer, the ISR is continually filling it
                 (not in this case, obviously, but in the real world it will) 
                 _write is the position of the last byte written, so we can read up to that point
-                since this way we cannot possibly collide with the ISR 
-                */
+                since this way we cannot possibly collide with the ISR */
                 auto read = _read;
-                bool invalid_size = false;
-                while (1)
+                auto write = _write;
+
+                /* while is necessary since we would never move forward in case we find a valid preamble but fail 
+                before the parsing */
+                while (read != write)
                 {
-                    //std::cout << "do_receive at: " << read._current - read._begin << " of: " << _write._current - _write._begin << std::endl;
-                    if (*read == preamble)
+#ifdef SP_LOOPBACK_DEBUG
+                    std::cout << "do_receive before find: " << read._current - read._begin << " of " << write._current - write._begin << std::endl;
+#endif
+                    /* if this returns false than read == write and we break out of the while loop */
+                    if (parsers::find(read, write, preamble))
                     {
-                        auto start = read + 1;
-                        /* we matched the preamble, now we would like to parse out the header
-                        and check the size_check, since thats still pretty low effort,
-                        we add 1 to the size because the preamble is not part of the header */
-                        if ((typename header::size_type)distance(read, _write) >= (typename header::size_type)sizeof(header))
+                        /* read now points to the position of the preamble, we are no longer concerned with the preamble */
+                        auto packet_start = read + 1;
+                        /* check if the header is already loaded into to buffer, if not this function will just return 
+                        and try new time around, we cannot move the original _read just yet because of this, 
+                        adding 1 to distance since we can also read the write byte */
+#ifdef SP_LOOPBACK_DEBUG
+                        std::cout << "do_receive after find: " << packet_start._current - packet_start._begin << " of " << write._current - write._begin << " value: " << (int)*packet_start << std::endl;
+#endif
+                        if ((size_t)distance(packet_start, write) + 1 >= sizeof(header))
                         {
-                            //TODO figure out a way to cache the parsed header when the below check does not pass
-                            header h;
-                            //std::copy(read + 1, read + (1 + sizeof(h)), reinterpret_cast<byte*>(&h));
-                            //FIXME mess
-                            auto it = start;
-                            for (uint pos = 0; pos < sizeof(header); ++it, ++pos)
-                                reinterpret_cast<byte*>(&h)[pos] = *it;
-
-                            /* we got the header, if the simple size check passes, than we need to have at least 
-                            that many bytes + the footer in the buffer */
-                            if (h.is_size_valid())
+                            /* copy the header into the header structure byte by byte */
+                            header h = parsers::byte_copy<header>(packet_start, packet_start + sizeof(header));
+                            if (h.is_valid(max_data_size()))
                             {
-                                typename header::size_type packet_size = h.size + sizeof(footer) + sizeof(header);
-                                if((typename header::size_type)distance(read, _write) >= packet_size)
+                                /* total packet size */
+                                size_t packet_size = h.size + sizeof(footer) + sizeof(header);
+                                /* once again, check that there are enough bytes in the buffer, this can still fail */
+                                if ((size_t)distance(packet_start, write) + 1 >= packet_size)
                                 {
-                                    /* copy the entire packet so it can be passed into the parsing function */
-                                    //FIXME mess
+                                    /* we have received the entire packet, prepare it for parsing */
                                     bytes b(packet_size);
-                                    it = start;
-                                    for (uint pos = 0; pos < packet_size; ++it, ++pos)
-                                        b[pos] = *it;
-
-                                    /* parse the packet */
+                                    std::copy(packet_start, packet_start + packet_size, b.begin());
                                     try
                                     {
+                                        /* attempt the parsing */
+#ifdef SP_LOOPBACK_DEBUG
+                                        std::cout << "do_receive parse_packet gets: " << b << std::endl;
+#endif
                                         put_received(std::move(parsers::parse_packet<header, footer>(std::move(b), this)));
-                                        /* parsing succeeded, move the read pointer */
-                                        read += packet_size + preamble_length;
+                                        /* parsing succeeded, finally move the read pointer, we do not include the
+                                        preamble length here because we don't necessarily know how long it was originally */
+                                        _read = read + packet_size;
+#ifdef SP_LOOPBACK_DEBUG
+                                        std::cout << "do_receive after parse" << std::endl;
+#endif
                                     }
                                     catch(std::exception &e)
                                     {
-                                        /* parsing failed, move away from that invalid start */
-                                        read = start;
-                                        #ifdef SP_LOOPBACK_DEBUG
-                                        std::cerr << "main exception: " << e.what() << '\n';
-                                        #endif
+                                        /* parsing failed, move by one because there is no need to try and parse this again */
+                                        _read = read + 1;
+#ifdef SP_LOOPBACK_DEBUG
+                                        std::cerr << "do_receive parse exception: " << e.what() << '\n';
+#endif
                                         //throw;
                                     }
+#ifdef SP_LOOPBACK_DEBUG
+                                    std::cout << "do_receive returning at: " << _read._current - _read._begin << " of " << _write._current - _write._begin << std::endl;
+#endif
+                                    return;
+                                }
+                                else
+                                {
+                                    /* once again we just failed the distance check for the whole packet this time, 
+                                    we cannot save the read position because the header check could be wrong as well */
                                     _read = read;
+#ifdef SP_LOOPBACK_DEBUG
+                                    std::cout << "do_receive distance packet" << std::endl;
+                                    std::cout << "do_receive returning at: " << _read._current - _read._begin << " of " << _write._current - _write._begin << std::endl;
+#endif
+                                    return;
                                 }
                             }
                             else
                             {
-                                //std::cout << "invalid size" << std::endl;
-                                invalid_size = true;
+                                /* we failed the size valid check, so this is either a corrupted header or it's not a header
+                                at all, move the read pointer past this and try again */
+                                _read = read = packet_start;
+#ifdef SP_LOOPBACK_DEBUG
+                                std::cout << "do_receive invalid size: " << _read._current - _read._begin << " of " << _write._current - _write._begin << std::endl;
+#endif
                             }
                         }
+                        else
+                        {
+                            /* we failed the distance check for the header, we need to wait for the buffer to fill some more,
+                            store the current read position as the global _read so that find returns faster once we come back */
+                            _read = read;
+#ifdef SP_LOOPBACK_DEBUG
+                            std::cout << "do_receive distance header" << std::endl;
+                            std::cout << "do_receive returning at: " << _read._current - _read._begin << " of " << _write._current - _write._begin << std::endl;
+#endif
+                            return;
+                        }
+
                     }
-                    if (_write == read)
-                        break;
-                    else
-                        ++read;
                 }
-                if (invalid_size && _write != _read)
-                    ++_read;
-                
 #ifdef SP_LOOPBACK_DEBUG
                 std::cout << "do_receive returning at: " << _read._current - _read._begin << " of " << _write._current - _write._begin << std::endl;
 #endif
