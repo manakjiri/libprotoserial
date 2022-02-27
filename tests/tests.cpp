@@ -368,8 +368,8 @@ uint test_interface(sp::interface & interface, uint loops, function<sp::bytes(vo
     std::unique_ptr<sp::interface::packet> tmp;
     uint i = 0, received = 0;
 
-    interface.packed_rxed_event.subscribe([&](sp::interface::packet p){
-        //cout << "packed_rxed_event: " << p << endl;
+    interface.receive_event.subscribe([&](sp::interface::packet p){
+        //cout << "receive_event: " << p << endl;
         EXPECT_TRUE(tmp->data() == p.data() && tmp->destination() == p.source()) << "loop: " << i << "\nORIG: " << *tmp << "\nGOT:  " << p << endl;
         if (tmp->data() != p.data())
             cout << "here" << endl; // breakpoint hook

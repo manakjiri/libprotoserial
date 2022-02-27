@@ -20,6 +20,7 @@
 #include "libprotoserial/interface.hpp"
 
 #include <list>
+#include <algorithm>
 
 namespace sp
 {
@@ -42,7 +43,6 @@ namespace sp
         {
             push_back(std::move(initial_packet));
         }
-
 
         auto packets_begin() {return _packets.begin();}
         auto packets_last() {return _packets.empty() ? _packets.begin() : std::prev(_packets.end());}
@@ -111,20 +111,30 @@ namespace sp
             interface::packet::data_type::iterator _ipacket_data;
         };
 
+        /* data_iterator presents the data of internally stored list of interface::packets as contiguous */
         auto data_begin() {return data_iterator(this, true);}
+        /* data_iterator presents the data of internally stored list of interface::packets as contiguous */
         auto data_end() {return data_iterator(this, false);}
         
+        /* takes the iterator from packets_begin and packets_end functions, behaves just like std::list::insert */
         auto insert(packets_container::const_iterator pos, const interface::packet & p) {_packets.insert(pos, p);}
+        /* takes the iterator from packets_begin and packets_end functions, behaves just like std::list::insert */
         auto insert(packets_container::const_iterator pos, interface::packet && p) {_packets.insert(pos, p);}
+        /* takes the iterator from packets_begin and packets_end functions, behaves just like std::list::push_back */
         void push_back(const interface::packet & p) {_packets.push_back(p);}
+        /* takes the iterator from packets_begin and packets_end functions, behaves just like std::list::push_back */
         void push_back(interface::packet && p) {_packets.push_back(p);}
 
         /* the packet id is used to uniquely identify a packet transfer together with the destination and source
         addresses and the interface name. It is issued by the transmittee of the packet */
         id_type get_id() const {return _id;}
+        /* packet object does not ensure that the destination address is consistent thrughout the child interface::packet objects */
         interface::address_type destination() const {return _packets.empty() ? 0 : _packets.front().destination();}
+        /* packet object does not ensure that the source address is consistent thrughout the child interface::packet objects */
         interface::address_type source() const {return _packets.empty() ? 0 : _packets.front().source();}
+        /* packet object does not ensure that the interface is consistent thrughout the child interface::packet objects */
         const sp::interface * get_interface() const {return _packets.empty() ? nullptr : _packets.front().get_interface();}
+        //FIXME what to return when _packets.empty()?
         clock::time_point timestamp_oldest() const {return std::min_element(_packets.begin(), _packets.end(), 
             [](const auto & a, const auto & b) {return a.timestamp() < b.timestamp();})->timestamp();}
         clock::time_point timestamp_newest() const {return std::max_element(_packets.begin(), _packets.end(), 
@@ -132,6 +142,7 @@ namespace sp
 
 
         private:
+        
         packets_container _packets;
         id_type _id;
     };

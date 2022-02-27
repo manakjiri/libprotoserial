@@ -158,7 +158,7 @@ namespace sp
         interface(std::string name, address_type address, uint max_queue_size) : 
             _max_queue_size(max_queue_size), _name(name), _address(address) {}
         
-        void main_task()
+        void main_task() noexcept
         {
             /* if there is something in the queue, transmit it */
             if (!_tx_queue.empty() && can_transmit())
@@ -168,6 +168,16 @@ namespace sp
             }
             /* receive, this will call the put_received() function if a packet is received */
             do_receive();
+        }
+
+        /* fills the source address field, serializes the provided packet object,
+        and puts the serialized buffer into the TX queue. This wraps the write function, 
+        if the write fails for whatever reason, the packet is dropped */
+        void write_noexcept(packet && p) noexcept
+        {
+            //TODO consider avoiding exceptions entirely here
+            try {write(std::move(p));}
+            catch(...) {}
         }
 
         /* fills the source address field,
@@ -182,27 +192,25 @@ namespace sp
             /* complete the packet */
             p._complete(get_address(), this);
             auto b = serialize_packet(std::move(p));
-            //while(!is_writable()) {main_task();} // do we want this?
             _tx_queue.push(std::move(b));
         }
 
-        /* if this function returns true then the write() function will not block
-        because there is enough space in the queue for your packet */
+        //TODO is there a better way?
         bool is_writable() const {return _tx_queue.size() <= _max_queue_size;}
         
         /* returns a unique name of the interface */
-        std::string name() const {return _name;}
-        void reset_address(address_type addr) {_address = addr;}
-        address_type get_address() const {return _address;}
+        std::string name() const noexcept {return _name;}
+        void reset_address(address_type addr) noexcept {_address = addr;}
+        address_type get_address() const noexcept {return _address;}
         /* returns the maximum size of the data portion in a packet, this is interface dependent */
         virtual bytes::size_type max_data_size() const noexcept = 0;
 
         /* emitted by the main_task function when a new packet is received where the destination address matches
         the interface address */
-        subject<packet> packed_rxed_event;
+        subject<packet> receive_event;
         /* emitted by the main_task function when a new packet is received where the destination address 
         does not match the interface address */
-        subject<packet> other_packed_rxed_event;
+        subject<packet> other_receive_event;
 
         protected:
 
@@ -217,19 +225,15 @@ namespace sp
         transmit will be reattempted with the same packet later */
         virtual bool do_transmit(bytes && buff) noexcept = 0;
         
-        /* RX (do_receive => is_received => get_received) */
+        /* RX (do_receive => put_received) */
         /* called from the main_task, this is where the derived class should handle packet parsing */
-        virtual void do_receive() = 0;
-        /* return true when a parsed packet can be retrieved using get_received() */
-        //virtual bool is_received() const noexcept = 0;
-        /* called after is_received() returns true */
-        //virtual packet get_received() noexcept = 0;
-        void put_received(packet && p)
+        virtual void do_receive() noexcept = 0;
+        void put_received(packet && p) noexcept
         {
             if (p.destination() == _address)
-                packed_rxed_event.emit(p);
+                receive_event.emit(p);
             else
-                other_packed_rxed_event.emit(p);
+                other_receive_event.emit(p);
         }
 
         private:

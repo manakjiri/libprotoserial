@@ -17,29 +17,32 @@
 #define _SP_FRAGMENTATION
 
 #include "libprotoserial/interface.hpp"
+#include "libprotoserial/packet.hpp"
+#include "libprotoserial/interface/headers.hpp"
 
 namespace sp
 {
     class fragmentation_handler
     {
         public:
+
+        using header = headers::fragment_header_8b16b;
         
-        fragmentation_handler(interface * i):
-            _interface(i)
+        fragmentation_handler()
         {
-            _rx_subscription = _interface->packed_rxed_event.subscribe(rx_callback, this);
-            
         }
+
+
+        void receive_callback(interface::packet p)
+        {
+
+        }
+
+
+        subject<interface::packet> transmit_event;        
 
         private:
 
-        void rx_callback(interface::packet p)
-        {
-
-        }
-
-        interface * _interface;
-        subscription _rx_subscription;
     };
 
 }

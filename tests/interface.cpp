@@ -15,7 +15,7 @@ void test_interface(sp::interface & interface, uint loops, function<sp::bytes(vo
     std::unique_ptr<sp::interface::packet> tmp;
     uint i = 0;
 
-    interface.packed_rxed_event.subscribe([&](sp::interface::packet p){
+    interface.receive_event.subscribe([&](sp::interface::packet p){
         if (*tmp != p) 
             cout << "loop: " << i << "\nORIG: " << *tmp << "\nGOT:  " << p << endl;
     });
@@ -58,7 +58,7 @@ int main(int argc, char const *argv[])
 
     /* std::unique_ptr<sp::interface::packet> tmp;
 
-    interface.packed_rxed_event.subscribe([&](sp::interface::packet p){
+    interface.receive_event.subscribe([&](sp::interface::packet p){
         cout << "packed_received_event" << endl;
         cout << "  dst: " << p.destination() << "  src: " << p.source() << endl;
         cout << "  interface: " << p.interface()->name() << endl;

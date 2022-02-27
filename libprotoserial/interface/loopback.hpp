@@ -35,7 +35,7 @@ namespace sp
             bytes::size_type max_data_size() const noexcept {return _max_packet_size - sizeof(Header) - sizeof(Footer) - preamble_length;}
             bool can_transmit() noexcept {return true;}
 
-            void do_receive() 
+            void do_receive() noexcept
             {
                 /* while we are trying to parse the buffer, the ISR is continually filling it
                 (not in this case, obviously, but in the real world it will) 
