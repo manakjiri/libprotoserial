@@ -45,13 +45,6 @@ namespace sp
                     return *this;
                 }  
 
-                circular_iterator& operator--() 
-                {
-                    --_current; 
-                    if (_current < _begin) _current = _end - 1;
-                    return *this;
-                }
-
                 circular_iterator& operator+=(uint shift)
                 {
                     _current += shift;

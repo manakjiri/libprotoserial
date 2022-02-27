@@ -1,6 +1,7 @@
 
 #include <libprotoserial/container.hpp>
 #include <libprotoserial/interface.hpp>
+#include <libprotoserial/packet.hpp>
 
 #include "helpers/random.hpp"
 
@@ -361,7 +362,7 @@ TEST(Interface, CircularIterator)
     
 }
 
-void test_interface(sp::interface & interface, uint loops, function<sp::bytes(void)> data_gen, 
+uint test_interface(sp::interface & interface, uint loops, function<sp::bytes(void)> data_gen, 
     function<sp::interface::address_type(void)> addr_gen)
 {
     std::unique_ptr<sp::interface::packet> tmp;
@@ -388,7 +389,7 @@ void test_interface(sp::interface & interface, uint loops, function<sp::bytes(vo
             interface.main_task();
     }
     cout << "received " << received << " out of " << loops << " sent (" << (100.0 * received) / loops << "%)" << endl;
-    EXPECT_TRUE(received > 0);
+    return received;
 }
 
 TEST(Interface, UnalteredSequential)
@@ -402,7 +403,7 @@ TEST(Interface, UnalteredSequential)
     };
     auto addr = [&](){return (sp::interface::address_type)2;};
 
-    test_interface(interface, interface.max_data_size(), data, addr);
+    EXPECT_EQ(test_interface(interface, interface.max_data_size(), data, addr), interface.max_data_size());
 }
 
 TEST(Interface, UnalteredRandom)
@@ -412,7 +413,7 @@ TEST(Interface, UnalteredRandom)
     auto data = [&](){return random_bytes(1, interface.max_data_size());};
     auto addr = [&](){return random(2, 100);};
 
-    test_interface(interface, 10000, data, addr);
+    EXPECT_EQ(test_interface(interface, 10000, data, addr), 10000);
 }
 
 TEST(Interface, CorruptedSequential)
@@ -429,7 +430,7 @@ TEST(Interface, CorruptedSequential)
     };
     auto addr = [&](){return (sp::interface::address_type)2;};
 
-    test_interface(interface, interface.max_data_size(), data, addr);
+    EXPECT_TRUE(test_interface(interface, interface.max_data_size(), data, addr) > 0);
 }
 
 TEST(Interface, CorruptedRandom)
@@ -442,7 +443,7 @@ TEST(Interface, CorruptedRandom)
     auto data = [&](){return random_bytes(1, interface.max_data_size());};
     auto addr = [&](){return random(2, 100);};
 
-    test_interface(interface, 100000, data, addr);
+    EXPECT_TRUE(test_interface(interface, 100000, data, addr) > 0);
 }
 
 
@@ -459,5 +460,43 @@ TEST(Interface, HeavilyCorruptedRandom)
     auto data = [&](){return random_bytes(1, interface.max_data_size());};
     auto addr = [&](){return random(2, 100);};
 
-    test_interface(interface, 100000, data, addr);
+    EXPECT_TRUE(test_interface(interface, 100000, data, addr) > 0);
 }
+
+
+TEST(Packet, DataIterator)
+{
+    sp::loopback_interface interface(0, 1, 10, 64, 256);
+    const sp::bytes b1 = {10_B, 11_B, 12_B, 13_B, 14_B}, b2 = {20_B, 21_B, 22_B}, b3 = {30_B, 31_B}, b4 = {40_B};
+    sp::packet p(1, sp::interface::packet(2, 3, sp::bytes(b1), &interface));
+
+    sp::bytes bc;
+    sp::bytes::size_type i;
+
+    bc = b1; i = 0;
+    for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
+        EXPECT_TRUE(bc[i] == *it) << "index " << i << ": " << (int)bc[i] << " == " << (int)*it;
+    EXPECT_EQ(i, bc.size());
+
+    p.push_back(sp::interface::packet(2, 3, sp::bytes(b2), &interface));
+    bc = b1 + b2; i = 0;
+    for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
+        EXPECT_TRUE(bc[i] == *it) << "index " << i << ": " << (int)bc[i] << " == " << (int)*it;
+    EXPECT_EQ(i, bc.size());
+
+    p.insert(p.packets_begin(), sp::interface::packet(2, 3, sp::bytes(b3), &interface));
+    bc = b3 + b1 + b2; i = 0;
+    for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
+        EXPECT_TRUE(bc[i] == *it) << "index " << i << ": " << (int)bc[i] << " == " << (int)*it;
+    EXPECT_EQ(i, bc.size());
+
+    p.insert(next(p.packets_begin()), sp::interface::packet(2, 3, sp::bytes(b4), &interface));
+    bc = b3 + b4 + b1 + b2; i = 0;
+    for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
+        EXPECT_TRUE(bc[i] == *it) << "index " << i << ": " << (int)bc[i] << " == " << (int)*it;
+    EXPECT_EQ(i, bc.size());
+}
+
+
+
+

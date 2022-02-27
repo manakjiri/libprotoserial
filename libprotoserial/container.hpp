@@ -382,14 +382,22 @@ namespace sp
     }
 }
 
-bool operator==(const sp::bytes & lhs, const sp::bytes rhs)
+bool operator==(const sp::bytes & lhs, const sp::bytes & rhs)
 {
     return std::equal(lhs.cbegin(), lhs.cend(), rhs.cbegin(), rhs.cend());
 }
 
-bool operator!=(const sp::bytes & lhs, const sp::bytes rhs)
+bool operator!=(const sp::bytes & lhs, const sp::bytes & rhs)
 {
     return !(lhs == rhs);
+}
+
+sp::bytes operator+(const sp::bytes & lhs, const sp::bytes & rhs)
+{
+    sp::bytes b(lhs.size() + rhs.size());
+    std::copy(lhs.cbegin(), lhs.cend(), b.begin());
+    std::copy(rhs.cbegin(), rhs.cend(), b.begin() + lhs.size());
+    return b;
 }
 
 std::ostream& operator<<(std::ostream& os, const sp::bytes& obj) 

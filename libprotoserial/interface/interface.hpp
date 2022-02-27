@@ -124,29 +124,31 @@ namespace sp
         {
             public:
 
-            packet(address_type src, address_type dst, bytes && d, const sp::interface *i) :
+            typedef bytes   data_type;
+
+            packet(address_type src, address_type dst, data_type && d, const sp::interface *i) :
                 _data(d), _timestamp(clock::now()), _interface(i), _source(src), _destination(dst) {}
 
             /* this object can be passed to the interface::write() function */
-            packet(address_type dst, bytes && d) :
+            packet(address_type dst, data_type && d) :
                 packet((address_type)0, dst, std::move(d), nullptr) {}
 
             packet():
-                packet(0, bytes()) {}
+                packet(0, data_type()) {}
             
             //packet():packet(0, 0, bytes(), nullptr) {}
 
             constexpr clock::time_point timestamp() const noexcept {return _timestamp;}
-            constexpr const sp::interface* interface() const noexcept {return _interface;}
+            constexpr const interface* get_interface() const noexcept {return _interface;}
             constexpr address_type source() const noexcept {return _source;}
             constexpr address_type destination() const noexcept {return _destination;}
-            constexpr const bytes& data() const noexcept {return _data;}
+            constexpr const data_type& data() const noexcept {return _data;}
             constexpr void _complete(address_type src, const sp::interface *i) {_source = src; _interface = i;}
             
             constexpr explicit operator bool() const {return _data && _destination;}
 
             private:
-            bytes _data;
+            data_type _data;
             clock::time_point _timestamp;
             const sp::interface *_interface;
             address_type _source, _destination;
@@ -244,7 +246,7 @@ namespace sp
 
 bool operator==(const sp::interface::packet & lhs, const sp::interface::packet & rhs)
 {
-    return ((lhs.interface() && rhs.interface()) ? (lhs.interface()->name() == rhs.interface()->name()) : true) 
+    return ((lhs.get_interface() && rhs.get_interface()) ? (lhs.get_interface()->name() == rhs.get_interface()->name()) : true) 
     && lhs.source() == rhs.source() && lhs.destination() == rhs.destination() && lhs.data() == rhs.data();
 }
 
@@ -256,7 +258,7 @@ bool operator!=(const sp::interface::packet & lhs, const sp::interface::packet &
 std::ostream& operator<<(std::ostream& os, const sp::interface::packet& p) 
 {
     os << "dst: " << p.destination() << ", src: " << p.source();
-    os << ", int: " << (p.interface() ? p.interface()->name() : "null");
+    os << ", int: " << (p.get_interface() ? p.get_interface()->name() : "null");
     os << ", " << p.data();
     return os;
 }
