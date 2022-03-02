@@ -95,7 +95,7 @@ namespace sp
 
     /* things left as implementation details for subclasses
      * - RX ISR and RX buffer (not the packet queue)
-     * - address (must be representable by interface::address)
+     * - address (must be representable by interface::address), broadcast address //TODO
      * - error checking and data encoding
      * - filling the _name variable in the constructor
      */
@@ -143,9 +143,11 @@ namespace sp
             constexpr address_type source() const noexcept {return _source;}
             constexpr address_type destination() const noexcept {return _destination;}
             constexpr const data_type& data() const noexcept {return _data;}
+            constexpr data_type& data() noexcept {return _data;}
             constexpr void _complete(address_type src, const sp::interface *i) {_source = src; _interface = i;}
             
-            constexpr explicit operator bool() const {return _data && _destination;}
+            constexpr bool carries_information() const {return _data && _destination;}
+            constexpr explicit operator bool() const {return carries_information();}
 
             private:
             data_type _data;
@@ -173,7 +175,7 @@ namespace sp
         /* fills the source address field, serializes the provided packet object,
         and puts the serialized buffer into the TX queue. This wraps the write function, 
         if the write fails for whatever reason, the packet is dropped */
-        void write_noexcept(packet && p) noexcept
+        void write_noexcept(packet p) noexcept
         {
             //TODO consider avoiding exceptions entirely here
             try {write(std::move(p));}
@@ -183,7 +185,7 @@ namespace sp
         /* fills the source address field,
         serializes the provided packet object (which will throw if the packet is malformed)
         and puts the serialized buffer into the TX queue */
-        void write(packet && p)
+        void write(packet p)
         {
             /* sanity checks */
             if (!is_writable()) throw not_writable();

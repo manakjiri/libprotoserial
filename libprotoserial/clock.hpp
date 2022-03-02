@@ -35,5 +35,10 @@ namespace sp
     using clock = std::chrono::steady_clock;
 
 #endif
+
+    bool older_than(clock::time_point point, clock::duration duration)
+    {
+        return point + duration < clock::now();
+    }
 }
 #endif

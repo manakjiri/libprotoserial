@@ -373,9 +373,9 @@ namespace sp
     };
 
     template<typename T>
-    sp::bytes to_bytes(const T& thing)
+    bytes to_bytes(const T& thing, bytes::size_type additional_capacity = 0)
     {
-        sp::bytes b(sizeof(thing));
+        bytes b(0, sizeof(thing), additional_capacity);
         std::copy(reinterpret_cast<const byte*>(&thing), reinterpret_cast<const bytes::value_type*>(&thing)
             + sizeof(thing), b.begin());
         return b;

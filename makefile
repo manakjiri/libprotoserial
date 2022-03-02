@@ -15,3 +15,6 @@ interface:
 
 observer:
 	$(CC) -o $(TARGET) $(OPT) $(CFLAGS) $(TESTDIR)/observer.cpp
+
+fragmentation:
+	$(CC) -o $(TARGET) $(OPT) $(CFLAGS) $(TESTDIR)/fragmentation.cpp
