@@ -1,13 +1,14 @@
 
 #include <libprotoserial/container.hpp>
 #include <libprotoserial/interface.hpp>
-#include <libprotoserial/packet.hpp>
+#include <libprotoserial/fragmentation.hpp>
 
 #include "helpers/random.hpp"
 
 #include "gtest/gtest.h"
 
 using namespace std;
+using namespace std::chrono_literals;
 using namespace sp::literals;
 
 
@@ -466,34 +467,39 @@ TEST(Interface, HeavilyCorruptedRandom)
 
 TEST(Packet, DataIterator)
 {
-    sp::loopback_interface interface(0, 1, 10, 64, 256);
+    //sp::loopback_interface interface(0, 1, 10, 64, 256);
     const sp::bytes b1 = {10_B, 11_B, 12_B, 13_B, 14_B}, b2 = {20_B, 21_B, 22_B}, b3 = {30_B, 31_B}, b4 = {40_B};
-    sp::packet p(1, sp::interface::packet(2, 3, sp::bytes(b1), &interface));
+    sp::loopback_interface interface(0, 1, 10, 64, 256);
+    sp::fragmentation_handler handler(56, 100ms, 10ms);
+    
+    sp::headers::fragment_header_8b16b h(sp::headers::fragment_header_8b16b::message_types::PACKET, 0, 4, 1);
+    sp::fragmentation_handler::transfer p(h, &handler);
 
     sp::bytes bc;
     sp::bytes::size_type i;
 
+    p._assign(1, sp::interface::packet(2, 3, sp::bytes(b1), &interface));
     bc = b1; i = 0;
     for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
-        EXPECT_TRUE(bc[i] == *it) << "index " << i << ": " << (int)bc[i] << " == " << (int)*it;
+        EXPECT_TRUE(bc[i] == *it) << "b1 index " << i << ": " << (int)bc[i] << " == " << (int)*it;
     EXPECT_EQ(i, bc.size());
 
-    p.push_back(sp::interface::packet(2, 3, sp::bytes(b2), &interface));
+    p._assign(3, sp::interface::packet(2, 3, sp::bytes(b2), &interface));
     bc = b1 + b2; i = 0;
     for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
-        EXPECT_TRUE(bc[i] == *it) << "index " << i << ": " << (int)bc[i] << " == " << (int)*it;
+        EXPECT_TRUE(bc[i] == *it) << "b1 + b2 index " << i << ": " << (int)bc[i] << " == " << (int)*it;
     EXPECT_EQ(i, bc.size());
 
-    p.insert(p.packets_begin(), sp::interface::packet(2, 3, sp::bytes(b3), &interface));
+    p._assign(0, sp::interface::packet(2, 3, sp::bytes(b3), &interface));
     bc = b3 + b1 + b2; i = 0;
     for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
-        EXPECT_TRUE(bc[i] == *it) << "index " << i << ": " << (int)bc[i] << " == " << (int)*it;
+        EXPECT_TRUE(bc[i] == *it) << "b3 + b1 + b2 index " << i << ": " << (int)bc[i] << " == " << (int)*it;
     EXPECT_EQ(i, bc.size());
 
-    p.insert(next(p.packets_begin()), sp::interface::packet(2, 3, sp::bytes(b4), &interface));
-    bc = b3 + b4 + b1 + b2; i = 0;
+    p._assign(2, sp::interface::packet(2, 3, sp::bytes(b4), &interface));
+    bc = b3 + b1 + b4 + b2; i = 0;
     for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
-        EXPECT_TRUE(bc[i] == *it) << "index " << i << ": " << (int)bc[i] << " == " << (int)*it;
+        EXPECT_TRUE(bc[i] == *it) << "b3 + b1 + b4 + b2 index " << i << ": " << (int)bc[i] << " == " << (int)*it;
     EXPECT_EQ(i, bc.size());
 }
 
