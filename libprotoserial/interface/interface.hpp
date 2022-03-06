@@ -179,7 +179,7 @@ namespace sp
         {
             //TODO consider avoiding exceptions entirely here
             try {write(std::move(p));}
-            catch(...) {}
+            catch(std::exception & e) {std::cout << "write_noexcept: " << e.what() << std::endl;}
         }
 
         /* fills the source address field,

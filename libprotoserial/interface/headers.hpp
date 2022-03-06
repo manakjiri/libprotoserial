@@ -63,7 +63,7 @@ namespace sp
             is the case where the contra-peer does not use this header when we expect it */
             bool is_valid() const 
             {
-                return _check == (byte)(_type + _fragment + _fragments_total + _id + _prev_id) && _fragment <= _fragments_total;
+                return _check == (byte)(_type + _fragment + _fragments_total + _id + _prev_id) && _fragment != 0 && _fragment <= _fragments_total;
             }
 
             private:

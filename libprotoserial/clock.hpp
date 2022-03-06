@@ -32,7 +32,7 @@ namespace sp
 
 #else
 
-    using clock = std::chrono::steady_clock;
+    using clock = std::chrono::high_resolution_clock;
 
 #endif
 

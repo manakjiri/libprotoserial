@@ -6,6 +6,7 @@
 #include "libprotoserial/interface/parsers.hpp"
 
 //#define SP_LOOPBACK_DEBUG
+
 namespace sp
 {
     namespace detail
