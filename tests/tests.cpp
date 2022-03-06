@@ -473,7 +473,7 @@ TEST(Fragmentation, Transfer)
     //sp::loopback_interface interface(0, 1, 10, 64, 256);
     const sp::bytes b1 = {10_B, 11_B, 12_B, 13_B, 14_B}, b2 = {20_B, 21_B, 22_B}, b3 = {30_B, 31_B}, b4 = {40_B};
     sp::loopback_interface interface(0, 1, 10, 64, 256);
-    sp::fragmentation_handler handler(interface.max_data_size(), 100ms, 10ms);
+    sp::fragmentation_handler handler(interface.max_data_size(), 100ms, 10ms, 2);
     
     // MODE 1
     sp::headers::fragment_header_8b16b h(sp::headers::fragment_header_8b16b::message_types::PACKET, 0, 4, 1);
@@ -593,7 +593,7 @@ TEST(Fragmentation, CorruptedRandom)
         if (chance(1)) b |= random_byte();
         return b;
     });
-    sp::fragmentation_handler handler(interface.max_data_size(), 3ms, 100ms);
+    sp::fragmentation_handler handler(interface.max_data_size(), 3ms, 100ms, 2);
 
     auto data = [&](){return random_bytes(1, interface.max_data_size() * 2);};
     auto addr = [&](){return random(2, 100);};

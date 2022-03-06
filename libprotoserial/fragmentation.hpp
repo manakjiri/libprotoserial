@@ -285,8 +285,10 @@ namespace sp
                 return interface::packet(destination(), std::move(data));
             }
             
-            void _transmit_done() {_timestamp_accessed = clock::now();}
+            void _transmit_done() {_timestamp_accessed = clock::now(); ++_retransmitions;}
             void _retransmit_done() {_timestamp_accessed = clock::now();}
+
+            uint retransmitions() const {return _retransmitions;}
 
             /* checks if p's addresses and interface match the transfer's, this along with id match means that p 
             should be part of this transfer */
@@ -324,12 +326,15 @@ namespace sp
             interface::address_type _source = 0, _destination = 0;
             const interface * _interface = nullptr;
             fragmentation_handler * _handler = nullptr;
+            uint _retransmitions = 0;
             id_type _id = 0, _prev_id = 0;
         };
 
         
-        fragmentation_handler(size_type max_packet_size, clock::duration retransmit_time, clock::duration drop_time) :
-            _retransmit_time(retransmit_time), _drop_time(drop_time), _max_packet_size(max_packet_size - sizeof(header)) {}
+        fragmentation_handler(size_type max_packet_size, clock::duration retransmit_time, clock::duration drop_time, 
+            uint retransmit_multiplier) :
+                _retransmit_time(retransmit_time), _drop_time(drop_time), _max_packet_size(max_packet_size - sizeof(header)),
+                _retransmit_multiplier(retransmit_multiplier) {}
 
 
         /* the callback handles the incoming packets, it does not handle any timeouts, sending requests, 
@@ -409,10 +414,14 @@ namespace sp
                     /* drop the outgoing transfer because it is inactive for too long */
                     tr = _outgoing_transfers.erase(tr);
                 }
-                /* else if (older_than(tr->timestamp_accessed(), _retransmit_time))
+                else if (tr->retransmitions() < tr->_fragments_count() * _retransmit_multiplier &&
+                    older_than(tr->timestamp_accessed(), _retransmit_time))
                 {
-
-                } */
+                    /* either the destination is dead or the first fragment got lost during
+                    transit, try to retransmit the first fragment */
+                    transmit_event.emit(std::move(serialize_packet(types::PACKET, 1, *tr)));
+                    tr->_retransmit_done();
+                }
                 else
                     ++tr;
             }
@@ -550,11 +559,11 @@ namespace sp
         }
 
 
-        std::list<transfer> _incoming_transfers;
-        std::list<transfer> _outgoing_transfers;
+        std::list<transfer> _incoming_transfers, _outgoing_transfers;
         clock::duration _retransmit_time, _drop_time;
         transfer::id_type _id_counter = 0;
         size_type _max_packet_size;
+        uint _retransmit_multiplier;
     };
 
 }
