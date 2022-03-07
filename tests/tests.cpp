@@ -539,9 +539,7 @@ uint test_handler(sp::interface & interface, sp::fragmentation_handler & handler
     });
 
     for (; i < loops; i++)
-    {
-        //cout << "loop " << i << endl;
-        
+    {        
         auto t = handler.new_transfer();
         check[t.get_id()] = tuple(data_gen(), false);
         t.push_back(sp::bytes(get<0>(check[t.get_id()])));
@@ -598,7 +596,7 @@ TEST(Fragmentation, CorruptedRandom)
     auto data = [&](){return random_bytes(1, interface.max_data_size() * 2);};
     auto addr = [&](){return random(2, 100);};
 
-    EXPECT_EQ(test_handler(interface, handler, 20, data, addr, 25), 20);
+    EXPECT_EQ(test_handler(interface, handler, 1000, data, addr, 25), 1000);
 }
 
 

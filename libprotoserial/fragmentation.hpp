@@ -23,7 +23,7 @@
 
 #include <iostream>
 
-#define SP_FRAGMENTATION_DEBUG
+//#define SP_FRAGMENTATION_DEBUG
 
 namespace sp
 {
@@ -305,6 +305,12 @@ namespace sp
                 return os;
             }
 
+            friend std::ostream& operator<<(std::ostream& os, const sp::fragmentation_handler::transfer * t) 
+            {
+                if (t) os << *t; else os << "null transfer";
+                return os;
+            }
+
             private:
 
             void refresh() {_timestamp_modified = clock::now();}
@@ -330,13 +336,16 @@ namespace sp
         like timeouts and various housekeeping stuff */
         struct transfer_progress
         {
-            transfer tr;
+            /* using a pointer here to free up space when we get rid of the transfer once it's done 
+            but need to keep the transfer_progress object for a while longer */
+            std::unique_ptr<transfer> tr;
             clock::time_point timestamp_accessed;
             uint retransmitions = 0;
+            /* this should always match the tr->get_id() */
             transfer::id_type id;
 
             transfer_progress(transfer && t) :
-                tr(std::move(t)), timestamp_accessed(clock::now()), id(tr.get_id()) {}
+                tr(std::unique_ptr<transfer>(new transfer(std::move(t)))), timestamp_accessed(clock::now()), id(tr->get_id()) {}
 
             void transmit_done() {timestamp_accessed = clock::now();}
             void retransmit_done() {timestamp_accessed = clock::now(); ++retransmitions;}
@@ -377,20 +386,32 @@ namespace sp
             auto it = _incoming_transfers.begin();
             while (it != _incoming_transfers.end())
             {
-                if (it->tr._is_complete())
+                if (!it->tr)
                 {
-                    /* checks whether any of the transfers is complete, if so emits 
-                    the receive_event and removes that transfer from _incoming_transfers */
+                    /* we have the transfer_progress object but it does not own any transfer, which means
+                    that the block below must have been executed in the near past
+                    drop the transfer_progress after some sufficiently long period since its last access */
+                    //TODO get rid of the 5 and make it a config thing somehow
+                    if (older_than(it->timestamp_accessed, _drop_time * 5))
+                        it = _incoming_transfers.erase(it);
+                }
+                else if (it->tr->_is_complete())
+                {
+                    /* checks whether any of the transfers is complete, if so emit it as receive event */
                     transmit_event.emit(std::move(
-                        interface::packet(it->tr.source(), 
-                        to_bytes(make_header(types::PACKET_ACK, it->tr._fragments_count(), it->tr)))
+                        interface::packet(it->tr->source(), 
+                        to_bytes(make_header(types::PACKET_ACK, it->tr->_fragments_count(), *it->tr)))
                     ));
-                    transfer_receive_event.emit(std::move(it->tr));
-                    it = _incoming_transfers.erase(it);
+                    transfer_receive_event.emit(std::move(*it->tr));
+                    it->tr.reset();
+                    /* std::move moved the local copy of the transfer out of the handler, but we
+                    will hold onto that transfer_progress structure for a while longer. in case
+                    the ACK packet gets lost, the source will try to retransmit this transfer
+                    thinking that we didn't notice it */
                 }
                 else
                 {
-                    if (older_than(it->tr.timestamp_modified(), _drop_time))
+                    if (older_than(it->tr->timestamp_modified(), _drop_time))
                     {
 #ifdef SP_FRAGMENTATION_DEBUG
                         std::cout << "timed out: " << it->tr << std::endl;
@@ -398,26 +419,26 @@ namespace sp
                         /* drop the incoming transfer because it is inactive for too long */
                         it = _incoming_transfers.erase(it);
                     }
-                    else if (older_than(it->tr.timestamp_modified(), _retransmit_time) && 
+                    else if (older_than(it->tr->timestamp_modified(), _retransmit_time) && 
                         older_than(it->timestamp_accessed, _retransmit_time))
                     {
                         /* find the missing packet's index and request a retransmit */
-                        auto index = it->tr._missing_fragment();
+                        auto index = it->tr->_missing_fragment();
 #ifdef SP_FRAGMENTATION_DEBUG
-                        std::cout << "requesting retransmit for id " << it->tr.get_id() << " index " << index << std::endl;
+                        std::cout << "requesting retransmit for id " << it->tr->get_id() << " index " << index << std::endl;
 #endif
                         transmit_event.emit(std::move(
-                            interface::packet(it->tr.source(), 
-                            to_bytes(make_header(types::PACKET_REQ, index, it->tr)))
+                            interface::packet(it->tr->source(), 
+                            to_bytes(make_header(types::PACKET_REQ, index, *it->tr)))
                         ));
                         it->retransmit_done();
                     }
-                    /* check again because an erase can happen in this branch as well, 
-                    we don't need to worry about skipping a transfer when the erase happens
-                    since we will return into this function later anyway */
-                    if (it != _incoming_transfers.end())
-                        ++it;
                 }
+                /* check again because an erase can happen in this branch as well, 
+                we don't need to worry about skipping a transfer when the erase happens
+                since we will return into this function later anyway */
+                if (it != _incoming_transfers.end())
+                    ++it;
             }
             /* check for stale outgoing transfers, it may happen that the ACK didn't arrive, 
             it is not ACKed back, so that can happen */
@@ -429,12 +450,12 @@ namespace sp
                     /* drop the outgoing transfer because it is inactive for too long */
                     it = _outgoing_transfers.erase(it);
                 }
-                else if (it->retransmitions < it->tr._fragments_count() * _retransmit_multiplier &&
+                else if (it->retransmitions < it->tr->_fragments_count() * _retransmit_multiplier &&
                     older_than(it->timestamp_accessed, _retransmit_time))
                 {
                     /* either the destination is dead or the first fragment got lost during
                     transit, try to retransmit the first fragment */
-                    transmit_event.emit(std::move(serialize_packet(types::PACKET, 1, it->tr)));
+                    transmit_event.emit(std::move(serialize_packet(types::PACKET, 1, *it->tr)));
                     it->retransmit_done();
                 }
                 else
@@ -517,38 +538,57 @@ namespace sp
 #ifdef SP_FRAGMENTATION_DEBUG
             std::cout << "handle_packet got: " << p << std::endl;
 #endif
+            /* handle the reception of user packets and their ordering */
             if (h.type() == types::PACKET)
             {
                 /* branch for handling _incoming_transfers */
                 /* check if we already know that incoming transfer ID */
                 auto it = std::find_if(_incoming_transfers.begin(), _incoming_transfers.end(), 
-                    [&](const auto & t){return t.tr.get_id() == h.get_id() && t.tr.match(p);});
+                    [&](const auto & t){
+                        //FIXME use tr->match() in both cases, as per spec
+                        if (t.tr)
+                            return t.tr->get_id() == h.get_id() && t.tr->match(p);
+                        else
+                            return t.id == h.get_id();
+                });
 
-                /* handle the reception of user packets and their ordering */
                 if (it == _incoming_transfers.end())
                 {
 #ifdef SP_FRAGMENTATION_DEBUG
                     std::cout << "creating new incoming transfer id " << h.get_id() << std::endl;
 #endif
                     /* we don't know this transfer ID, create new incoming transfer */
-                    auto& t = _incoming_transfers.emplace_back(transfer(h, this));
-                    t.tr._assign(h.fragment(), std::move(p));
+                    auto& t = _incoming_transfers.emplace_back(transfer_progress(transfer(h, this)));
+                    t.tr->_assign(h.fragment(), std::move(p));
                 }
                 else
                 {
+                    /* we know this ID, now we need to check if we have already received this transfer and
+                    is therefor duplicate, or whether we are in the process of receiving it */
+                    if (it->tr)
+                    {
 #ifdef SP_FRAGMENTATION_DEBUG
-                    std::cout << "assigning to existing incoming transfer id " << h.get_id() << " at " << (int)h.fragment() << " of " << (int)h.fragments_total() << std::endl;
+                        std::cout << "assigning to existing incoming transfer id " << h.get_id() << " at " << (int)h.fragment() << " of " << (int)h.fragments_total() << std::endl;
 #endif
-                    /* the ID is in known transfers, we need to add the incoming interface::packet to it */
-                    it->tr._assign(h.fragment(), std::move(p));
+                        /* the ID is in known transfers, we need to add the incoming interface::packet to it */
+                        it->tr->_assign(h.fragment(), std::move(p));
+                    }
+                    else
+                    {
+                        /* we for some reason received a fragment of already received transfer, the ACK
+                        from us probably got lost in transit, just reply with another ACK and ignore this fragment */
+                        transmit_event.emit(std::move(
+                            interface::packet(p.source(), 
+                            std::move(to_bytes(header(types::PACKET_ACK, h.fragment(), h.fragments_total(), h.get_id(), h.get_prev_id()))))
+                        ));
+                    }
                 }
-
             }
             else
             {
                 /* branch for handling _outgoing_transfers */
                 auto it = std::find_if(_outgoing_transfers.begin(), _outgoing_transfers.end(), 
-                    [&](const auto & t){return t.tr.get_id() == h.get_id() && t.tr.match_as_response(p);});
+                    [&](const auto & t){return t.tr->get_id() == h.get_id() && t.tr->match_as_response(p);});
                 
                 if (it != _outgoing_transfers.end())
                 {
@@ -558,7 +598,7 @@ namespace sp
                         std::cout << "handling retransmit request of id " << h.get_id() << " fragment " << (int)h.fragment() << " of " << (int)h.fragments_total() << std::endl;
 #endif
                         /* fullfill the retransmit request */
-                        transmit_event.emit(std::move(serialize_packet(types::PACKET, h.fragment(), it->tr)));
+                        transmit_event.emit(std::move(serialize_packet(types::PACKET, h.fragment(), *it->tr)));
                         it->retransmit_done();
                     }
                     else if (h.type() == types::PACKET_ACK)
@@ -566,9 +606,11 @@ namespace sp
 #ifdef SP_FRAGMENTATION_DEBUG
                         std::cout << "got packet ACK for id " << h.get_id() << std::endl;
 #endif
-                        /* emit the ACK even for the sender and destroy this outgoing transfer
-                        since we've done our job and don't need it anymore */
-                        transfer_ack_event.emit(std::move(it->tr));
+                        /* emit the ACK event for the sender and destroy this outgoing transfer
+                        since we've done our job and don't need it anymore in contrast to the 
+                        incoming transfer where the transmitted ACK may not be received, here we
+                        are be sure */
+                        transfer_ack_event.emit(std::move(*it->tr));
                         it = _outgoing_transfers.erase(it);
                     }
                 }
