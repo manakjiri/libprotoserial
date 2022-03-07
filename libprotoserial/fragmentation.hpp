@@ -24,6 +24,12 @@
 #include <iostream>
 
 //#define SP_FRAGMENTATION_DEBUG
+#define SP_FRAGMENTATION_WARNING
+
+
+#ifdef SP_FRAGMENTATION_DEBUG
+define(SP_FRAGMENTATION_WARNING)
+#endif
 
 namespace sp
 {
@@ -94,6 +100,11 @@ namespace sp
             /* expose the internal data, used in fragmentation_handler and data_iterator */
             auto _last() {return _data.empty() ? _data.begin() : std::prev(_data.end());}
             auto _last() const {return _data.empty() ? _data.begin() : std::prev(_data.end());}
+
+            void _push_back(const interface::packet & p) {refresh(p); _data.push_back(p.data());}
+            void _push_back(interface::packet && p) {refresh(p); _data.push_back(std::move(p.data()));}
+            void _assign(index_type fragment, const interface::packet & p) {refresh(p); _data.at(fragment - 1) = p.data();}
+            void _assign(index_type fragment, interface::packet && p) {refresh(p); _data.at(fragment - 1) = std::move(p.data());}
 
             /* expose the internal data, used in fragmentation_handler and data_iterator */
             //auto _at(size_t pos) {return _data.at(pos);}
@@ -209,11 +220,6 @@ namespace sp
                 for (auto it = _begin(); it != _end(); ++it) b.push_back(*it);
                 return b;
             }
-
-            void _push_back(const interface::packet & p) {refresh(p); _data.push_back(p.data());}
-            void _push_back(interface::packet && p) {refresh(p); _data.push_back(std::move(p.data()));}
-            void _assign(index_type fragment, const interface::packet & p) {refresh(p); _data.at(fragment - 1) = p.data();}
-            void _assign(index_type fragment, interface::packet && p) {refresh(p); _data.at(fragment - 1) = std::move(p.data());}
             
             void push_back(const bytes & b) {refresh(); _data.push_back(b);}
             void push_back(bytes && b) {refresh(); _data.push_back(std::move(b));}
@@ -231,6 +237,16 @@ namespace sp
             const fragmentation_handler * get_handler() const {return _handler;}
             clock::time_point timestamp_creation() const {return _timestamp_creation;}
             clock::time_point timestamp_modified() const {return _timestamp_modified;}
+
+            /* checks if p's addresses and interface match the transfer's, this along with id match means that p 
+            should be part of this transfer */
+            bool match(const interface::packet & p) const 
+                {return p.destination() == destination() && p.source() == source();}
+
+            /* checks p's addresses as a response to this transfer and interface match the transfer's */
+            bool match_as_response(const interface::packet & p) const 
+                {return p.source() == destination();}
+            
 
             /* returns the number of packets needed to transmit this transfer,
             this obviously depends on the mode but we can make some assumptions:
@@ -283,16 +299,6 @@ namespace sp
                 
                 return interface::packet(destination(), std::move(data));
             }
-
-
-            /* checks if p's addresses and interface match the transfer's, this along with id match means that p 
-            should be part of this transfer */
-            bool match(const interface::packet & p) const 
-                {return p.destination() == destination() && p.source() == source();}
-
-            /* checks p's addresses as a response to this transfer and interface match the transfer's */
-            bool match_as_response(const interface::packet & p) const 
-                {return p.source() == destination();}
 
             friend std::ostream& operator<<(std::ostream& os, const sp::fragmentation_handler::transfer & t) 
             {
@@ -413,8 +419,8 @@ namespace sp
                 {
                     if (older_than(it->tr->timestamp_modified(), _drop_time))
                     {
-#ifdef SP_FRAGMENTATION_DEBUG
-                        std::cout << "timed out: " << it->tr << std::endl;
+#ifdef SP_FRAGMENTATION_WARNING
+                        std::cout << "timed out incoming: " << it->tr << std::endl;
 #endif
                         /* drop the incoming transfer because it is inactive for too long */
                         it = _incoming_transfers.erase(it);
@@ -424,8 +430,8 @@ namespace sp
                     {
                         /* find the missing packet's index and request a retransmit */
                         auto index = it->tr->_missing_fragment();
-#ifdef SP_FRAGMENTATION_DEBUG
-                        std::cout << "requesting retransmit for id " << it->tr->get_id() << " index " << index << std::endl;
+#ifdef SP_FRAGMENTATION_WARNING
+                        std::cout << "requesting retransmit for id " << it->id << " index " << index << std::endl;
 #endif
                         transmit_event.emit(std::move(
                             interface::packet(it->tr->source(), 
@@ -448,6 +454,9 @@ namespace sp
                 if (older_than(it->timestamp_accessed, _drop_time))
                 {
                     /* drop the outgoing transfer because it is inactive for too long */
+#ifdef SP_FRAGMENTATION_WARNING
+                        std::cout << "timed out outgoing id " << it->id << std::endl;
+#endif
                     it = _outgoing_transfers.erase(it);
                 }
                 else if (it->retransmitions < it->tr->_fragments_count() * _retransmit_multiplier &&
@@ -455,6 +464,9 @@ namespace sp
                 {
                     /* either the destination is dead or the first fragment got lost during
                     transit, try to retransmit the first fragment */
+#ifdef SP_FRAGMENTATION_WARNING
+                        std::cout << "retransmitting first fragment of id " << it->id << std::endl;
+#endif
                     transmit_event.emit(std::move(serialize_packet(types::PACKET, 1, *it->tr)));
                     it->retransmit_done();
                 }
@@ -467,6 +479,8 @@ namespace sp
         {
 #ifdef SP_FRAGMENTATION_DEBUG
             std::cout << "transmit got: " << t << std::endl;
+#elif defined(SP_FRAGMENTATION_WARNING)
+            std::cout << "transmit got id " << t.get_id() << std::endl;
 #endif
             /* transmit all packets within this transfer and store it in case we get a retransmit request */
             for (index_type fragment = 1; fragment <= t._fragments_count(); ++fragment)
@@ -477,9 +491,9 @@ namespace sp
                 transmit_event.emit(std::move(serialize_packet(types::PACKET, fragment, t)));
             }
 
-            auto tp = transfer_progress(std::move(t));
+            //auto tp = transfer_progress(std::move(t));
+            auto & tp = _outgoing_transfers.emplace_back(std::move(t));
             tp.transmit_done();
-            _outgoing_transfers.push_back(std::move(tp));
         }
 
         transfer new_transfer()
@@ -513,7 +527,7 @@ namespace sp
 
         private:
 
-        transfer::id_type new_id()
+        transfer::id_type new_id()// 89[0] 180[0] 389[0] 
         {
             if (++_id_counter == 0) ++_id_counter;
             return _id_counter;
@@ -575,8 +589,11 @@ namespace sp
                     }
                     else
                     {
-                        /* we for some reason received a fragment of already received transfer, the ACK
+                        /* we, for some reason, received a fragment of already received transfer, the ACK
                         from us probably got lost in transit, just reply with another ACK and ignore this fragment */
+#ifdef SP_FRAGMENTATION_WARNING
+                        std::cout << "sending ACK for already received id " << h.get_id() << std::endl;
+#endif
                         transmit_event.emit(std::move(
                             interface::packet(p.source(), 
                             std::move(to_bytes(header(types::PACKET_ACK, h.fragment(), h.fragments_total(), h.get_id(), h.get_prev_id()))))
@@ -594,7 +611,7 @@ namespace sp
                 {
                     if (h.type() == types::PACKET_REQ)
                     {
-#ifdef SP_FRAGMENTATION_DEBUG
+#ifdef SP_FRAGMENTATION_WARNING
                         std::cout << "handling retransmit request of id " << h.get_id() << " fragment " << (int)h.fragment() << " of " << (int)h.fragments_total() << std::endl;
 #endif
                         /* fullfill the retransmit request */

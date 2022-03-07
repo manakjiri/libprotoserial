@@ -17,7 +17,7 @@ using namespace sp::literals;
 
 
 
-/* TEST(Bytes, Constructor) 
+TEST(Bytes, Constructor) 
 {
     sp::bytes b1(10);
     EXPECT_TRUE(b1.data() != nullptr);
@@ -465,7 +465,7 @@ TEST(Interface, HeavilyCorruptedRandom)
     auto addr = [&](){return random(2, 100);};
 
     EXPECT_TRUE(test_interface(interface, 100000, data, addr) > 0);
-} */
+}
 
 
 TEST(Fragmentation, Transfer)
@@ -516,7 +516,7 @@ TEST(Fragmentation, Transfer)
 uint test_handler(sp::interface & interface, sp::fragmentation_handler & handler, uint loops, 
     function<sp::bytes(void)> data_gen, function<sp::interface::address_type(void)> addr_gen, uint runs = 5)
 {
-    map<sp::fragmentation_handler::index_type, tuple<sp::bytes, bool>> check;
+    map<sp::fragmentation_handler::transfer::id_type, tuple<sp::bytes, uint>> check;
     sp::bytes tmp;
     uint i = 0, received = 0;
 
@@ -530,7 +530,7 @@ uint test_handler(sp::interface & interface, sp::fragmentation_handler & handler
 #endif
         auto b = t.data_contiguous();
         tmp = get<0>(check[t.get_id()]);
-        get<1>(check[t.get_id()]) = true;
+        get<1>(check[t.get_id()])++;
         EXPECT_TRUE(tmp == b) << "loop: " << i << "\nORIG: " << tmp << "\nGOT:  " << t << endl;
         if (tmp != b)
             cout << "here" << endl; // breakpoint hook
@@ -541,7 +541,7 @@ uint test_handler(sp::interface & interface, sp::fragmentation_handler & handler
     for (; i < loops; i++)
     {        
         auto t = handler.new_transfer();
-        check[t.get_id()] = tuple(data_gen(), false);
+        check[t.get_id()] = tuple(data_gen(), 0);
         t.push_back(sp::bytes(get<0>(check[t.get_id()])));
         t.set_destination(addr_gen());
         handler.transmit(t);
@@ -560,30 +560,31 @@ uint test_handler(sp::interface & interface, sp::fragmentation_handler & handler
 #ifdef SP_FRAGMENTATION_DEBUG
     handler.print_debug();
 #endif
+    EXPECT_EQ(check.size(), loops);
     cout << "received " << received << " out of " << loops << " sent (" << (100.0 * received) / loops << "%)" << endl;
 
     string s;
     for (const auto & [key, value] : check)
     {
-        if (!get<1>(value))
-            s += to_string((int)key) + " ";
+        if (get<1>(value) != 1)
+            s += to_string((int)key) + "[" + to_string(get<1>(value)) + "] ";
     }
     if (!s.empty())
-        cout << "did not receive IDs: " << s << endl;
+        cout << "unreceived/duplicated IDs: " << s << endl;
 
     return received;
 }
 
-/* TEST(Fragmentation, UnalteredRandom)
+TEST(Fragmentation, UnalteredRandom)
 {
     sp::loopback_interface interface(0, 1, 10, 32, 256);
-    sp::fragmentation_handler handler(interface.max_data_size(), 100ms, 20ms);
+    sp::fragmentation_handler handler(interface.max_data_size(), 5ms, 100ms, 2);
 
     auto data = [&](){return random_bytes(1, interface.max_data_size() * 2);};
     auto addr = [&](){return random(2, 100);};
 
-    EXPECT_EQ(test_handler(interface, handler, 100, data, addr), 100);
-} */
+    EXPECT_EQ(test_handler(interface, handler, 500, data, addr), 500);
+}
 
 TEST(Fragmentation, CorruptedRandom)
 {
@@ -591,12 +592,12 @@ TEST(Fragmentation, CorruptedRandom)
         if (chance(1)) b |= random_byte();
         return b;
     });
-    sp::fragmentation_handler handler(interface.max_data_size(), 3ms, 100ms, 2);
+    sp::fragmentation_handler handler(interface.max_data_size(), 5ms, 100ms, 2);
 
     auto data = [&](){return random_bytes(1, interface.max_data_size() * 2);};
     auto addr = [&](){return random(2, 100);};
 
-    EXPECT_EQ(test_handler(interface, handler, 1000, data, addr, 25), 1000);
+    EXPECT_EQ(test_handler(interface, handler, 500, data, addr, 25), 500);
 }
 
 
