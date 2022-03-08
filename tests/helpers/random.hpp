@@ -8,9 +8,14 @@ uint random(uint from, uint to)
     return from + (std::rand() % (to - from + 1));
 }
 
-bool chance(uint percent)
+/* bool chance(uint percent)
 {
     return random(1, 100) <= percent;
+} */
+
+bool chance(double percent)
+{
+    return ((std::rand() * 1.0) / (RAND_MAX / 100.0)) < percent;
 }
 
 sp::byte random_byte()
