@@ -440,21 +440,21 @@ TEST(Interface, CorruptedSequential)
 TEST(Interface, CorruptedRandom)
 {
     sp::loopback_interface interface(0, 1, 10, 64, 256, [](sp::byte b){
-        if (chance(1)) b |= random_byte();
+        if (chance(0.5)) b |= random_byte();
         return b;
     });
 
     auto data = [&](){return random_bytes(1, interface.max_data_size());};
     auto addr = [&](){return random(2, 100);};
 
-    EXPECT_TRUE(test_interface(interface, 100000, data, addr) > 0);
+    EXPECT_TRUE(test_interface(interface, 10000, data, addr) > 0);
 }
 
 
 TEST(Interface, HeavilyCorruptedRandom)
 {
     sp::loopback_interface interface(0, 1, 10, 64, 256, [](sp::byte b){
-        if (chance(5)) b |= random_byte();
+        if (chance(2)) b |= random_byte();
         return b;
     });
 
@@ -464,7 +464,7 @@ TEST(Interface, HeavilyCorruptedRandom)
     auto data = [&](){return random_bytes(1, interface.max_data_size());};
     auto addr = [&](){return random(2, 100);};
 
-    EXPECT_TRUE(test_interface(interface, 100000, data, addr) > 0);
+    EXPECT_TRUE(test_interface(interface, 10000, data, addr) > 0);
 }
 
 
@@ -477,7 +477,7 @@ TEST(Fragmentation, Transfer)
     
     // MODE 1
     sp::headers::fragment_header_8b16b h(sp::headers::fragment_header_8b16b::message_types::PACKET, 0, 4, 1);
-    sp::fragmentation_handler::transfer p(h, &handler);
+    sp::transfer p(h, &handler);
 
     sp::bytes bc;
     sp::bytes::size_type i;
@@ -516,7 +516,7 @@ TEST(Fragmentation, Transfer)
 uint test_handler(sp::interface & interface, sp::fragmentation_handler & handler, uint loops, 
     function<sp::bytes(void)> data_gen, function<sp::interface::address_type(void)> addr_gen, uint runs = 5)
 {
-    map<sp::fragmentation_handler::transfer::id_type, tuple<sp::bytes, uint>> check;
+    map<sp::transfer::id_type, tuple<sp::bytes, uint>> check;
     sp::bytes tmp;
     uint i = 0, received = 0;
 
@@ -524,7 +524,7 @@ uint test_handler(sp::interface & interface, sp::fragmentation_handler & handler
     handler.transmit_event.subscribe(&sp::loopback_interface::write_noexcept, 
         reinterpret_cast<sp::interface*>(&interface));
 
-    handler.transfer_receive_event.subscribe([&](sp::fragmentation_handler::transfer t){
+    handler.transfer_receive_event.subscribe([&](sp::transfer t){
 #ifdef SP_FRAGMENTATION_DEBUG
         cout << "receive_event: " << t << endl;
 #endif
@@ -578,7 +578,7 @@ uint test_handler(sp::interface & interface, sp::fragmentation_handler & handler
 TEST(Fragmentation, UnalteredRandom)
 {
     sp::loopback_interface interface(0, 1, 10, 32, 256);
-    sp::fragmentation_handler handler(interface.max_data_size(), 5ms, 100ms, 2);
+    sp::fragmentation_handler handler(interface.max_data_size(), 10ms, 100ms, 2);
 
     auto data = [&](){return random_bytes(1, interface.max_data_size() * 2);};
     auto addr = [&](){return random(2, 100);};
@@ -589,10 +589,10 @@ TEST(Fragmentation, UnalteredRandom)
 TEST(Fragmentation, CorruptedRandom)
 {
     sp::loopback_interface interface(0, 1, 10, 32, 256, [](sp::byte b){
-        if (chance(1)) b |= random_byte();
+        if (chance(0.5)) b |= random_byte();
         return b;
     });
-    sp::fragmentation_handler handler(interface.max_data_size(), 5ms, 100ms, 2);
+    sp::fragmentation_handler handler(interface.max_data_size(), 10ms, 100ms, 5);
 
     auto data = [&](){return random_bytes(1, interface.max_data_size() * 2);};
     auto addr = [&](){return random(2, 100);};

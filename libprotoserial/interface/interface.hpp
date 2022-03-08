@@ -119,15 +119,37 @@ namespace sp
             const char * what () const throw () {return "not_writable";}
         };
 
+        class packet_metadata
+        {
+            public:
+            using address_type = interface::address_type;
+
+            packet_metadata(address_type src, address_type dst, const interface *i, clock::time_point timestamp_creation):
+                _timestamp_creation(timestamp_creation), _interface(i), _source(src), _destination(dst) {}
+
+            constexpr clock::time_point timestamp_creation() const {return _timestamp_creation;}
+            constexpr const interface* get_interface() const noexcept {return _interface;}
+            constexpr address_type source() const noexcept {return _source;}
+            constexpr address_type destination() const noexcept {return _destination;}
+
+            void set_destination(address_type dst) {_destination = dst;}
+
+            protected:
+            clock::time_point _timestamp_creation;
+            const sp::interface *_interface;
+            address_type _source, _destination;
+        };
+
         /* interface packet representation */
-        class packet
+        class packet : public packet_metadata
         {
             public:
 
             typedef bytes   data_type;
 
             packet(address_type src, address_type dst, data_type && d, const sp::interface *i) :
-                _data(d), _timestamp(clock::now()), _interface(i), _source(src), _destination(dst) {}
+                //_data(d), _timestamp_creation(clock::now()), _interface(i), _source(src), _destination(dst) {}
+                _data(std::move(d)), packet_metadata(src, dst, i, clock::now()) {}
 
             /* this object can be passed to the interface::write() function */
             packet(address_type dst, data_type && d) :
@@ -136,12 +158,6 @@ namespace sp
             packet():
                 packet(0, data_type()) {}
             
-            //packet():packet(0, 0, bytes(), nullptr) {}
-
-            constexpr clock::time_point timestamp() const noexcept {return _timestamp;}
-            constexpr const interface* get_interface() const noexcept {return _interface;}
-            constexpr address_type source() const noexcept {return _source;}
-            constexpr address_type destination() const noexcept {return _destination;}
             constexpr const data_type& data() const noexcept {return _data;}
             constexpr data_type& data() noexcept {return _data;}
             constexpr void _complete(address_type src, const sp::interface *i) {_source = src; _interface = i;}
@@ -149,11 +165,8 @@ namespace sp
             constexpr bool carries_information() const {return _data && _destination;}
             constexpr explicit operator bool() const {return carries_information();}
 
-            private:
+            protected:
             data_type _data;
-            clock::time_point _timestamp;
-            const sp::interface *_interface;
-            address_type _source, _destination;
         };
         
         
