@@ -16,8 +16,12 @@
 #ifndef _SP_FRAGMENTATION_HANDLER
 #define _SP_FRAGMENTATION_HANDLER
 
+#include "libprotoserial/interface/parsers.hpp"
 #include "libprotoserial/interface.hpp"
+
 #include "libprotoserial/clock.hpp"
+
+#include "libprotoserial/fragmentation/headers.hpp"
 #include "libprotoserial/fragmentation/transfer.hpp"
 
 #include <iostream>
@@ -29,7 +33,7 @@
 
 
 #ifdef SP_FRAGMENTATION_DEBUG
-define(SP_FRAGMENTATION_WARNING)
+#define SP_FRAGMENTATION_WARNING
 #endif
 
 namespace sp
