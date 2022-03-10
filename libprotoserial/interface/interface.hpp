@@ -162,8 +162,8 @@ namespace sp
             constexpr data_type& data() noexcept {return _data;}
             constexpr void _complete(address_type src, const sp::interface *i) {_source = src; _interface = i;}
             
-            constexpr bool carries_information() const {return _data && _destination;}
-            constexpr explicit operator bool() const {return carries_information();}
+            bool carries_information() const {return _data && _destination;}
+            explicit operator bool() const {return carries_information();}
 
             protected:
             data_type _data;
