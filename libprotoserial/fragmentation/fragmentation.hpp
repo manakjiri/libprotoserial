@@ -279,6 +279,7 @@ namespace sp
 
         void print_debug() const
         {
+#ifndef SP_NO_IOSTREAM
             std::cout << "incoming_transfers: " << _incoming_transfers.size() << std::endl;
             for (const auto & t : _incoming_transfers)
                 std::cout << t.tr << std::endl;
@@ -286,6 +287,7 @@ namespace sp
             std::cout << "outgoing_transfers: " << _outgoing_transfers.size() << std::endl;
             for (const auto & t : _outgoing_transfers)
                 std::cout << t.tr << std::endl;
+#endif
         }
 
         //const interface * get_interface() const {return _interface;}
