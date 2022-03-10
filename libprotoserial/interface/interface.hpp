@@ -29,7 +29,7 @@
  * 
  * it would be nice to somehow ignore packets that are not meant for us, 
  * which can be done if the address class exposes how long the address 
- * should be and then vets tha packet. But we cannot necesarly stop 
+ * should be and then vets tha packet. But we cannot necessarily stop 
  * listening as soon as we figure this out, because we need to catch the 
  * end of the packet + it may be useful to have a callback with packets 
  * that were not meant to us, but someone may be interrested for debuging
@@ -62,7 +62,7 @@
  * 
  * so it should also expose
  * - write(packet[, callback?]) a potentially blocking call
- * - writable() or something similiar
+ * - writable() or something similar
  * 
  * 
  * Let's think again... Some interfaces are, as we said, easier to handle,
@@ -149,7 +149,7 @@ namespace sp
 
             packet(address_type src, address_type dst, data_type && d, const sp::interface *i) :
                 //_data(d), _timestamp_creation(clock::now()), _interface(i), _source(src), _destination(dst) {}
-                _data(std::move(d)), packet_metadata(src, dst, i, clock::now()) {}
+                packet_metadata(src, dst, i, clock::now()), _data(std::move(d)) {}
 
             /* this object can be passed to the interface::write() function */
             packet(address_type dst, data_type && d) :

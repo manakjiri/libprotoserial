@@ -76,8 +76,8 @@ namespace sp
         the correct order of interface::packets within this object */
         template<class Header>
         transfer(const Header & h, fragmentation_handler * handler) :
-            _data(h.fragments_total()), transfer_metadata(0, 0, nullptr, clock::now(), clock::now(), 
-            handler, h.get_id(), h.get_prev_id()) {}
+            transfer_metadata(0, 0, nullptr, clock::now(), clock::now(), 
+            handler, h.get_id(), h.get_prev_id()), _data(h.fragments_total()) {}
 
         /* constructor used by the fragmentation_handler in new_transfer */
         transfer(fragmentation_handler * handler, id_type id, id_type prev_id = 0):
