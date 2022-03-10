@@ -24,12 +24,15 @@
 #include "libprotoserial/fragmentation/headers.hpp"
 #include "libprotoserial/fragmentation/transfer.hpp"
 
-#include <iostream>
+#include <memory>
 
+#ifndef SP_NO_IOSTREAM
+#include <iostream>
 /* it is hard to debug someting that happens every 100 transfers using 
  * debugger alone, these enable different levels of debug prints */
 //#define SP_FRAGMENTATION_DEBUG
 //#define SP_FRAGMENTATION_WARNING
+#endif
 
 
 #ifdef SP_FRAGMENTATION_DEBUG

@@ -226,6 +226,7 @@ namespace sp
             return transfer_metadata(*reinterpret_cast<const transfer_metadata*>(this));
         }
 
+#ifndef SP_NO_IOSTREAM
         friend std::ostream& operator<<(std::ostream& os, const transfer & t) 
         {
             os << "dst: " << t.destination() << ", src: " << t.source();
@@ -242,6 +243,7 @@ namespace sp
             if (t) os << *t; else os << "null transfer";
             return os;
         }
+#endif
 
         protected:
 
