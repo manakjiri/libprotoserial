@@ -1,6 +1,7 @@
 
 #include <iostream>
 #include <cstdlib>
+#include <memory>
 
 #include "libprotoserial/interface.hpp"
 

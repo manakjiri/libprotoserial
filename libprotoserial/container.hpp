@@ -16,7 +16,6 @@
 #include <stdexcept>
 #include <algorithm>
 #include <iostream>
-#include <iomanip>
 
 namespace sp
 {
@@ -400,6 +399,7 @@ sp::bytes operator+(const sp::bytes & lhs, const sp::bytes & rhs)
     return b;
 }
 
+#ifndef SP_NO_IOSTREAM
 std::ostream& operator<<(std::ostream& os, const sp::bytes& obj) 
 {
     os << "[ ";
@@ -407,6 +407,7 @@ std::ostream& operator<<(std::ostream& os, const sp::bytes& obj)
         os << (int)obj[i] << ' ';
     return os << ']';
 }
+#endif
 
 
 //sp::dynamic_bytes & operator+ (const sp::dynamic_bytes & lhs, const sp::dynamic_bytes rhs);

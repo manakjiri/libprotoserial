@@ -192,8 +192,10 @@ namespace sp
         {
             //TODO consider avoiding exceptions entirely here
             try {write(std::move(p));}
-            catch(std::exception & e) {std::cout << "write_noexcept: " << e.what() << std::endl;}
+            catch(std::exception & e) {write_failed(e);}
         }
+
+        virtual void write_failed(std::exception & e) {}
 
         /* fills the source address field,
         serializes the provided packet object (which will throw if the packet is malformed)
@@ -274,6 +276,7 @@ bool operator!=(const sp::interface::packet & lhs, const sp::interface::packet &
     return !(lhs == rhs);
 }
 
+#ifndef SP_NO_IOSTREAM
 std::ostream& operator<<(std::ostream& os, const sp::interface::packet& p) 
 {
     os << "dst: " << p.destination() << ", src: " << p.source();
@@ -281,6 +284,7 @@ std::ostream& operator<<(std::ostream& os, const sp::interface::packet& p)
     os << ", " << p.data();
     return os;
 }
+#endif
 
 
 #endif

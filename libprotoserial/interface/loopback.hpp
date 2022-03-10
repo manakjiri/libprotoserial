@@ -5,7 +5,14 @@
 #include "libprotoserial/interface/buffered.hpp"
 #include "libprotoserial/interface/parsers.hpp"
 
+#ifndef SP_NO_IOSTREAM
 //#define SP_LOOPBACK_DEBUG
+//#define SP_LOOPBACK_WARNING
+#endif
+
+#ifdef SP_LOOPBACK_DEBUG
+#define SP_LOOPBACK_WARNING
+#endif
 
 namespace sp
 {
@@ -35,6 +42,12 @@ namespace sp
 
             bytes::size_type max_data_size() const noexcept {return _max_packet_size - sizeof(Header) - sizeof(Footer) - preamble_length;}
             bool can_transmit() noexcept {return true;}
+            void write_failed(std::exception & e) 
+            {
+#ifdef SP_LOOPBACK_WARNING
+                std::cout << "write_failed: " << e.what() << std::endl;
+#endif
+            }
 
             void do_receive() noexcept
             {
@@ -96,7 +109,7 @@ namespace sp
                                     {
                                         /* parsing failed, move by one because there is no need to try and parse this again */
                                         _read = read + 1;
-#ifdef SP_LOOPBACK_DEBUG
+#ifdef SP_LOOPBACK_WARNING
                                         std::cerr << "do_receive parse exception: " << e.what() << '\n';
 #endif
                                     }
@@ -110,7 +123,7 @@ namespace sp
                                     /* once again we just failed the distance check for the whole packet this time, 
                                     we cannot save the read position because the Header check could be wrong as well */
                                     _read = read;
-#ifdef SP_LOOPBACK_DEBUG
+#ifdef SP_LOOPBACK_WARNING
                                     std::cout << "do_receive distance packet" << std::endl;
                                     std::cout << "do_receive returning at: " << _read._current - _read._begin << " of " << _write._current - _write._begin << std::endl;
 #endif
@@ -122,7 +135,7 @@ namespace sp
                                 /* we failed the size valid check, so this is either a corrupted Header or it's not a Header
                                 at all, move the read pointer past this and try again */
                                 _read = read = packet_start;
-#ifdef SP_LOOPBACK_DEBUG
+#ifdef SP_LOOPBACK_WARNING
                                 std::cout << "do_receive invalid size: " << _read._current - _read._begin << " of " << _write._current - _write._begin << std::endl;
 #endif
                             }
@@ -132,7 +145,7 @@ namespace sp
                             /* we failed the distance check for the Header, we need to wait for the buffer to fill some more,
                             store the current read position as the global _read so that find returns faster once we come back */
                             _read = read;
-#ifdef SP_LOOPBACK_DEBUG
+#ifdef SP_LOOPBACK_WARNING
                             std::cout << "do_receive distance Header" << std::endl;
                             std::cout << "do_receive returning at: " << _read._current - _read._begin << " of " << _write._current - _write._begin << std::endl;
 #endif
