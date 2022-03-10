@@ -15,7 +15,11 @@
 #include <string>
 #include <stdexcept>
 #include <algorithm>
+
+#ifndef SP_NO_IOSTREAM
 #include <iostream>
+#endif
+
 
 namespace sp
 {
