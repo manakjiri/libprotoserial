@@ -160,6 +160,7 @@ namespace sp
             
             bytes serialize_packet(packet && p) const 
             {
+            	//TODO we can avoid the copy here by calling reserve and hope that the container has enough capacity
                 /* preallocate the container since we know the final size */
                 auto b = bytes(0, 0, preamble_length + sizeof(Header) + p.data().size() + sizeof(Footer));
                 /* preamble */
