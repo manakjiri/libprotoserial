@@ -2,9 +2,12 @@
 #ifndef _SP_INTERFACE_STM32_UART
 #define _SP_INTERFACE_STM32_UART
 
+#include "libprotoserial/libconfig.hpp"
+
 #include "libprotoserial/interface/buffered.hpp"
 #include "libprotoserial/interface/parsers.hpp"
 
+#include <memory>
 
 namespace sp
 {
@@ -23,17 +26,42 @@ namespace stm32
 
 		/* PACKET STRUCTURE: [preamble][preamble][Header][data >= 1][Footer] */
 
-		uart_interface(uint id, interface::address_type address, uint max_queue_size, uint max_packet_size,
-				uint buffer_size, UART_HandleTypeDef * huart) :
+		/* - id should uniquely identify the UART interface on this device
+		 * - address is the interface address, when a packet is received where destination() == address
+		 *   then the receive_event is emitted, otherwise the other_receive_event is emitted
+		 * - max_queue_size sets the maximum number of packets the transmit queue can hold
+		 * - buffer_size sets the size of the receive buffer in bytes
+		 */
+		uart_interface(UART_HandleTypeDef * huart, uint id, interface::address_type address, uint max_queue_size,
+				uint max_packet_size, uint buffer_size) :
 			buffered_interface("uart" + std::to_string(id), address, max_queue_size, buffer_size), _huart(huart),
 			_max_packet_size(max_packet_size), _is_transmitting(false)
 		{
 			_read = get_rx_buffer();
 			_write = get_rx_buffer();
+			next_receive();
 		}
 
 		bytes::size_type max_data_size() const noexcept {return _max_packet_size - sizeof(Header) - sizeof(Footer) - preamble_length;}
 		bool can_transmit() noexcept {return _is_transmitting;}
+
+		void isr_rx_done()
+		{
+			/* the iterator wraps around to the beginning at the end of the buffer */
+			next_receive();
+		}
+
+		void isr_tx_done()
+		{
+			_is_transmitting = false;
+		}
+
+		protected:
+
+		inline void next_receive()
+		{
+			HAL_UART_Receive_IT(_huart, reinterpret_cast<uint8_t*>(&(*(++_write))), 1);
+		}
 
 		void do_receive() noexcept
 		{
@@ -131,28 +159,23 @@ namespace stm32
 
 		bool do_transmit(bytes && buff) noexcept
 		{
+			if (_is_transmitting)
+				return false;
+
 			_is_transmitting = true;
-			HAL_UART_Transmit_IT(_huart, pData, Size)
+			_tx_buffer = std::move(buff);
+			HAL_UART_Transmit_IT(_huart, reinterpret_cast<uint8_t*>(_tx_buffer.data()),
+					_tx_buffer.size());
+
+			return true;
 		}
-
-		void isr_rx(byte b)
-		{
-			/* the iterator wraps around to the beginning at the end of the buffer */
-			*(++_write) = b;
-		}
-
-		void isr_tx_done()
-		{
-			_is_transmitting = false;
-		}
-
-
 
 		private:
-		volatile buffered_interface::circular_iterator _write;
+		buffered_interface::circular_iterator _write;
 		buffered_interface::circular_iterator _read;
+		bytes _tx_buffer;
 		UART_HandleTypeDef * _huart;
-		uint _max_packet_size = 0;
+		uint _max_packet_size;
 		volatile bool _is_transmitting;
 	};
 }

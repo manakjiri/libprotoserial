@@ -12,6 +12,12 @@ namespace sp
         {
             public:
             
+        	/* - name should uniquely identify the interface on this device
+			 * - address is the interface address, when a packet is received where destination() == address
+			 *   then the receive_event is emitted, otherwise the other_receive_event is emitted
+			 * - max_queue_size sets the maximum number of packets the transmit queue can hold
+			 * - buffer_size sets the size of the receive buffer in bytes
+			 */
             buffered_interface(std::string name, address_type address, uint max_queue_size, uint buffer_size):
                 interface(name, address, max_queue_size), _rx_buffer(buffer_size) {}
 
@@ -28,7 +34,7 @@ namespace sp
                 circular_iterator(bytes::iterator begin, bytes::iterator end, bytes::iterator start) : 
                     _begin(begin), _end(end), _current(start) {}
 
-                circular_iterator(const bytes & buff, bytes::iterator start) : 
+                circular_iterator(bytes & buff, bytes::iterator start) :
                     circular_iterator(buff.begin(), buff.end(), start) {}
 
                 circular_iterator():

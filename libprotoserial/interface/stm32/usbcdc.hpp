@@ -36,7 +36,6 @@ namespace stm32
 
 		bytes serialize_packet(packet && p) const
 		{
-			if (p.data().size() > max_data_size()) throw data_too_long();
 			/* preallocate the container since we know the final size */
 			auto b = bytes(0, 0, sizeof(header) + p.data().size() + sizeof(footer));
 			/* header */

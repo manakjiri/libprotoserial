@@ -2,13 +2,10 @@
 #ifndef _SP_CLOCK
 #define _SP_CLOCK
 
+#include "libprotoserial/libconfig.hpp"
+
 #include <chrono>
 #include <cstdint>
-
-#ifdef STM32L0
-#include "stm32l0xx_hal.h"
-#define SP_STM32
-#endif
 
 namespace sp
 {
