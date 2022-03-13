@@ -190,7 +190,11 @@ namespace sp
             data_type _data;
         };
         
-        
+        /* - name should uniquely identify the interface on this device
+         * - address is the interface address, when a packet is received where destination() == address
+         *   then the receive_event is emitted, otherwise the other_receive_event is emitted
+         * - max_queue_size sets the maximum number of packets the transmit queue can hold
+         */
         interface(std::string name, address_type address, uint max_queue_size) : 
             _max_queue_size(max_queue_size), _name(name), _address(address) {}
         

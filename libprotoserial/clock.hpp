@@ -22,12 +22,14 @@
 #ifndef _SP_CLOCK
 #define _SP_CLOCK
 
+#include "libprotoserial/libconfig.hpp"
+
 #include <chrono>
 #include <cstdint>
 
 namespace sp
 {
-#ifdef STM32
+#ifdef SP_STM32
 
     struct clock
     {  
@@ -46,7 +48,7 @@ namespace sp
 
         static time_point now() noexcept
         {
-            return time_point{duration{"asm to read timer register"}};
+            return time_point{duration{HAL_GetTick()}};
         }
     };
 
