@@ -176,7 +176,7 @@ TEST(Bytes, Expand)
     vb.push_back(std::make_unique<sp::bytes>(2, 3, 0));
     vb.push_back(std::make_unique<sp::bytes>(0, 3, 2));
     vb.push_back(std::make_unique<sp::bytes>(2, 3, 2));
-    sp::bytes::pointer pb3 = vb.at(3)->_base();
+    sp::bytes::pointer pb3 = vb.at(3)->get_base();
 
     for (auto& b : vb)
     {
@@ -200,7 +200,7 @@ TEST(Bytes, Expand)
         EXPECT_TRUE(*b == bc) << "should be: " << bc << " is: " << *b;
     }
 
-    EXPECT_TRUE(pb3 == vb.at(3)->_base()) << "at(3) should not relocate";
+    EXPECT_TRUE(pb3 == vb.at(3)->get_base()) << "at(3) should not relocate";
 
     sp::bytes b1, bc;
     b1.expand(1, 0);

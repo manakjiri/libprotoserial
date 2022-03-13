@@ -36,6 +36,7 @@
 #include <string>
 #include <stdexcept>
 #include <algorithm>
+#include <memory>
 
 #ifndef SP_NO_IOSTREAM
 #include <iostream>
@@ -141,18 +142,18 @@ namespace sp
         /* move */
         bytes(bytes && other)
         {
-            _data = other._base();
+            _data = other.get_base();
             _length = other.size();
-            _offset = other._shift();
+            _offset = other.get_offset();
             _capacity = other.capacity();
             other._init();
         }
         bytes & operator= (bytes && other)
         {
             clear();
-            _data = other._base();
+            _data = other.get_base();
             _length = other.size();
-            _offset = other._shift();
+            _offset = other.get_offset();
             _capacity = other.capacity();
             other._init();
             return *this;
@@ -228,20 +229,20 @@ namespace sp
                 return;
 
             /* keep reference to the old buffer since we need to reallocate it */
-            //std::unique_ptr<value_type> old_base(_data);
-            pointer old_base = _data;
+            //std::unique_ptr<value_type> oldget_base(_data);
+            pointer oldget_base = _data;
             
             /* allocate the new data buffer and update the capacity so it refelects this */
             _capacity = front + _length + back;
             alloc(_capacity);
 
-            if (old_base)
+            if (oldget_base)
             {
                 /* copy the original data */
                 for (size_type i = 0; i < _length; i++)
-                    _data[i + front] = old_base[i + _offset];
+                    _data[i + front] = oldget_base[i + _offset];
 
-                delete[] old_base;
+                delete[] oldget_base;
             }
 
             /* finally update the offset because we no longer need the old value */
@@ -342,6 +343,15 @@ namespace sp
             
             _init();
         }
+        /* releases the internally stored data buffer, use the get_offset function before calling
+        this one in case capacity != size to obtain the the offset index, which indicates the 
+        length of preallocated front */
+        pointer release()
+        {
+            pointer ret = _data;
+            _init();
+            return ret;
+        }
         
         /* used internally for move, do not use otherwise */
         void _init()
@@ -353,10 +363,10 @@ namespace sp
         }
         /* returns the number of actually allocated bytes */
         size_type capacity() const {return _capacity;}
-        size_type _shift() const {return _offset;}
-        size_type _back() const {return _capacity - _offset - _length;}
+        size_type get_offset() const {return _offset;}
         /* returns pointer to the beggining of the data */
-        pointer _base() const {return _data;}
+        pointer get_base() const {return _data;}
+        size_type _back() const {return _capacity - _offset - _length;}
 
 
         
