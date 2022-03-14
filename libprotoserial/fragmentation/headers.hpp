@@ -28,7 +28,7 @@ namespace sp
 {
     namespace headers
     {
-        struct __attribute__ ((__packed__)) fragment_header_8b16b
+        struct __attribute__ ((__packed__)) fragment_8b16b
         {
             typedef std::uint8_t         index_type;
             typedef std::uint16_t        id_type;
@@ -41,8 +41,8 @@ namespace sp
                 PACKET_REQ,
             };
 
-            fragment_header_8b16b() = default;
-            fragment_header_8b16b(message_types type, index_type fragment, index_type fragments_total, id_type id, id_type prev_id = 0):
+            fragment_8b16b() = default;
+            fragment_8b16b(message_types type, index_type fragment, index_type fragments_total, id_type id, id_type prev_id = 0):
                 _type(type), _fragment(fragment), _fragments_total(fragments_total), _id(id), _prev_id(prev_id)
             {
                 _check = (byte)(_type + _fragment + _fragments_total + _id + _prev_id);

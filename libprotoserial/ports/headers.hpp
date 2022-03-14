@@ -19,21 +19,39 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/gpl.html>
  */
 
-#ifndef _SP_INTERFACE_LOOPBACK
-#define _SP_INTERFACE_LOOPBACK
+#ifndef _SP_PORTS_HEADERS
+#define _SP_PORTS_HEADERS
+
+#include "libprotoserial/byte.hpp"
+
+#include <cstdint>
 
 namespace sp
 {
-namespace detail
-{
-namespace stm32
-{
+    namespace headers
+    {
+        struct __attribute__ ((__packed__)) ports_8b
+        {
+            typedef std::uint8_t        port_type;
 
-//TODO internal interrupt management
+            port_type destination = 0;
+            port_type source = 0;
+            byte check = (byte)0;
 
+            ports_8b() = default;
+            ports_8b(port_type dst, port_type src):
+                destination(dst), source(src)
+            {
+                check = (byte)(destination + source);
+            }
 
+            bool is_valid() const 
+            {
+                return check == (byte)(destination + source) && destination != source 
+                    && destination && source;
+            }
+        };
+    }
 }
-}
-} // namespace sp
 
 #endif

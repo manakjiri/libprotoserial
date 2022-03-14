@@ -28,7 +28,7 @@ namespace sp
 {
     namespace headers
     {
-        struct __attribute__ ((__packed__)) interface_header_8b8b
+        struct __attribute__ ((__packed__)) interface_8b8b
         {
             typedef std::uint8_t        address_type;
             typedef std::uint8_t        size_type;
@@ -38,8 +38,8 @@ namespace sp
             size_type size = 0;
             byte check = (byte)0;
 
-            interface_header_8b8b() = default;
-            interface_header_8b8b(const interface::packet & p):
+            interface_8b8b() = default;
+            interface_8b8b(const interface::packet & p):
                 destination(p.destination()), source(p.source()), size(p.data().size())
             {
                 check = (byte)(destination + source + size);

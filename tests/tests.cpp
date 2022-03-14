@@ -476,7 +476,7 @@ TEST(Fragmentation, Transfer)
     sp::fragmentation_handler handler(interface.max_data_size(), 100ms, 10ms, 2);
     
     // MODE 1
-    sp::headers::fragment_header_8b16b h(sp::headers::fragment_header_8b16b::message_types::PACKET, 0, 4, 1);
+    sp::headers::fragment_8b16b h(sp::headers::fragment_8b16b::message_types::PACKET, 0, 4, 1);
     sp::transfer p(h, &handler);
 
     sp::bytes bc;

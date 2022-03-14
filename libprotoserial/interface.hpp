@@ -36,9 +36,9 @@
 namespace sp
 {
     class loopback_interface : 
-        public detail::loopback_interface<sp::headers::interface_header_8b8b, sp::footers::footer_crc32> 
+        public detail::loopback_interface<sp::headers::interface_8b8b, sp::footers::crc32> 
     {
-        using detail::loopback_interface<sp::headers::interface_header_8b8b, sp::footers::footer_crc32>::loopback_interface;
+        using detail::loopback_interface<sp::headers::interface_8b8b, sp::footers::crc32>::loopback_interface;
     };
 
 
@@ -48,9 +48,9 @@ namespace sp
 
 #ifdef SP_EMBEDDED
     class uart_interface:
-    	public device::uart_interface<sp::headers::interface_header_8b8b, sp::footers::footer_crc32>
+    	public device::uart_interface<sp::headers::interface_8b8b, sp::footers::crc32>
     {
-    	using device::uart_interface<sp::headers::interface_header_8b8b, sp::footers::footer_crc32>::uart_interface;
+    	using device::uart_interface<sp::headers::interface_8b8b, sp::footers::crc32>::uart_interface;
     };
 #endif
 
