@@ -148,6 +148,11 @@ namespace sp
             packet_metadata(address_type src, address_type dst, const interface *i, clock::time_point timestamp_creation):
                 _timestamp_creation(timestamp_creation), _interface(i), _source(src), _destination(dst) {}
 
+            packet_metadata(const packet_metadata &) = default;
+            packet_metadata(packet_metadata &&) = default;
+            packet_metadata & operator=(const packet_metadata &) = default;
+            packet_metadata & operator=(packet_metadata &&) = default;
+
             constexpr clock::time_point timestamp_creation() const {return _timestamp_creation;}
             constexpr const interface* get_interface() const noexcept {return _interface;}
             constexpr address_type source() const noexcept {return _source;}
@@ -178,6 +183,11 @@ namespace sp
 
             packet():
                 packet(0, data_type()) {}
+
+            packet(const packet &) = default;
+            packet(packet &&) = default;
+            packet & operator=(const packet &) = default;
+            packet & operator=(packet &&) = default;
             
             constexpr const data_type& data() const noexcept {return _data;}
             constexpr data_type& data() noexcept {return _data;}

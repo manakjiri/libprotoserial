@@ -46,6 +46,11 @@ namespace sp
                 interface::packet_metadata(src, dst, i, timestamp_creation), _timestamp_modified(timestamp_modified),
                 _handler(handler), _id(id), _prev_id(prev_id) {}
 
+        transfer_metadata(const transfer_metadata &) = default;
+        transfer_metadata(transfer_metadata &&) = default;
+        transfer_metadata & operator=(const transfer_metadata &) = default;
+        transfer_metadata & operator=(transfer_metadata &&) = default;
+
         /* the packet id is used to uniquely identify a packet transfer together with the destination and source
         addresses and the interface name. It is issued by the transmittee of the packet */
         id_type get_id() const {return _id;}
@@ -106,6 +111,10 @@ namespace sp
             transfer_metadata(0, 0, nullptr, clock::now(), clock::now(), handler, id, prev_id),
             _hidden_front(0) {}
 
+        transfer(const transfer &) = default;
+        transfer(transfer &&) = default;
+        transfer & operator=(const transfer &) = default;
+        transfer & operator=(transfer &&) = default;
         
         /* expose the internal data, used in fragmentation_handler and data_iterator */
         auto _begin() {return _data.begin();}
@@ -179,6 +188,11 @@ namespace sp
                         _ipacket_data = nullptr;
                 }
             }
+
+            data_iterator(const data_iterator &) = default;
+            data_iterator(data_iterator &&) = default;
+            data_iterator & operator=(const data_iterator &) = default;
+            data_iterator & operator=(data_iterator &&) = default;
 
             reference operator*() const { return *_ipacket_data; }
             pointer operator->() const { return _ipacket_data; }

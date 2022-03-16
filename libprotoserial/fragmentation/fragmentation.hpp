@@ -70,6 +70,7 @@ namespace sp
         struct transfer_wrapper : public transfer
         {
             using transfer::transfer;
+            using transfer::operator=;
 
             transfer_wrapper(transfer && t) :
                 transfer(std::move(t)) {}

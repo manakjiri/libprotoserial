@@ -61,6 +61,11 @@ namespace sp
                 circular_iterator():
                     circular_iterator(nullptr, nullptr, nullptr) {}
 
+                circular_iterator(const circular_iterator &) = default;
+                circular_iterator(circular_iterator &&) = default;
+                circular_iterator & operator=(const circular_iterator &) = default;
+                circular_iterator & operator=(circular_iterator &&) = default;
+
                 reference operator*() const { return *_current; }
                 pointer operator->() { return _current; }
 
