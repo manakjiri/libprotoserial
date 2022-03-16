@@ -99,12 +99,12 @@ namespace sp
         template<class Header>
         transfer(const Header & h, fragmentation_handler * handler) :
             transfer_metadata(0, 0, nullptr, clock::now(), clock::now(), 
-            handler, h.get_id(), h.get_prev_id()), _hide_front(0), _data(h.fragments_total()) {}
+            handler, h.get_id(), h.get_prev_id()), _hidden_front(0), _data(h.fragments_total()) {}
 
         /* constructor used by the fragmentation_handler in new_transfer */
         transfer(fragmentation_handler * handler, id_type id, id_type prev_id = 0):
             transfer_metadata(0, 0, nullptr, clock::now(), clock::now(), handler, id, prev_id),
-            _hide_front(0) {}
+            _hidden_front(0) {}
 
         
         /* expose the internal data, used in fragmentation_handler and data_iterator */
