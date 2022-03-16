@@ -171,7 +171,7 @@ namespace sp
             {
                 /* copy the header from the packet data after some obvious sanity checks, discard 
                 the header from packet's data afterward */
-                auto h = parsers::byte_copy<Header>(p.data().begin(), p.data().begin() + sizeof(Header));
+                auto h = parsers::byte_copy<Header>(p.data().begin());
                 if (h.is_valid())
                 {
                     p.data().shrink(sizeof(Header), 0);
@@ -310,7 +310,12 @@ namespace sp
 #endif
         }
 
-        //const interface * get_interface() const {return _interface;}
+        /* shortcut for event subscribe */
+        void bind_to(interface & l)
+        {
+            l.receive_event.subscribe(&fragmentation_handler::receive_callback, this);
+            transmit_event.subscribe(&interface::write_noexcept, &l);
+        }
 
         /* fires when the handler wants to transmit a packet, complemented by receive_callback */
         subject<interface::packet> transmit_event;

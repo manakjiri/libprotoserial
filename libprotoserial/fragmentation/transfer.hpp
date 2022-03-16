@@ -34,6 +34,8 @@ namespace sp
     {
         public:
 
+        using data_type = interface::packet::data_type;
+
         /* as with interface::address_type this is a type that can hold all used 
         fragmentation_handler::id_type types */
         using id_type = uint;
@@ -97,11 +99,12 @@ namespace sp
         template<class Header>
         transfer(const Header & h, fragmentation_handler * handler) :
             transfer_metadata(0, 0, nullptr, clock::now(), clock::now(), 
-            handler, h.get_id(), h.get_prev_id()), _data(h.fragments_total()) {}
+            handler, h.get_id(), h.get_prev_id()), _hide_front(0), _data(h.fragments_total()) {}
 
         /* constructor used by the fragmentation_handler in new_transfer */
         transfer(fragmentation_handler * handler, id_type id, id_type prev_id = 0):
-            transfer_metadata(0, 0, nullptr, clock::now(), clock::now(), handler, id, prev_id) {}
+            transfer_metadata(0, 0, nullptr, clock::now(), clock::now(), handler, id, prev_id),
+            _hide_front(0) {}
 
         
         /* expose the internal data, used in fragmentation_handler and data_iterator */
@@ -127,13 +130,23 @@ namespace sp
         //auto _at(size_t pos) const {return _data.at(pos);}
         //auto _size() const {return _data.size();}
 
+        void push_back(const bytes & b) {refresh(); _data.push_back(b);}
+        void push_back(bytes && b) {refresh(); _data.push_back(std::move(b));}
+        void push_front(const bytes & b) {refresh(); _data.insert(_data.begin(), b);}
+        void push_front(bytes && b) {refresh(); _data.insert(_data.begin(), std::move(b));}
+        /* this hides the first `length` bytes, so that data_begin() does not actually return
+        the beggining of the internal data but rather the first visible byte, used for removing 
+        headers without copying */
+        void data_hide_front(data_type::size_type length) {_hidden_front = length;}
+        auto data_hidden_front() const {return _hidden_front;}
+
         struct data_iterator
         {
             using iterator_category = std::forward_iterator_tag;
-            using difference_type   = interface::packet::data_type::difference_type;
-            using value_type        = interface::packet::data_type::value_type;
-            using pointer           = interface::packet::data_type::const_pointer; 
-            using reference         = interface::packet::data_type::const_reference;
+            using difference_type   = data_type::difference_type;
+            using value_type        = data_type::value_type;
+            using pointer           = data_type::const_pointer; 
+            using reference         = data_type::const_reference;
 
             data_iterator(const transfer * p, bool is_begin) : 
                 _packet(p) 
@@ -153,6 +166,8 @@ namespace sp
                     }
                     else
                         _ipacket_data = nullptr;
+
+                    operator+=(_packet->data_hidden_front());
                 }
                 else
                 {
@@ -212,8 +227,8 @@ namespace sp
             private:
             //TODO rename
             const transfer * _packet;
-            std::vector<interface::packet::data_type>::const_iterator _ipacket;
-            interface::packet::data_type::const_iterator _ipacket_data;
+            std::vector<data_type>::const_iterator _ipacket;
+            data_type::const_iterator _ipacket_data;
         };
 
         /* data_iterator exposes the potentially fragmented internally stored data as contiguous */
@@ -235,11 +250,6 @@ namespace sp
             for (auto it = _begin(); it != _end(); ++it) b.push_back(*it);
             return b;
         }
-        
-        void push_back(const bytes & b) {refresh(); _data.push_back(b);}
-        void push_back(bytes && b) {refresh(); _data.push_back(std::move(b));}
-        void push_front(const bytes & b) {refresh(); _data.insert(_data.begin(), b);}
-        void push_front(bytes && b) {refresh(); _data.insert(_data.begin(), std::move(b));}
 
         transfer_metadata get_metadata() const 
         {
@@ -276,8 +286,9 @@ namespace sp
             _destination = p.destination();
             _interface = p.get_interface();
         }
-
-        std::vector<interface::packet::data_type> _data;
+        
+        data_type::size_type _hidden_front;
+        std::vector<data_type> _data;
     };
 }
 

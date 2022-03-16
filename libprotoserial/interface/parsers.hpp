@@ -80,6 +80,16 @@ namespace sp
                 reinterpret_cast<byte*>(&t)[pos] = *it;
             return t;
         }
+        /* iterator needs to be able to increment at least sizeof(Target) times */
+        template<typename Target, typename Iterator>
+        Target byte_copy(const Iterator & start)
+        {
+            Target t;
+            Iterator it = start;
+            for (uint pos = 0; pos < sizeof(t); ++it, ++pos)
+                reinterpret_cast<byte*>(&t)[pos] = *it;
+            return t;
+        }
         bytes byte_copy(const detail::buffered_interface::circular_iterator & start, 
             const detail::buffered_interface::circular_iterator & end)
         {

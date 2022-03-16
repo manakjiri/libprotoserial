@@ -29,6 +29,11 @@
 #define _SP_PORTS_PORTS
 
 #include "libprotoserial/fragmentation.hpp"
+#include "libprotoserial/ports/headers.hpp"
+
+#include <list>
+#include <algorithm>
+#include <stdexcept>
 
 #ifndef SP_NO_IOSTREAM
 #include <iostream>
@@ -45,18 +50,36 @@
 
 namespace sp
 {
-    class service
+    class port_service
     {
 
     };
 
-    template<class Header>
+    struct already_registered : std::exception {
+        const char * what () const throw () {return "already_registered";}
+    };
+
     class ports_handler
     {
-
         public:
         
+        using Header = headers::ports_8b;
         using port_type = typename Header::port_type;
+
+        private:
+
+        struct port_wrapper
+        {
+            port_wrapper(port_type p, port_service * s) :
+                port(p), service(s) {}
+
+            port_type port; 
+            port_service * service;
+        };
+
+        std::list<port_wrapper> _registered;
+
+        public:
 
         /* fires when the ports_handler wants to transmit a transfer, 
         complemented by transfer_receive_callback */
@@ -66,13 +89,41 @@ namespace sp
         complemented by transfer_transmit_event */
         void transfer_receive_callback(transfer t)
         {
+            if (t.data_size() >= sizeof(Header))
+            {
+                Header h = parsers::byte_copy<Header>(t.data_begin());
+                if (h.is_valid())
+                {
+                    t.data_hide_front(sizeof(Header));
+                    
+                }
+            }
+        }
+
+        /* this should subscribe to transfer_ack_event of the layer below this */
+        void transfer_ack_callback(transfer_metadata tm)
+        {
 
         }
 
-
-        void register_port( service * s)
+        /* shortcut for event subscribe for the layer below */
+        void bind_to(fragmentation_handler & l)
         {
+            l.transfer_receive_event.subscribe(&ports_handler::transfer_receive_callback, this);
+            l.transfer_ack_event.subscribe(&ports_handler::transfer_ack_callback, this);
+            transfer_transmit_event.subscribe(fragmentation_handler::transmit, &l);
+        }
 
+
+        void register_port(port_type p, port_service * s)
+        {
+            auto i = std::find_if(_registered.begin(), _registered.end(), [&](const auto & pw){
+                return pw.port == p;
+            });
+            if (i != _registered.end())
+                throw already_registered();
+
+            auto & pw = _registered.emplace_back(p, s);
         }
 
     };
