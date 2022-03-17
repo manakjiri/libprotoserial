@@ -122,9 +122,6 @@ namespace sp
     class interface
     {
         public:
-        /* an integer that can hold any used device address, the actual address format 
-        is interface specific, address 0 is reserved internally and should never appear 
-        in a fragment */
         using address_type = fragment::address_type;
 
         struct bad_data : std::exception {

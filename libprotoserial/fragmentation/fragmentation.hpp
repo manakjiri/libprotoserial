@@ -62,7 +62,8 @@ namespace sp
 
         using Header = headers::fragment_8b16b;
         using types = Header::message_types;
-        using index_type = Header::index_type;
+        using index_type = transfer::index_type;
+        using id_type = transfer::id_type;
         using size_type = fragment::data_type::size_type;
 
         private:
@@ -140,7 +141,7 @@ namespace sp
             clock::time_point timestamp_accessed;
             uint retransmitions = 0;
             /* this should always match the tr->get_id() */
-            transfer::id_type id;
+            id_type id;
 
             transfer_progress(transfer_wrapper && t) :
                 tr(std::unique_ptr<transfer_wrapper>(new transfer_wrapper(std::move(t)))), 
@@ -327,7 +328,7 @@ namespace sp
 
         private:
 
-        transfer::id_type new_id()
+        id_type new_id()
         {
             if (++_id_counter == 0) ++_id_counter;
             return _id_counter;
@@ -436,7 +437,7 @@ namespace sp
 
         std::list<transfer_progress> _incoming_transfers, _outgoing_transfers;
         clock::duration _retransmit_time, _drop_time;
-        transfer::id_type _id_counter;
+        id_type _id_counter;
         size_type _max_fragment_size;
         uint _retransmit_multiplier;
     };

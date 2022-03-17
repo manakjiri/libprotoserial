@@ -31,6 +31,7 @@
 #include "libprotoserial/interface/interface.hpp"
 #include "libprotoserial/fragmentation.hpp"
 #include "libprotoserial/ports/headers.hpp"
+#include "libprotoserial/ports/packet.hpp"
 
 #include <list>
 #include <algorithm>
@@ -62,7 +63,7 @@ namespace sp
         public:
         
         using Header = headers::ports_8b;
-        using port_type = typename Header::port_type;
+        using port_type = packet::port_type;
 
         struct service_endpoint
         {

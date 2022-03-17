@@ -39,7 +39,7 @@ namespace sp
         };
 
         template<typename header, typename footer>
-        fragment parse_fragment(bytes && buff, const interface * i)
+        fragment parse_fragment(bytes && buff, interface * i)
         {
             bytes b = buff;
             /* copy the header into the header struct */

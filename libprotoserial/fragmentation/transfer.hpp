@@ -30,21 +30,16 @@ namespace sp
 {
     class fragmentation_handler;
 
-    class transfer_metadata : public fragment_metadata
+    struct transfer_metadata : public fragment_metadata
     {
-        public:
-
-        using data_type = fragment::data_type;
-
         /* as with interface::address_type this is a type that can hold all used 
         fragmentation_handler::id_type types */
         using id_type = uint;
         using index_type = uint;
 
-        transfer_metadata(address_type src, address_type dst, const interface * i, clock::time_point timestamp_creation, 
-            clock::time_point timestamp_modified, fragmentation_handler * handler, id_type id, id_type prev_id) :
-                fragment_metadata(src, dst, i, timestamp_creation), _timestamp_modified(timestamp_modified),
-                _handler(handler), _id(id), _prev_id(prev_id) {}
+        transfer_metadata(address_type src, address_type dst, interface * i, time_point timestamp_creation, 
+            id_type id, id_type prev_id) :
+                fragment_metadata(src, dst, i, timestamp_creation), _id(id), _prev_id(prev_id) {}
 
         transfer_metadata(const transfer_metadata &) = default;
         transfer_metadata(transfer_metadata &&) = default;
@@ -55,8 +50,6 @@ namespace sp
         addresses and the interface name. It is issued by the transmittee of the fragment */
         id_type get_id() const {return _id;}
         id_type get_prev_id() const {return _prev_id;}
-        const fragmentation_handler * get_handler() const {return _handler;}
-        clock::time_point timestamp_modified() const {return _timestamp_modified;}
 
         /* checks if p's addresses and interface match the transfer's, this along with id match means that p 
         should be part of this transfer */
@@ -68,8 +61,6 @@ namespace sp
             {return p.source() == destination();}
 
         protected:
-        clock::time_point _timestamp_modified;
-        fragmentation_handler * _handler;
         id_type _id, _prev_id;
     };
 
@@ -93,9 +84,9 @@ namespace sp
         *     property, which is required for transmit, so function the _get_fragment() is used by the 
         *     fragmentation_handler to create fragments that do.
         */
-    class transfer : public transfer_metadata
+    struct transfer : public transfer_metadata
     {
-        public:
+        using data_type = fragment::data_type;
 
         /* constructor used when the fragmentation_handler receives the first piece of the 
         fragment - when new a fragment transfer is initiated by other peer. This initial fragment
@@ -103,13 +94,13 @@ namespace sp
         the correct order of fragments within this object */
         template<class Header>
         transfer(const Header & h, fragmentation_handler * handler) :
-            transfer_metadata(0, 0, nullptr, clock::now(), clock::now(), 
-            handler, h.get_id(), h.get_prev_id()), _hidden_front(0), _data(h.fragments_total()) {}
+            transfer_metadata(0, 0, nullptr, clock::now(), h.get_id(), h.get_prev_id()),
+            _data(h.fragments_total()), _timestamp_modified(clock::now()), _handler(handler) {}
 
         /* constructor used by the fragmentation_handler in new_transfer */
         transfer(fragmentation_handler * handler, id_type id, id_type prev_id = 0):
-            transfer_metadata(0, 0, nullptr, clock::now(), clock::now(), handler, id, prev_id),
-            _hidden_front(0) {}
+            transfer_metadata(0, 0, nullptr, clock::now(), id, prev_id), 
+            _timestamp_modified(clock::now()), _handler(handler) {}
 
         transfer(const transfer &) = default;
         transfer(transfer &&) = default;
@@ -133,16 +124,11 @@ namespace sp
         void _assign(index_type fragment_pos, const fragment & p) {refresh(p); _data.at(fragment_pos - 1) = p.data();}
         void _assign(index_type fragment_pos, fragment && p) {refresh(p); _data.at(fragment_pos - 1) = std::move(p.data());}
 
-        /* expose the internal data, used in fragmentation_handler and data_iterator */
-        //auto _at(size_t pos) {return _data.at(pos);}
-        /* expose the internal data, used in fragmentation_handler and data_iterator */
-        //auto _at(size_t pos) const {return _data.at(pos);}
-        //auto _size() const {return _data.size();}
-
         void push_back(const bytes & b) {refresh(); _data.push_back(b);}
         void push_back(bytes && b) {refresh(); _data.push_back(std::move(b));}
         void push_front(const bytes & b) {refresh(); _data.insert(_data.begin(), b);}
         void push_front(bytes && b) {refresh(); _data.insert(_data.begin(), std::move(b));}
+        
         /* this removes the first byte from the internally stored fragments */
         void remove_first()
         {
@@ -229,7 +215,7 @@ namespace sp
 
             data_iterator& operator+=(uint shift)
             {
-                //FIXME
+                //HACK make more efficient?
                 while (shift > 0)
                 {
                     this->operator++();
@@ -250,7 +236,6 @@ namespace sp
                 { return a._ifragment_data != b._ifragment_data || a._ifragment != b._ifragment; };
 
             private:
-            //TODO rename
             const transfer * _fragment;
             std::vector<data_type>::const_iterator _ifragment;
             data_type::const_iterator _ifragment_data;
@@ -281,14 +266,15 @@ namespace sp
             return transfer_metadata(*reinterpret_cast<const transfer_metadata*>(this));
         }
 
+        fragmentation_handler * get_handler() const {return _handler;}
+        time_point timestamp_modified() const {return _timestamp_modified;}
+
 #ifndef SP_NO_IOSTREAM
         friend std::ostream& operator<<(std::ostream& os, const transfer & t) 
         {
             os << "dst: " << t.destination() << ", src: " << t.source();
             os << ", int: " << (t.get_interface() ? t.get_interface()->name() : "null");
             os << ", id: " << t.get_id() << ", prev_id: " << t.get_prev_id();
-            //auto f = t._fragments_count();
-            //os << ", (" << (f - t._missing_fragments_total()) << '/' << f << ")";
             os << ", " << t.data_contiguous();
             return os;
         }
@@ -302,7 +288,6 @@ namespace sp
 
         protected:
 
-        //TODO
         void refresh() {_timestamp_modified = clock::now();}
         void refresh(const fragment & p)
         {
@@ -311,9 +296,10 @@ namespace sp
             _destination = p.destination();
             _interface = p.get_interface();
         }
-        
-        data_type::size_type _hidden_front;
+
         std::vector<data_type> _data;
+        time_point _timestamp_modified;
+        mutable fragmentation_handler * _handler;
     };
 }
 
