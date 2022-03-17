@@ -143,11 +143,24 @@ namespace sp
         void push_back(bytes && b) {refresh(); _data.push_back(std::move(b));}
         void push_front(const bytes & b) {refresh(); _data.insert(_data.begin(), b);}
         void push_front(bytes && b) {refresh(); _data.insert(_data.begin(), std::move(b));}
-        /* this hides the first `length` bytes, so that data_begin() does not actually return
-        the beggining of the internal data but rather the first visible byte, used for removing 
-        headers without copying */
-        void data_hide_front(data_type::size_type length) {_hidden_front = length;}
-        auto data_hidden_front() const {return _hidden_front;}
+        /* this removes the first byte from the internally stored fragments */
+        void remove_first()
+        {
+            for (auto & c : _data)
+            {
+                if (c)
+                {
+                    c.shrink(1, 0);
+                    break;
+                }
+            }
+        }
+        /* this removes the first n bytes from the internally stored fragments, 
+        useful for hiding headers */
+        void remove_first_n(data_type::size_type n) 
+        {
+            while (n--) remove_first();
+        }
 
         struct data_iterator
         {
@@ -175,8 +188,6 @@ namespace sp
                     }
                     else
                         _ipacket_data = nullptr;
-
-                    operator+=(_packet->data_hidden_front());
                 }
                 else
                 {

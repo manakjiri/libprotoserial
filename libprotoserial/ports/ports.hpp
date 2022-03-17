@@ -28,6 +28,7 @@
 #ifndef _SP_PORTS_PORTS
 #define _SP_PORTS_PORTS
 
+#include "libprotoserial/interface/interface.hpp"
 #include "libprotoserial/fragmentation.hpp"
 #include "libprotoserial/ports/headers.hpp"
 
@@ -50,15 +51,12 @@
 
 namespace sp
 {
-    class port_service
-    {
-
+    struct already_services : std::exception {
+        const char * what () const throw () {return "already_services";}
     };
 
-    struct already_registered : std::exception {
-        const char * what () const throw () {return "already_registered";}
-    };
-
+    /* port handler does not make any assumptions as to what a service looks like, meaning there
+     * is no base class, just the internal service_endpoint, which houses the events and callbacks */
     class ports_handler
     {
         public:
@@ -66,39 +64,83 @@ namespace sp
         using Header = headers::ports_8b;
         using port_type = typename Header::port_type;
 
-        private:
-
-        struct port_wrapper
+        struct service_endpoint
         {
-            port_wrapper(port_type p, port_service * s) :
-                port(p), service(s) {}
+            service_endpoint(port_type p, ports_handler * handler):
+                _port(p), _handler(handler) {}
 
-            port_type port; 
-            port_service * service;
+            /* source port of the transfer, service should subscribe to this 
+            in order to receive transfers */
+            subject<port_type, transfer> transfer_receive_event;
+
+            /* port where to send the provided transfer, service should call this
+            when it wants to transmit a transfer, creating a subject<port_type, transfer>
+            within the service and subscribing using this fuction is recommended */
+            void transfer_transmit_callback(port_type p, transfer t)
+            {
+                _handler->transfer_transmit(_port, p, std::move(t));
+            }
+
+            auto get_port() const {return _port;}
+            
+            private:
+            ports_handler * _handler;
+            port_type _port; 
         };
 
-        std::list<port_wrapper> _registered;
+        struct interface_endpoint
+        {
+            interface_endpoint(ports_handler * handler, interface * interface) :
+                _handler(handler), _interface(interface) {}
+            
+            /* fires when the ports_handler wants to transmit a transfer, 
+            complemented by transfer_receive_callback */
+            subject<transfer> transfer_transmit_event;
+            
+            /* this should subscribe to transfer_receive_event of the layer below this,
+            complemented by transfer_transmit_event */
+            void transfer_receive_callback(transfer t)
+            {
+                _handler->transfer_receive_callback(_interface, std::move(t));
+            }
 
-        public:
+            private:
+            ports_handler * _handler;
+            interface * _interface;
+        };
 
-        /* fires when the ports_handler wants to transmit a transfer, 
-        complemented by transfer_receive_callback */
-        subject<transfer> transfer_transmit_event;
+        private:
 
-        /* this should subscribe to transfer_receive_event of the layer below this,
-        complemented by transfer_transmit_event */
-        void transfer_receive_callback(transfer t)
+        std::list<service_endpoint> _services;
+        std::list<interface_endpoint> _interfaces;
+
+        auto _find_service(port_type port)
+        {
+            return std::find_if(_services.begin(), _services.end(), [&](const auto & pw){
+                return pw.get_port() == port;
+            });
+        }
+
+        void transfer_receive_callback(interface * interface, transfer t)
         {
             if (t.data_size() >= sizeof(Header))
             {
                 Header h = parsers::byte_copy<Header>(t.data_begin());
                 if (h.is_valid())
                 {
-                    t.data_hide_front(sizeof(Header));
-                    
+                    auto pw = _find_service(h.destination);
+                    /* just ignore ports that are not registered */
+                    if (pw != _services.end())
+                    {
+                        /* hide the header and forward the transfer to the registered service */
+                        t.remove_first_n(sizeof(Header));
+                        pw->transfer_receive_event.emit(h.source, std::move(t));
+                    }
                 }
             }
         }
+        
+        public:
 
         /* this should subscribe to transfer_ack_event of the layer below this */
         void transfer_ack_callback(transfer_metadata tm)
@@ -106,26 +148,30 @@ namespace sp
 
         }
 
+        void transfer_transmit(port_type src, port_type dst, transfer t)
+        {
+            Header h(dst, src);
+            t.push_front(to_bytes(h));
+            transfer_transmit_event.emit(std::move(t));
+        }
+
         /* shortcut for event subscribe for the layer below */
         void bind_to(fragmentation_handler & l)
         {
             l.transfer_receive_event.subscribe(&ports_handler::transfer_receive_callback, this);
             l.transfer_ack_event.subscribe(&ports_handler::transfer_ack_callback, this);
-            transfer_transmit_event.subscribe(fragmentation_handler::transmit, &l);
+            transfer_transmit_event.subscribe(&fragmentation_handler::transmit, &l);
         }
 
-
-        void register_port(port_type p, port_service * s)
+        /* use this to register a new service, you must subscribe to events of interest
+        within the returned service_endpoint reference */
+        service_endpoint & register_port(port_type p)
         {
-            auto i = std::find_if(_registered.begin(), _registered.end(), [&](const auto & pw){
-                return pw.port == p;
-            });
-            if (i != _registered.end())
-                throw already_registered();
-
-            auto & pw = _registered.emplace_back(p, s);
+            if (_find_service(p) != _services.end())
+                throw already_services();
+            
+            return _services.emplace_back(p, this);
         }
-
     };
 }
 

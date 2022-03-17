@@ -7,3 +7,4 @@ Library intended for rapid prototyping of embedded devices with support of stand
 
 ## TODOs
 - create standardized "stack" classed that encapsulate all necessary layers and create a protocol stack thats suitable for a given interface
+- unite transmit/receive functions' names
