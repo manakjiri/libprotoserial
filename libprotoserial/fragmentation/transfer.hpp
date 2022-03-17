@@ -30,11 +30,11 @@ namespace sp
 {
     class fragmentation_handler;
 
-    class transfer_metadata : public interface::fragment_metadata
+    class transfer_metadata : public fragment_metadata
     {
         public:
 
-        using data_type = interface::fragment::data_type;
+        using data_type = fragment::data_type;
 
         /* as with interface::address_type this is a type that can hold all used 
         fragmentation_handler::id_type types */
@@ -43,7 +43,7 @@ namespace sp
 
         transfer_metadata(address_type src, address_type dst, const interface * i, clock::time_point timestamp_creation, 
             clock::time_point timestamp_modified, fragmentation_handler * handler, id_type id, id_type prev_id) :
-                interface::fragment_metadata(src, dst, i, timestamp_creation), _timestamp_modified(timestamp_modified),
+                fragment_metadata(src, dst, i, timestamp_creation), _timestamp_modified(timestamp_modified),
                 _handler(handler), _id(id), _prev_id(prev_id) {}
 
         transfer_metadata(const transfer_metadata &) = default;
@@ -60,11 +60,11 @@ namespace sp
 
         /* checks if p's addresses and interface match the transfer's, this along with id match means that p 
         should be part of this transfer */
-        bool match(const interface::fragment & p) const 
+        bool match(const fragment & p) const 
             {return p.destination() == destination() && p.source() == source();}
 
         /* checks p's addresses as a response to this transfer and interface match the transfer's */
-        bool match_as_response(const interface::fragment & p) const 
+        bool match_as_response(const fragment & p) const 
             {return p.source() == destination();}
 
         protected:
@@ -100,7 +100,7 @@ namespace sp
         /* constructor used when the fragmentation_handler receives the first piece of the 
         fragment - when new a fragment transfer is initiated by other peer. This initial fragment
         does not need to be the first fragment, fragmentation_handler is responsible for 
-        the correct order of interface::fragments within this object */
+        the correct order of fragments within this object */
         template<class Header>
         transfer(const Header & h, fragmentation_handler * handler) :
             transfer_metadata(0, 0, nullptr, clock::now(), clock::now(), 
@@ -128,10 +128,10 @@ namespace sp
         auto _last() {return _data.empty() ? _data.begin() : std::prev(_data.end());}
         auto _last() const {return _data.empty() ? _data.begin() : std::prev(_data.end());}
 
-        void _push_back(const interface::fragment & p) {refresh(p); _data.push_back(p.data());}
-        void _push_back(interface::fragment && p) {refresh(p); _data.push_back(std::move(p.data()));}
-        void _assign(index_type fragment, const interface::fragment & p) {refresh(p); _data.at(fragment - 1) = p.data();}
-        void _assign(index_type fragment, interface::fragment && p) {refresh(p); _data.at(fragment - 1) = std::move(p.data());}
+        void _push_back(const fragment & p) {refresh(p); _data.push_back(p.data());}
+        void _push_back(fragment && p) {refresh(p); _data.push_back(std::move(p.data()));}
+        void _assign(index_type fragment_pos, const fragment & p) {refresh(p); _data.at(fragment_pos - 1) = p.data();}
+        void _assign(index_type fragment_pos, fragment && p) {refresh(p); _data.at(fragment_pos - 1) = std::move(p.data());}
 
         /* expose the internal data, used in fragmentation_handler and data_iterator */
         //auto _at(size_t pos) {return _data.at(pos);}
@@ -175,7 +175,7 @@ namespace sp
             {
                 if (is_begin)
                 {
-                    /* initialize the iterators to the first byte of the first interface::fragment */
+                    /* initialize the iterators to the first byte of the first fragment */
                     _ifragment = _fragment->_begin();
                     if (_ifragment != _fragment->_end())
                     {
@@ -191,7 +191,7 @@ namespace sp
                 }
                 else
                 {
-                    /* initialize the iterators to the end of data of the last interface::fragment */
+                    /* initialize the iterators to the end of data of the last fragment */
                     _ifragment = _fragment->_last();
                     if (_ifragment != _fragment->_end())
                         _ifragment_data = _ifragment->end();
@@ -212,10 +212,10 @@ namespace sp
             data_iterator& operator++() 
             {
                 /* we want to increment by one, try to increment the data iterator
-                within the current interface::fragment */
+                within the current fragment */
                 ++_ifragment_data;
-                /* when we are at the end of data of current interface::fragment, we need
-                to advance to the next interface::fragment and start from the beginning of
+                /* when we are at the end of data of current fragment, we need
+                to advance to the next fragment and start from the beginning of
                 its data */
                 if (_ifragment_data == _ifragment->end() && _ifragment != _fragment->_last())
                 {
@@ -304,7 +304,7 @@ namespace sp
 
         //TODO
         void refresh() {_timestamp_modified = clock::now();}
-        void refresh(const interface::fragment & p)
+        void refresh(const fragment & p)
         {
             refresh();
             _source = p.source();

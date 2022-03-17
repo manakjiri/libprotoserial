@@ -104,9 +104,8 @@
 #ifndef _SP_INTERFACE_INTERFACE
 #define _SP_INTERFACE_INTERFACE
 
-#include "libprotoserial/container.hpp"
-#include "libprotoserial/clock.hpp"
 #include "libprotoserial/observer.hpp"
+#include "libprotoserial/interface/fragment.hpp"
 
 #include <string>
 #include <queue>
@@ -126,7 +125,7 @@ namespace sp
         /* an integer that can hold any used device address, the actual address format 
         is interface specific, address 0 is reserved internally and should never appear 
         in a fragment */
-        typedef uint    address_type;
+        using address_type = fragment::address_type;
 
         struct bad_data : std::exception {
             const char * what () const throw () {return "bad_data";}
@@ -138,66 +137,6 @@ namespace sp
 
         struct not_writable : std::exception {
             const char * what () const throw () {return "not_writable";}
-        };
-
-        class fragment_metadata
-        {
-            public:
-            using address_type = interface::address_type;
-
-            fragment_metadata(address_type src, address_type dst, const interface *i, clock::time_point timestamp_creation):
-                _timestamp_creation(timestamp_creation), _interface(i), _source(src), _destination(dst) {}
-
-            fragment_metadata(const fragment_metadata &) = default;
-            fragment_metadata(fragment_metadata &&) = default;
-            fragment_metadata & operator=(const fragment_metadata &) = default;
-            fragment_metadata & operator=(fragment_metadata &&) = default;
-
-            constexpr clock::time_point timestamp_creation() const {return _timestamp_creation;}
-            constexpr const interface* get_interface() const noexcept {return _interface;}
-            constexpr address_type source() const noexcept {return _source;}
-            constexpr address_type destination() const noexcept {return _destination;}
-
-            void set_destination(address_type dst) {_destination = dst;}
-
-            protected:
-            clock::time_point _timestamp_creation;
-            const sp::interface *_interface;
-            address_type _source, _destination;
-        };
-
-        /* interface fragment representation */
-        class fragment : public fragment_metadata
-        {
-            public:
-
-            typedef bytes   data_type;
-
-            fragment(address_type src, address_type dst, data_type && d, const sp::interface *i) :
-                //_data(d), _timestamp_creation(clock::now()), _interface(i), _source(src), _destination(dst) {}
-                fragment_metadata(src, dst, i, clock::now()), _data(std::move(d)) {}
-
-            /* this object can be passed to the interface::write() function */
-            fragment(address_type dst, data_type && d) :
-                fragment((address_type)0, dst, std::move(d), nullptr) {}
-
-            fragment():
-                fragment(0, data_type()) {}
-
-            fragment(const fragment &) = default;
-            fragment(fragment &&) = default;
-            fragment & operator=(const fragment &) = default;
-            fragment & operator=(fragment &&) = default;
-            
-            constexpr const data_type& data() const noexcept {return _data;}
-            constexpr data_type& data() noexcept {return _data;}
-            constexpr void _complete(address_type src, const sp::interface *i) {_source = src; _interface = i;}
-            
-            bool carries_information() const {return _data && _destination;}
-            explicit operator bool() const {return carries_information();}
-
-            protected:
-            data_type _data;
         };
         
         /* - name should uniquely identify the interface on this device
@@ -300,19 +239,19 @@ namespace sp
 
 }
 
-bool operator==(const sp::interface::fragment & lhs, const sp::interface::fragment & rhs)
+bool operator==(const sp::fragment & lhs, const sp::fragment & rhs)
 {
     return ((lhs.get_interface() && rhs.get_interface()) ? (lhs.get_interface()->name() == rhs.get_interface()->name()) : true) 
     && lhs.source() == rhs.source() && lhs.destination() == rhs.destination() && lhs.data() == rhs.data();
 }
 
-bool operator!=(const sp::interface::fragment & lhs, const sp::interface::fragment & rhs)
+bool operator!=(const sp::fragment & lhs, const sp::fragment & rhs)
 {
     return !(lhs == rhs);
 }
 
 #ifndef SP_NO_IOSTREAM
-std::ostream& operator<<(std::ostream& os, const sp::interface::fragment& p) 
+std::ostream& operator<<(std::ostream& os, const sp::fragment& p) 
 {
     os << "dst: " << p.destination() << ", src: " << p.source();
     os << ", int: " << (p.get_interface() ? p.get_interface()->name() : "null");

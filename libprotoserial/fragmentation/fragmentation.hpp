@@ -63,7 +63,7 @@ namespace sp
         using Header = headers::fragment_8b16b;
         using types = Header::message_types;
         using index_type = Header::index_type;
-        using size_type = interface::fragment::data_type::size_type;
+        using size_type = fragment::data_type::size_type;
 
         private:
 
@@ -115,18 +115,18 @@ namespace sp
             }
 
             /* mode 2) only, preferably */
-            interface::fragment _get_fragment(index_type fragment) const
+            fragment _get_fragment(index_type fragment_pos) const
             {
-                if (fragment == 0) throw std::invalid_argument("fragment == 0");
-                fragment -= 1;
+                if (fragment_pos == 0) throw std::invalid_argument("fragment_pos == 0");
+                fragment_pos -= 1;
                 auto p_size = _handler->max_fragment_size();
-                if (fragment * p_size > data_size()) throw std::invalid_argument("fragment * p_size > data_size()");
+                if (fragment_pos * p_size > data_size()) throw std::invalid_argument("fragment_pos * p_size > data_size()");
 
                 bytes data(sizeof(Header), 0, p_size);
-                auto b = data_begin() + fragment * p_size, e = data_end();
+                auto b = data_begin() + fragment_pos * p_size, e = data_end();
                 for (; b != e && data.size() < p_size; ++b) data.push_back(*b);
                 
-                return interface::fragment(destination(), std::move(data));
+                return fragment(destination(), std::move(data));
             }
         };
         
@@ -163,7 +163,7 @@ namespace sp
 
         /* the callback handles the incoming fragments, it does not handle any timeouts, sending requests, 
         or anything that assumes periodicity, the main_task is for that */
-        void receive_callback(interface::fragment p) noexcept
+        void receive_callback(fragment p) noexcept
         {
 #ifdef SP_FRAGMENTATION_DEBUG
             std::cout << "receive_callback got: " << p << std::endl;
@@ -199,7 +199,7 @@ namespace sp
                 {
                     /* checks whether any of the transfers is complete, if so emit it as receive event */
                     transmit_event.emit(std::move(
-                        interface::fragment(it->tr->source(), 
+                        fragment(it->tr->source(), 
                         to_bytes(make_header(types::FRAGMENT_ACK, it->tr->_fragments_count(), *it)))
                     ));
                     transfer_receive_event.emit(std::move(*it->tr));
@@ -228,7 +228,7 @@ namespace sp
                         std::cout << "requesting retransmit for id " << it->id << " index " << index << std::endl;
 #endif
                         transmit_event.emit(std::move(
-                            interface::fragment(it->tr->source(), 
+                            fragment(it->tr->source(), 
                             to_bytes(make_header(types::FRAGMENT_REQ, index, *it)))
                         ));
                         it->retransmit_done();
@@ -278,12 +278,12 @@ namespace sp
 #endif
             /* transmit all fragments within this transfer and store it in case we get a retransmit request */
             auto & tp = _outgoing_transfers.emplace_back(transfer_wrapper(std::move(t)));
-            for (index_type fragment = 1; fragment <= tp.tr->_fragments_count(); ++fragment)
+            for (index_type fragment_pos = 1; fragment_pos <= tp.tr->_fragments_count(); ++fragment_pos)
             {
 #ifdef SP_FRAGMENTATION_DEBUG
                 std::cout << "transmit emitting event" << std::endl;
 #endif
-                transmit_event.emit(std::move(serialize_fragment(types::FRAGMENT, fragment, tp)));
+                transmit_event.emit(std::move(serialize_fragment(types::FRAGMENT, fragment_pos, tp)));
             }
             tp.transmit_done();
         }
@@ -319,7 +319,7 @@ namespace sp
         }
 
         /* fires when the handler wants to transmit a fragment, complemented by receive_callback */
-        subject<interface::fragment> transmit_event;
+        subject<fragment> transmit_event;
         /* fires when the handler receives and fully reconstructs a fragment, complemented by transmit */
         subject<transfer> transfer_receive_event;
         /* fires when ACK was received from destination for this transfer */
@@ -333,21 +333,21 @@ namespace sp
             return _id_counter;
         }
 
-        Header make_header(types type, index_type fragment, const transfer_progress & tp)
+        Header make_header(types type, index_type fragment_pos, const transfer_progress & tp)
         {
-            return Header(type, fragment, tp.tr->_fragments_count(), tp.tr->get_id(), tp.tr->get_prev_id());
+            return Header(type, fragment_pos, tp.tr->_fragments_count(), tp.tr->get_id(), tp.tr->get_prev_id());
         }
 
-        /* copy the data of the fragment within the transfer and create an interface::fragment from it */
-        interface::fragment serialize_fragment(types type, index_type fragment, const transfer_progress & tp)
+        /* copy the data of the fragment within the transfer and create an fragment from it */
+        fragment serialize_fragment(types type, index_type fragment_pos, const transfer_progress & tp)
         {
-            auto p = tp.tr->_get_fragment(fragment);
-            bytes h = to_bytes(make_header(type, fragment, tp));
+            auto p = tp.tr->_get_fragment(fragment_pos);
+            bytes h = to_bytes(make_header(type, fragment_pos, tp));
             p.data().push_front(std::move(h));
             return p;
         }
 
-        void handle_fragment(const Header & h, interface::fragment && p)
+        void handle_fragment(const Header & h, fragment && p)
         {
 #ifdef SP_FRAGMENTATION_DEBUG
             std::cout << "handle_fragment got: " << p << std::endl;
@@ -384,7 +384,7 @@ namespace sp
 #ifdef SP_FRAGMENTATION_DEBUG
                         std::cout << "assigning to existing incoming transfer id " << h.get_id() << " at " << (int)h.fragment() << " of " << (int)h.fragments_total() << std::endl;
 #endif
-                        /* the ID is in known transfers, we need to add the incoming interface::fragment to it */
+                        /* the ID is in known transfers, we need to add the incoming fragment to it */
                         it->tr->_assign(h.fragment(), std::move(p));
                     }
                     else
@@ -395,7 +395,7 @@ namespace sp
                         std::cout << "sending ACK for already received id " << h.get_id() << std::endl;
 #endif
                         transmit_event.emit(std::move(
-                            interface::fragment(p.source(), 
+                            fragment(p.source(), 
                             std::move(to_bytes(Header(types::FRAGMENT_ACK, h.fragment(), h.fragments_total(), h.get_id(), h.get_prev_id()))))
                         ));
                     }

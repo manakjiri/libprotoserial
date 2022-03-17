@@ -39,7 +39,7 @@ namespace sp
         };
 
         template<typename header, typename footer>
-        interface::fragment parse_fragment(bytes && buff, const interface * i)
+        fragment parse_fragment(bytes && buff, const interface * i)
         {
             bytes b = buff;
             /* copy the header into the header struct */
@@ -54,7 +54,7 @@ namespace sp
             if (f_parsed.hash != f_computed.hash) throw bad_checksum();
             /* shrink the container by the header and return the fragment object */
             b.shrink(sizeof(h), 0);
-            return interface::fragment(interface::address_type(h.source), interface::address_type(h.destination), 
+            return fragment(interface::address_type(h.source), interface::address_type(h.destination), 
                 std::move(b), i);
         }
 

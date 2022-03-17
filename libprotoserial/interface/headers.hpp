@@ -39,7 +39,7 @@ namespace sp
             byte check = (byte)0;
 
             interface_8b8b() = default;
-            interface_8b8b(const interface::fragment & p):
+            interface_8b8b(const fragment & p):
                 destination(p.destination()), source(p.source()), size(p.data().size())
             {
                 check = (byte)(destination + source + size);
