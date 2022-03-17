@@ -47,22 +47,22 @@ namespace stm32
 		/* PACKET STRUCTURE: [preamble][preamble][Header][data >= 1][Footer] */
 
 		/* - id should uniquely identify the UART interface on this device
-		 * - address is the interface address, when a packet is received where destination() == address
+		 * - address is the interface address, when a fragment is received where destination() == address
 		 *   then the receive_event is emitted, otherwise the other_receive_event is emitted
-		 * - max_queue_size sets the maximum number of packets the transmit queue can hold
+		 * - max_queue_size sets the maximum number of fragments the transmit queue can hold
 		 * - buffer_size sets the size of the receive buffer in bytes
 		 */
 		uart_interface(UART_HandleTypeDef * huart, uint id, interface::address_type address, uint max_queue_size,
-				uint max_packet_size, uint buffer_size) :
+				uint max_fragment_size, uint buffer_size) :
 			buffered_interface("uart" + std::to_string(id), address, max_queue_size, buffer_size), _huart(huart),
-			_max_packet_size(max_packet_size), _is_transmitting(false)
+			_max_fragment_size(max_fragment_size), _is_transmitting(false)
 		{
 			_read = get_rx_buffer();
 			_write = get_rx_buffer();
 			next_receive();
 		}
 
-		bytes::size_type max_data_size() const noexcept {return _max_packet_size - sizeof(Header) - sizeof(Footer) - preamble_length;}
+		bytes::size_type max_data_size() const noexcept {return _max_fragment_size - sizeof(Header) - sizeof(Footer) - preamble_length;}
 		bool can_transmit() noexcept {return _is_transmitting;}
 
 		void isr_rx_done()
@@ -100,32 +100,32 @@ namespace stm32
 				if (parsers::find(read, write, preamble))
 				{
 					/* read now points to the position of the preamble, we are no longer concerned with the preamble */
-					auto packet_start = read + 1;
+					auto fragment_start = read + 1;
 					/* check if the Header is already loaded into to buffer, if not this function will just return
 					and try new time around, we cannot move the original _read just yet because of this,
 					adding 1 to distance since we can also read the write byte */
-					if ((size_t)distance(packet_start, write) + 1 >= sizeof(Header))
+					if ((size_t)distance(fragment_start, write) + 1 >= sizeof(Header))
 					{
 						/* copy the Header into the Header structure byte by byte */
-						Header h = parsers::byte_copy<Header>(packet_start, packet_start + sizeof(Header));
+						Header h = parsers::byte_copy<Header>(fragment_start, fragment_start + sizeof(Header));
 						if (h.is_valid(max_data_size()))
 						{
-							/* total packet size */
-							size_t packet_size = h.size + sizeof(Footer) + sizeof(Header);
+							/* total fragment size */
+							size_t fragment_size = h.size + sizeof(Footer) + sizeof(Header);
 							/* once again, check that there are enough bytes in the buffer, this can still fail */
-							if ((size_t)distance(packet_start, write) + 1 >= packet_size)
+							if ((size_t)distance(fragment_start, write) + 1 >= fragment_size)
 							{
-								/* we have received the entire packet, prepare it for parsing */
-								//bytes b(packet_size);
-								//std::copy(packet_start, packet_start + packet_size, b.begin());
-								auto b = parsers::byte_copy(packet_start, packet_start + packet_size);
+								/* we have received the entire fragment, prepare it for parsing */
+								//bytes b(fragment_size);
+								//std::copy(fragment_start, fragment_start + fragment_size, b.begin());
+								auto b = parsers::byte_copy(fragment_start, fragment_start + fragment_size);
 								try
 								{
 									/* attempt the parsing */
-									put_received(std::move(parsers::parse_packet<Header, Footer>(std::move(b), this)));
+									put_received(std::move(parsers::parse_fragment<Header, Footer>(std::move(b), this)));
 									/* parsing succeeded, finally move the read pointer, we do not include the
 									preamble length here because we don't necessarily know how long it was originally */
-									_read = read + packet_size;
+									_read = read + fragment_size;
 								}
 								catch(std::exception &e)
 								{
@@ -136,7 +136,7 @@ namespace stm32
 							}
 							else
 							{
-								/* once again we just failed the distance check for the whole packet this time,
+								/* once again we just failed the distance check for the whole fragment this time,
 								we cannot save the read position because the Header check could be wrong as well */
 								_read = read;
 								return;
@@ -146,7 +146,7 @@ namespace stm32
 						{
 							/* we failed the size valid check, so this is either a corrupted Header or it's not a Header
 							at all, move the read pointer past this and try again */
-							_read = read = packet_start;
+							_read = read = fragment_start;
 						}
 					}
 					else
@@ -160,7 +160,7 @@ namespace stm32
 			}
 		}
 
-		bytes serialize_packet(packet && p) const
+		bytes serialize_fragment(fragment && p) const
 		{
 			/* preallocate the container since we know the final size */
 			auto b = bytes(0, 0, preamble_length + sizeof(Header) + p.data().size() + sizeof(Footer));
@@ -195,7 +195,7 @@ namespace stm32
 		buffered_interface::circular_iterator _read;
 		bytes _tx_buffer;
 		UART_HandleTypeDef * _huart;
-		uint _max_packet_size;
+		uint _max_fragment_size;
 		volatile bool _is_transmitting;
 	};
 }

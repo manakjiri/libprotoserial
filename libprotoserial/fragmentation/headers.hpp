@@ -36,9 +36,9 @@ namespace sp
             enum message_types: std::uint8_t
             {
                 INIT = 0,
-                PACKET,
-                PACKET_ACK,
-                PACKET_REQ,
+                FRAGMENT,
+                FRAGMENT_ACK,
+                FRAGMENT_REQ,
             };
 
             fragment_8b16b() = default;

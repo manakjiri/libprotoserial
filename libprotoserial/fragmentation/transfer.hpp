@@ -30,11 +30,11 @@ namespace sp
 {
     class fragmentation_handler;
 
-    class transfer_metadata : public interface::packet_metadata
+    class transfer_metadata : public interface::fragment_metadata
     {
         public:
 
-        using data_type = interface::packet::data_type;
+        using data_type = interface::fragment::data_type;
 
         /* as with interface::address_type this is a type that can hold all used 
         fragmentation_handler::id_type types */
@@ -43,7 +43,7 @@ namespace sp
 
         transfer_metadata(address_type src, address_type dst, const interface * i, clock::time_point timestamp_creation, 
             clock::time_point timestamp_modified, fragmentation_handler * handler, id_type id, id_type prev_id) :
-                interface::packet_metadata(src, dst, i, timestamp_creation), _timestamp_modified(timestamp_modified),
+                interface::fragment_metadata(src, dst, i, timestamp_creation), _timestamp_modified(timestamp_modified),
                 _handler(handler), _id(id), _prev_id(prev_id) {}
 
         transfer_metadata(const transfer_metadata &) = default;
@@ -51,8 +51,8 @@ namespace sp
         transfer_metadata & operator=(const transfer_metadata &) = default;
         transfer_metadata & operator=(transfer_metadata &&) = default;
 
-        /* the packet id is used to uniquely identify a packet transfer together with the destination and source
-        addresses and the interface name. It is issued by the transmittee of the packet */
+        /* the fragment id is used to uniquely identify a fragment transfer together with the destination and source
+        addresses and the interface name. It is issued by the transmittee of the fragment */
         id_type get_id() const {return _id;}
         id_type get_prev_id() const {return _prev_id;}
         const fragmentation_handler * get_handler() const {return _handler;}
@@ -60,11 +60,11 @@ namespace sp
 
         /* checks if p's addresses and interface match the transfer's, this along with id match means that p 
         should be part of this transfer */
-        bool match(const interface::packet & p) const 
+        bool match(const interface::fragment & p) const 
             {return p.destination() == destination() && p.source() == source();}
 
         /* checks p's addresses as a response to this transfer and interface match the transfer's */
-        bool match_as_response(const interface::packet & p) const 
+        bool match_as_response(const interface::fragment & p) const 
             {return p.source() == destination();}
 
         protected:
@@ -80,7 +80,7 @@ namespace sp
         * there are two modes of usage from within the fragmentation_handler:
         * 1)  transfer is constructed using the transfer(const Header & h, fragmentation_handler * handler)
         *     constructor when fragmentation_handler encounters a new ID and such transfer is put into the
-        *     _incoming_transfers list, where it is gradually filled with incoming packets from the interface.
+        *     _incoming_transfers list, where it is gradually filled with incoming fragments from the interface.
         *     This is a mode where transfer's internal vector gets preallocated to a known number, so functions
         *     _is_complete(), _missing_fragment() and _missing_fragments_total() make sense to call.
         * 
@@ -89,18 +89,18 @@ namespace sp
         *     demand. This transfer will, presumably, be transmitted some time in the future. The internal
         *     vector is empty and gets dynamically larger as user uses the push_front(bytes) and push_back(bytes)
         *     functions. 
-        *     In contrast to the first scenario data will no longer satisfy the data_size() <= max_packet_size()
+        *     In contrast to the first scenario data will no longer satisfy the data_size() <= max_fragment_size()
         *     property, which is required for transmit, so function the _get_fragment() is used by the 
-        *     fragmentation_handler to create packets that do.
+        *     fragmentation_handler to create fragments that do.
         */
     class transfer : public transfer_metadata
     {
         public:
 
         /* constructor used when the fragmentation_handler receives the first piece of the 
-        packet - when new a packet transfer is initiated by other peer. This initial packet
+        fragment - when new a fragment transfer is initiated by other peer. This initial fragment
         does not need to be the first fragment, fragmentation_handler is responsible for 
-        the correct order of interface::packets within this object */
+        the correct order of interface::fragments within this object */
         template<class Header>
         transfer(const Header & h, fragmentation_handler * handler) :
             transfer_metadata(0, 0, nullptr, clock::now(), clock::now(), 
@@ -128,10 +128,10 @@ namespace sp
         auto _last() {return _data.empty() ? _data.begin() : std::prev(_data.end());}
         auto _last() const {return _data.empty() ? _data.begin() : std::prev(_data.end());}
 
-        void _push_back(const interface::packet & p) {refresh(p); _data.push_back(p.data());}
-        void _push_back(interface::packet && p) {refresh(p); _data.push_back(std::move(p.data()));}
-        void _assign(index_type fragment, const interface::packet & p) {refresh(p); _data.at(fragment - 1) = p.data();}
-        void _assign(index_type fragment, interface::packet && p) {refresh(p); _data.at(fragment - 1) = std::move(p.data());}
+        void _push_back(const interface::fragment & p) {refresh(p); _data.push_back(p.data());}
+        void _push_back(interface::fragment && p) {refresh(p); _data.push_back(std::move(p.data()));}
+        void _assign(index_type fragment, const interface::fragment & p) {refresh(p); _data.at(fragment - 1) = p.data();}
+        void _assign(index_type fragment, interface::fragment && p) {refresh(p); _data.at(fragment - 1) = std::move(p.data());}
 
         /* expose the internal data, used in fragmentation_handler and data_iterator */
         //auto _at(size_t pos) {return _data.at(pos);}
@@ -171,32 +171,32 @@ namespace sp
             using reference         = data_type::const_reference;
 
             data_iterator(const transfer * p, bool is_begin) : 
-                _packet(p) 
+                _fragment(p) 
             {
                 if (is_begin)
                 {
-                    /* initialize the iterators to the first byte of the first interface::packet */
-                    _ipacket = _packet->_begin();
-                    if (_ipacket != _packet->_end())
+                    /* initialize the iterators to the first byte of the first interface::fragment */
+                    _ifragment = _fragment->_begin();
+                    if (_ifragment != _fragment->_end())
                     {
-                        _ipacket_data = _ipacket->begin();
-                        while(_ipacket_data == _ipacket->end() && _ipacket != _packet->_last())
+                        _ifragment_data = _ifragment->begin();
+                        while(_ifragment_data == _ifragment->end() && _ifragment != _fragment->_last())
                         {
-                            ++_ipacket;
-                            _ipacket_data = _ipacket->begin();
+                            ++_ifragment;
+                            _ifragment_data = _ifragment->begin();
                         }
                     }
                     else
-                        _ipacket_data = nullptr;
+                        _ifragment_data = nullptr;
                 }
                 else
                 {
-                    /* initialize the iterators to the end of data of the last interface::packet */
-                    _ipacket = _packet->_last();
-                    if (_ipacket != _packet->_end())
-                        _ipacket_data = _ipacket->end();
+                    /* initialize the iterators to the end of data of the last interface::fragment */
+                    _ifragment = _fragment->_last();
+                    if (_ifragment != _fragment->_end())
+                        _ifragment_data = _ifragment->end();
                     else
-                        _ipacket_data = nullptr;
+                        _ifragment_data = nullptr;
                 }
             }
 
@@ -205,24 +205,24 @@ namespace sp
             data_iterator & operator=(const data_iterator &) = default;
             data_iterator & operator=(data_iterator &&) = default;
 
-            reference operator*() const { return *_ipacket_data; }
-            pointer operator->() const { return _ipacket_data; }
+            reference operator*() const { return *_ifragment_data; }
+            pointer operator->() const { return _ifragment_data; }
 
             // Prefix increment
             data_iterator& operator++() 
             {
                 /* we want to increment by one, try to increment the data iterator
-                within the current interface::packet */
-                ++_ipacket_data;
-                /* when we are at the end of data of current interface::packet, we need
-                to advance to the next interface::packet and start from the beginning of
+                within the current interface::fragment */
+                ++_ifragment_data;
+                /* when we are at the end of data of current interface::fragment, we need
+                to advance to the next interface::fragment and start from the beginning of
                 its data */
-                if (_ipacket_data == _ipacket->end() && _ipacket != _packet->_last())
+                if (_ifragment_data == _ifragment->end() && _ifragment != _fragment->_last())
                 {
                     do {
-                        ++_ipacket;
-                        _ipacket_data = _ipacket->begin();
-                    } while (_ipacket_data == _ipacket->end() && _ipacket != _packet->_last());
+                        ++_ifragment;
+                        _ifragment_data = _ifragment->begin();
+                    } while (_ifragment_data == _ifragment->end() && _ifragment != _fragment->_last());
                 }
                 return *this;
             }
@@ -245,15 +245,15 @@ namespace sp
             }
 
             friend bool operator== (const data_iterator& a, const data_iterator& b) 
-                { return a._ipacket_data == b._ipacket_data && a._ipacket == b._ipacket; };
+                { return a._ifragment_data == b._ifragment_data && a._ifragment == b._ifragment; };
             friend bool operator!= (const data_iterator& a, const data_iterator& b) 
-                { return a._ipacket_data != b._ipacket_data || a._ipacket != b._ipacket; };
+                { return a._ifragment_data != b._ifragment_data || a._ifragment != b._ifragment; };
 
             private:
             //TODO rename
-            const transfer * _packet;
-            std::vector<data_type>::const_iterator _ipacket;
-            data_type::const_iterator _ipacket_data;
+            const transfer * _fragment;
+            std::vector<data_type>::const_iterator _ifragment;
+            data_type::const_iterator _ifragment_data;
         };
 
         /* data_iterator exposes the potentially fragmented internally stored data as contiguous */
@@ -304,7 +304,7 @@ namespace sp
 
         //TODO
         void refresh() {_timestamp_modified = clock::now();}
-        void refresh(const interface::packet & p)
+        void refresh(const interface::fragment & p)
         {
             refresh();
             _source = p.source();
