@@ -23,6 +23,7 @@
 #define _SP_PORTS_PACKET
 
 #include "libprotoserial/fragmentation/transfer.hpp"
+#include "libprotoserial/ports/headers.hpp"
 
 namespace sp
 {
@@ -39,13 +40,22 @@ namespace sp
         port_type source_port() const {return _src_port;}
         port_type destination_port() const {return _dst_port;}
 
+        void set_destination_port(port_type p) {_dst_port = p;}
+
         protected:
         port_type _src_port, _dst_port;
     };
 
-    struct packet : public packet_metadata, virtual public transfer
+    struct packet : public packet_metadata, public transfer_data
     {
+        packet(transfer && t, port_type src_port = 0, port_type dst_port = 0) :
+            packet_metadata(t.source(), t.destination(), t.get_interface(), t.timestamp_creation(),
+            t.get_id(), t.get_prev_id(), src_port, dst_port), transfer_data(std::move(t)) {}
         
+        packet(transfer && t, const headers::ports_8b & h) :
+            packet(std::move(t), h.source, h.destination) {}
+
+        transfer to_transfer() {return transfer(std::move(*this), std::move(*this));}
 
     };
 

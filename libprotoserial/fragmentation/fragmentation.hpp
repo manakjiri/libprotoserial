@@ -159,8 +159,6 @@ namespace sp
                 _retransmit_time(retransmit_time), _drop_time(drop_time), _id_counter(0),
                 _max_fragment_size(max_fragment_size - sizeof(Header)), _retransmit_multiplier(retransmit_multiplier) {}
 
-        public:
-
 
         /* the callback handles the incoming fragments, it does not handle any timeouts, sending requests, 
         or anything that assumes periodicity, the main_task is for that */

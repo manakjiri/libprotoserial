@@ -52,8 +52,8 @@
 
 namespace sp
 {
-    struct already_services : std::exception {
-        const char * what () const throw () {return "already_services";}
+    struct already_registered : std::exception {
+        const char * what () const throw () {return "already_registered";}
     };
 
     /* port handler does not make any assumptions as to what a service looks like, meaning there
@@ -72,14 +72,14 @@ namespace sp
 
             /* source port of the transfer, service should subscribe to this 
             in order to receive transfers */
-            subject<port_type, transfer> transfer_receive_event;
+            subject<packet> transfer_receive_event;
 
             /* port where to send the provided transfer, service should call this
             when it wants to transmit a transfer, creating a subject<port_type, transfer>
             within the service and subscribing using this fuction is recommended */
-            void transfer_transmit_callback(port_type p, transfer t)
+            void transfer_transmit_callback(packet p)
             {
-                _handler->transfer_transmit(_port, p, std::move(t));
+                _handler->transfer_transmit(_port, std::move(p));
             }
 
             auto get_port() const {return _port;}
@@ -91,8 +91,8 @@ namespace sp
 
         struct interface_endpoint
         {
-            interface_endpoint(ports_handler * handler, interface * interface) :
-                _handler(handler), _interface(interface) {}
+            interface_endpoint(std::string interface_name, ports_handler * handler) :
+                _handler(handler), _interface_name(interface_name) {}
             
             /* fires when the ports_handler wants to transmit a transfer, 
             complemented by transfer_receive_callback */
@@ -102,12 +102,14 @@ namespace sp
             complemented by transfer_transmit_event */
             void transfer_receive_callback(transfer t)
             {
-                _handler->transfer_receive_callback(_interface, std::move(t));
+                _handler->transfer_receive_callback(_interface_name, std::move(t));
             }
+
+            const std::string & get_interface_name() const {return _interface_name;}
 
             private:
             ports_handler * _handler;
-            interface * _interface;
+            std::string _interface_name;
         };
 
         private:
@@ -122,7 +124,14 @@ namespace sp
             });
         }
 
-        void transfer_receive_callback(interface * interface, transfer t)
+        auto _find_interface(const std::string & interface_name)
+        {
+            return std::find_if(_interfaces.begin(), _interfaces.end(), [&](const auto & pw){
+                return pw.get_interface_name() == interface_name;
+            });
+        }
+
+        void transfer_receive_callback(const std::string & interface_name, transfer t)
         {
             if (t.data_size() >= sizeof(Header))
             {
@@ -135,7 +144,7 @@ namespace sp
                     {
                         /* hide the header and forward the transfer to the registered service */
                         t.remove_first_n(sizeof(Header));
-                        pw->transfer_receive_event.emit(h.source, std::move(t));
+                        pw->transfer_receive_event.emit(std::move(packet(std::move(t))));
                     }
                 }
             }
@@ -149,19 +158,27 @@ namespace sp
 
         }
 
-        void transfer_transmit(port_type src, port_type dst, transfer t)
+        void transfer_transmit(port_type source, packet p)
         {
-            Header h(dst, src);
-            t.push_front(to_bytes(h));
-            transfer_transmit_event.emit(std::move(t));
+            if (!p.get_interface())
+                return;
+
+            Header h(p.destination_port(), source);
+            p.push_front(to_bytes(h));
+
+            auto i = _find_interface(p.get_interface()->name());
+            if (i != _interfaces.end())
+                i->transfer_transmit_event.emit(std::move(p.to_transfer()));
         }
 
-        /* shortcut for event subscribe for the layer below */
-        void bind_to(fragmentation_handler & l)
+        /* use this to register a new interface, bind events and callbacks within the
+        returned interface_endpoint object to a transfer factory */
+        interface_endpoint & register_port(const std::string & interface_name)
         {
-            l.transfer_receive_event.subscribe(&ports_handler::transfer_receive_callback, this);
-            l.transfer_ack_event.subscribe(&ports_handler::transfer_ack_callback, this);
-            transfer_transmit_event.subscribe(&fragmentation_handler::transmit, &l);
+            if (_find_interface(interface_name) != _interfaces.end())
+                throw already_registered();
+
+            return _interfaces.emplace_back(interface_name, this);
         }
 
         /* use this to register a new service, you must subscribe to events of interest
@@ -169,7 +186,7 @@ namespace sp
         service_endpoint & register_port(port_type p)
         {
             if (_find_service(p) != _services.end())
-                throw already_services();
+                throw already_registered();
             
             return _services.emplace_back(p, this);
         }

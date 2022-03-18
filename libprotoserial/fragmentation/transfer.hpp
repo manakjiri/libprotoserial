@@ -64,49 +64,22 @@ namespace sp
         id_type _id, _prev_id;
     };
 
-    /* there should never be a need for the user to construct this, it is provided by the
-        * fragmentation_handler as fully initialized object ready to be used, user should never
-        * need to use function that start with underscore 
-        * 
-        * there are two modes of usage from within the fragmentation_handler:
-        * 1)  transfer is constructed using the transfer(const Header & h, fragmentation_handler * handler)
-        *     constructor when fragmentation_handler encounters a new ID and such transfer is put into the
-        *     _incoming_transfers list, where it is gradually filled with incoming fragments from the interface.
-        *     This is a mode where transfer's internal vector gets preallocated to a known number, so functions
-        *     _is_complete(), _missing_fragment() and _missing_fragments_total() make sense to call.
-        * 
-        * 2)  transfer is created using the new_transfer() function, where it is constructed by the
-        *     transfer(fragmentation_handler * handler, id_type id, id_type prev_id = 0) constructor on user
-        *     demand. This transfer will, presumably, be transmitted some time in the future. The internal
-        *     vector is empty and gets dynamically larger as user uses the push_front(bytes) and push_back(bytes)
-        *     functions. 
-        *     In contrast to the first scenario data will no longer satisfy the data_size() <= max_fragment_size()
-        *     property, which is required for transmit, so function the _get_fragment() is used by the 
-        *     fragmentation_handler to create fragments that do.
-        */
-    struct transfer : public transfer_metadata
+    struct transfer_data
     {
         using data_type = fragment::data_type;
 
-        /* constructor used when the fragmentation_handler receives the first piece of the 
-        fragment - when new a fragment transfer is initiated by other peer. This initial fragment
-        does not need to be the first fragment, fragmentation_handler is responsible for 
-        the correct order of fragments within this object */
-        template<class Header>
-        transfer(const Header & h, fragmentation_handler * handler) :
-            transfer_metadata(0, 0, nullptr, clock::now(), h.get_id(), h.get_prev_id()),
-            _data(h.fragments_total()), _timestamp_modified(clock::now()), _handler(handler) {}
+        transfer_data():
+            _timestamp_modified(clock::now()) {}
 
-        /* constructor used by the fragmentation_handler in new_transfer */
-        transfer(fragmentation_handler * handler, id_type id, id_type prev_id = 0):
-            transfer_metadata(0, 0, nullptr, clock::now(), id, prev_id), 
-            _timestamp_modified(clock::now()), _handler(handler) {}
+        transfer_data(std::vector<bytes> && data) :
+            _data(std::move(data)), _timestamp_modified(clock::now()) {}
 
-        transfer(const transfer &) = default;
-        transfer(transfer &&) = default;
-        transfer & operator=(const transfer &) = default;
-        transfer & operator=(transfer &&) = default;
-        
+        transfer_data(std::size_t reserve):
+            _data(reserve), _timestamp_modified(clock::now()) {}
+
+        transfer_data(const transfer_data &) = default;
+        transfer_data(transfer_data &&) = default;
+
         /* expose the internal data, used in fragmentation_handler and data_iterator */
         auto _begin() {return _data.begin();}
         /* expose the internal data, used in fragmentation_handler and data_iterator */
@@ -118,12 +91,7 @@ namespace sp
         /* expose the internal data, used in fragmentation_handler and data_iterator */
         auto _last() {return _data.empty() ? _data.begin() : std::prev(_data.end());}
         auto _last() const {return _data.empty() ? _data.begin() : std::prev(_data.end());}
-
-        void _push_back(const fragment & p) {refresh(p); _data.push_back(p.data());}
-        void _push_back(fragment && p) {refresh(p); _data.push_back(std::move(p.data()));}
-        void _assign(index_type fragment_pos, const fragment & p) {refresh(p); _data.at(fragment_pos - 1) = p.data();}
-        void _assign(index_type fragment_pos, fragment && p) {refresh(p); _data.at(fragment_pos - 1) = std::move(p.data());}
-
+        
         void push_back(const bytes & b) {refresh(); _data.push_back(b);}
         void push_back(bytes && b) {refresh(); _data.push_back(std::move(b));}
         void push_front(const bytes & b) {refresh(); _data.insert(_data.begin(), b);}
@@ -156,7 +124,7 @@ namespace sp
             using pointer           = data_type::const_pointer; 
             using reference         = data_type::const_reference;
 
-            data_iterator(const transfer * p, bool is_begin) : 
+            data_iterator(const transfer_data * p, bool is_begin) : 
                 _fragment(p) 
             {
                 if (is_begin)
@@ -236,7 +204,7 @@ namespace sp
                 { return a._ifragment_data != b._ifragment_data || a._ifragment != b._ifragment; };
 
             private:
-            const transfer * _fragment;
+            const transfer_data * _fragment;
             std::vector<data_type>::const_iterator _ifragment;
             data_type::const_iterator _ifragment_data;
         };
@@ -261,13 +229,70 @@ namespace sp
             return b;
         }
 
+        transfer_metadata::time_point timestamp_modified() const {return _timestamp_modified;}
+
+        protected:
+
+        void refresh() {_timestamp_modified = clock::now();}
+
+        std::vector<data_type> _data;
+        transfer_metadata::time_point _timestamp_modified;
+    };
+
+    /* there should never be a need for the user to construct this, it is provided by the
+        * fragmentation_handler as fully initialized object ready to be used, user should never
+        * need to use function that start with underscore 
+        * 
+        * there are two modes of usage from within the fragmentation_handler:
+        * 1)  transfer is constructed using the transfer(const Header & h, fragmentation_handler * handler)
+        *     constructor when fragmentation_handler encounters a new ID and such transfer is put into the
+        *     _incoming_transfers list, where it is gradually filled with incoming fragments from the interface.
+        *     This is a mode where transfer's internal vector gets preallocated to a known number, so functions
+        *     _is_complete(), _missing_fragment() and _missing_fragments_total() make sense to call.
+        * 
+        * 2)  transfer is created using the new_transfer() function, where it is constructed by the
+        *     transfer(fragmentation_handler * handler, id_type id, id_type prev_id = 0) constructor on user
+        *     demand. This transfer will, presumably, be transmitted some time in the future. The internal
+        *     vector is empty and gets dynamically larger as user uses the push_front(bytes) and push_back(bytes)
+        *     functions. 
+        *     In contrast to the first scenario data will no longer satisfy the data_size() <= max_fragment_size()
+        *     property, which is required for transmit, so function the _get_fragment() is used by the 
+        *     fragmentation_handler to create fragments that do.
+        */
+    struct transfer : public transfer_metadata, public transfer_data
+    {
+        /* constructor used when the fragmentation_handler receives the first piece of the 
+        fragment - when new a fragment transfer is initiated by other peer. This initial fragment
+        does not need to be the first fragment, fragmentation_handler is responsible for 
+        the correct order of fragments within this object */
+        template<class Header>
+        transfer(const Header & h, fragmentation_handler * handler) :
+            transfer_metadata(0, 0, nullptr, clock::now(), h.get_id(), h.get_prev_id()),
+            transfer_data(h.fragments_total()), _handler(handler) {}
+
+        /* constructor used by the fragmentation_handler in new_transfer */
+        transfer(fragmentation_handler * handler, id_type id, id_type prev_id = 0):
+            transfer_metadata(0, 0, nullptr, clock::now(), id, prev_id), _handler(handler) {}
+
+        transfer(transfer_metadata && metadata, transfer_data && data):
+            transfer_metadata(std::move(metadata)), transfer_data(std::move(data)) {}
+
+        transfer(const transfer &) = default;
+        transfer(transfer &&) = default;
+        transfer & operator=(const transfer &) = default;
+        transfer & operator=(transfer &&) = default;
+
+        void _push_back(const fragment & p) {refresh(p); _data.push_back(p.data());}
+        void _push_back(fragment && p) {refresh(p); _data.push_back(std::move(p.data()));}
+        void _assign(index_type fragment_pos, const fragment & p) {refresh(p); _data.at(fragment_pos - 1) = p.data();}
+        void _assign(index_type fragment_pos, fragment && p) {refresh(p); _data.at(fragment_pos - 1) = std::move(p.data());}
+
         transfer_metadata get_metadata() const 
         {
             return transfer_metadata(*reinterpret_cast<const transfer_metadata*>(this));
         }
 
         fragmentation_handler * get_handler() const {return _handler;}
-        time_point timestamp_modified() const {return _timestamp_modified;}
 
 #ifndef SP_NO_IOSTREAM
         friend std::ostream& operator<<(std::ostream& os, const transfer & t) 
@@ -288,17 +313,14 @@ namespace sp
 
         protected:
 
-        void refresh() {_timestamp_modified = clock::now();}
         void refresh(const fragment & p)
         {
-            refresh();
+            transfer_data::refresh();
             _source = p.source();
             _destination = p.destination();
             _interface = p.get_interface();
         }
 
-        std::vector<data_type> _data;
-        time_point _timestamp_modified;
         mutable fragmentation_handler * _handler;
     };
 }

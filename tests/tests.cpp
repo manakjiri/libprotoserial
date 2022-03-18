@@ -2,7 +2,7 @@
 #include <libprotoserial/container.hpp>
 #include <libprotoserial/interface.hpp>
 #include <libprotoserial/fragmentation.hpp>
-//#include <libprotoserial/ports/ports.hpp>
+#include <libprotoserial/ports/packet.hpp>
 
 #include "helpers/random.hpp"
 
@@ -587,7 +587,7 @@ TEST(Fragmentation, UnalteredRandom)
     EXPECT_EQ(test_handler(interface, handler, 500, data, addr), 500);
 }
 
-TEST(Fragmentation, CorruptedRandom)
+/* TEST(Fragmentation, CorruptedRandom)
 {
     sp::loopback_interface interface(0, 1, 10, 32, 256, [](sp::byte b){
         if (chance(0.5)) b |= random_byte();
@@ -600,5 +600,46 @@ TEST(Fragmentation, CorruptedRandom)
 
     EXPECT_EQ(test_handler(interface, handler, 500, data, addr, 25), 500);
 }
+ */
 
 
+TEST(Ports, PacketConstructor)
+{
+    const sp::bytes b1 = {10_B, 11_B, 12_B, 13_B, 14_B}, b2 = {20_B, 21_B, 22_B}, b3 = {30_B, 31_B};
+    sp::loopback_interface interface(0, 1, 10, 64, 256);
+    sp::fragmentation_handler handler(interface.max_data_size(), 100ms, 10ms, 2);
+    
+    sp::headers::ports_8b h(2, 3);
+    sp::transfer t(&handler, 2, 1);
+    t.push_back(b1);
+    t.push_front(b2);
+    t.push_back(b3);
+    t.set_destination(10);
+    
+    sp::packet p(std::move(t), h);
+
+    sp::bytes bc;
+    sp::bytes::size_type i;
+
+    bc = b2 + b1 + b3; i = 0;
+    for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
+        EXPECT_TRUE(bc[i] == *it) << "b2 + b1 + b3 index " << i << ": " << (int)bc[i] << " == " << (int)*it;
+
+    EXPECT_TRUE(bc == p.data_contiguous());
+    EXPECT_EQ(p.get_id(), 2);
+    EXPECT_EQ(p.get_prev_id(), 1);
+    EXPECT_EQ(p.source_port(), 3);
+    EXPECT_EQ(p.destination_port(), 2);
+    EXPECT_EQ(p.destination(), 10);
+
+    sp::transfer t2(std::move(p.to_transfer()));
+
+    i = 0;
+    for (auto it = t2.data_begin(); it != t2.data_end(); ++it, ++i)
+        EXPECT_TRUE(bc[i] == *it) << "b2 + b1 + b3 index " << i << ": " << (int)bc[i] << " == " << (int)*it;
+
+    EXPECT_TRUE(bc == t2.data_contiguous());
+    EXPECT_EQ(t2.get_id(), 2);
+    EXPECT_EQ(t2.get_prev_id(), 1);
+    EXPECT_EQ(t2.destination(), 10);
+}
