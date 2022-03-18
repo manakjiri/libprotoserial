@@ -38,8 +38,9 @@ namespace sp
         using index_type = uint;
 
         transfer_metadata(address_type src, address_type dst, interface_identifier iid, 
-            time_point timestamp_creation, id_type id, id_type prev_id) :
-                fragment_metadata(src, dst, iid, timestamp_creation), _id(id), _prev_id(prev_id) {}
+            time_point timestamp_creation, id_type id, id_type prev_id, id_type next_id) :
+                fragment_metadata(src, dst, iid, timestamp_creation), _id(id), 
+                _prev_id(prev_id), _next_id(next_id) {}
 
         transfer_metadata(const transfer_metadata &) = default;
         transfer_metadata(transfer_metadata &&) = default;
@@ -50,6 +51,7 @@ namespace sp
         addresses and the interface name. It is issued by the transmittee of the fragment */
         id_type get_id() const {return _id;}
         id_type get_prev_id() const {return _prev_id;}
+        id_type get_next_id() const {return _next_id;}
 
         /* checks if p's addresses and interface match the transfer's, this along with id match means that p 
         should be part of this transfer */
@@ -60,8 +62,16 @@ namespace sp
         bool match_as_response(const fragment & p) const 
             {return p.source() == destination();}
 
+        /* use only once for creating actual response, each transfer only holds one next_id */
+        virtual transfer_metadata create_response() 
+        {
+            return transfer_metadata(destination(), source(), interface_id(), 
+                clock::now(), get_next_id(), get_id(), 0
+            );
+        }
+
         protected:
-        id_type _id, _prev_id;
+        id_type _id, _prev_id, _next_id;
     };
 
     struct transfer_data
@@ -266,13 +276,13 @@ namespace sp
         does not need to be the first fragment, fragmentation_handler is responsible for 
         the correct order of fragments within this object */
         template<class Header>
-        transfer(const Header & h, fragmentation_handler * handler) :
-            transfer_metadata(0, 0, interface_identifier(), clock::now(), h.get_id(), h.get_prev_id()),
-            transfer_data(h.fragments_total()), _handler(handler) {}
+        transfer(const Header & h, id_type next_id) :
+            transfer_metadata(0, 0, interface_identifier(), clock::now(), h.get_id(), h.get_prev_id(), next_id),
+            transfer_data(h.fragments_total()) {}
 
         /* constructor used by the fragmentation_handler in new_transfer */
-        transfer(fragmentation_handler * handler, id_type id, id_type prev_id = 0):
-            transfer_metadata(0, 0, interface_identifier(), clock::now(), id, prev_id), _handler(handler) {}
+        transfer(id_type id, id_type prev_id, id_type next_id):
+            transfer_metadata(0, 0, interface_identifier(), clock::now(), id, prev_id, next_id) {}
 
         transfer(transfer_metadata && metadata, transfer_data && data):
             transfer_metadata(std::move(metadata)), transfer_data(std::move(data)) {}
@@ -291,8 +301,6 @@ namespace sp
         {
             return transfer_metadata(*reinterpret_cast<const transfer_metadata*>(this));
         }
-
-        fragmentation_handler * get_handler() const {return _handler;}
 
 #ifndef SP_NO_IOSTREAM
         friend std::ostream& operator<<(std::ostream& os, const transfer & t) 
@@ -320,8 +328,6 @@ namespace sp
             _destination = p.destination();
             _interface_id = p.interface_id();
         }
-
-        mutable fragmentation_handler * _handler;
     };
 }
 

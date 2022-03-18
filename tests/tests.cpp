@@ -478,7 +478,7 @@ TEST(Fragmentation, Transfer)
     
     // MODE 1
     sp::headers::fragment_8b16b h(sp::headers::fragment_8b16b::message_types::FRAGMENT, 0, 4, 1);
-    sp::transfer p(h, &handler);
+    sp::transfer p(h, 0);
 
     sp::bytes bc;
     sp::bytes::size_type i;
@@ -587,7 +587,7 @@ TEST(Fragmentation, UnalteredRandom)
     EXPECT_EQ(test_handler(interface, handler, 500, data, addr), 500);
 }
 
-/* TEST(Fragmentation, CorruptedRandom)
+TEST(Fragmentation, CorruptedRandom)
 {
     sp::loopback_interface interface(0, 1, 10, 32, 256, [](sp::byte b){
         if (chance(0.5)) b |= random_byte();
@@ -600,7 +600,8 @@ TEST(Fragmentation, UnalteredRandom)
 
     EXPECT_EQ(test_handler(interface, handler, 500, data, addr, 25), 500);
 }
- */
+
+
 
 
 TEST(Ports, PacketConstructor)
@@ -610,7 +611,7 @@ TEST(Ports, PacketConstructor)
     sp::fragmentation_handler handler(interface.max_data_size(), 100ms, 10ms, 2);
     
     sp::headers::ports_8b h(2, 3);
-    sp::transfer t(&handler, 2, 1);
+    sp::transfer t(2, 1, 3);
     t.push_back(b1);
     t.push_front(b2);
     t.push_back(b3);

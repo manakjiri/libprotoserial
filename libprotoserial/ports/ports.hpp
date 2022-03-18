@@ -175,7 +175,7 @@ namespace sp
             if (_find_interface(iid) != _interfaces.end())
                 throw already_registered();
 
-            return _interfaces.emplace_back(interface_name, this);
+            return _interfaces.emplace_back(iid, this);
         }
 
         /* use this to register a new service, you must subscribe to events of interest

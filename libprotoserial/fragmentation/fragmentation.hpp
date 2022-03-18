@@ -70,11 +70,8 @@ namespace sp
 
         struct transfer_wrapper : public transfer
         {
-            using transfer::transfer;
-            using transfer::operator=;
-
-            transfer_wrapper(transfer && t) :
-                transfer(std::move(t)) {}
+            transfer_wrapper(transfer && t, fragmentation_handler * handler) :
+                transfer(std::move(t)), _handler(handler) {}
 
             /* returns the number of fragments needed to transmit this transfer,
             this obviously depends on the mode but we can make some assumptions:
@@ -129,6 +126,8 @@ namespace sp
                 
                 return fragment(destination(), std::move(data));
             }
+
+            fragmentation_handler * _handler;
         };
         
         /* this wraps the underlaying transfer to strip it off otherwise unneeded values
@@ -276,7 +275,7 @@ namespace sp
             std::cout << "transmit got id " << t.get_id() << std::endl;
 #endif
             /* transmit all fragments within this transfer and store it in case we get a retransmit request */
-            auto & tp = _outgoing_transfers.emplace_back(transfer_wrapper(std::move(t)));
+            auto & tp = _outgoing_transfers.emplace_back(transfer_wrapper(std::move(t), this));
             for (index_type fragment_pos = 1; fragment_pos <= tp.tr->_fragments_count(); ++fragment_pos)
             {
 #ifdef SP_FRAGMENTATION_DEBUG
@@ -289,7 +288,7 @@ namespace sp
 
         transfer new_transfer()
         {
-            return transfer(this, new_id(), 0);
+            return transfer(new_id(), 0, new_id());
         }
 
         size_type max_fragment_size() const
@@ -371,7 +370,9 @@ namespace sp
                     std::cout << "creating new incoming transfer id " << h.get_id() << std::endl;
 #endif
                     /* we don't know this transfer ID, create new incoming transfer */
-                    auto& t = _incoming_transfers.emplace_back(transfer_progress(transfer_wrapper(h, this)));
+                    auto& t = _incoming_transfers.emplace_back(
+                        transfer_progress(transfer_wrapper(transfer(h, new_id()), this))
+                    );
                     t.tr->_assign(h.fragment(), std::move(p));
                 }
                 else
