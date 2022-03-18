@@ -53,8 +53,10 @@ namespace sp
 
 
             /* use the wire to implement data in transit corrupting function */
-            loopback_interface(uint id, interface::address_type address, uint max_queue_size, uint max_fragment_size, uint buffer_size, transfer_function wire = [](byte b){return b;}):
-                buffered_interface("lo" + std::to_string(id), address, max_queue_size, buffer_size), _wire(wire), _max_fragment_size(max_fragment_size) 
+            loopback_interface(interface_identifier::instance_type instance, interface::address_type address, 
+                uint max_queue_size, uint max_fragment_size, uint buffer_size, transfer_function wire = [](byte b){return b;}):
+                    buffered_interface(interface_identifier(interface_identifier::identifier_type::LOOPBACK, instance), address, 
+                    max_queue_size, buffer_size), _wire(wire), _max_fragment_size(max_fragment_size) 
             {
                 _read = get_rx_buffer();
                 _write = get_rx_buffer();
@@ -117,7 +119,7 @@ namespace sp
 #ifdef SP_LOOPBACK_DEBUG
                                         std::cout << "do_receive parse_fragment gets: " << b << std::endl;
 #endif
-                                        put_received(std::move(parsers::parse_fragment<Header, Footer>(std::move(b), this)));
+                                        put_received(std::move(parsers::parse_fragment<Header, Footer>(std::move(b), *this)));
                                         /* parsing succeeded, finally move the read pointer, we do not include the
                                         preamble length here because we don't necessarily know how long it was originally */
                                         _read = read + fragment_size;

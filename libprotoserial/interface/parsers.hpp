@@ -39,13 +39,13 @@ namespace sp
         };
 
         template<typename header, typename footer>
-        fragment parse_fragment(bytes && buff, interface * i)
+        fragment parse_fragment(bytes && buff, const interface & i)
         {
             bytes b = buff;
             /* copy the header into the header struct */
             header h;
             std::copy(b.begin(), b.begin() + sizeof(h), reinterpret_cast<byte*>(&h));
-            if (!h.is_valid(i->max_data_size())) throw bad_size();
+            if (!h.is_valid(i.max_data_size())) throw bad_size();
             /* copy the footer, shrink the container by the footer size and compute the checksum */
             footer f_parsed;
             std::copy(b.end() - sizeof(footer), b.end(), reinterpret_cast<byte*>(&f_parsed));
@@ -55,7 +55,7 @@ namespace sp
             /* shrink the container by the header and return the fragment object */
             b.shrink(sizeof(h), 0);
             return fragment(interface::address_type(h.source), interface::address_type(h.destination), 
-                std::move(b), i);
+                std::move(b), i.interface_id());
         }
 
         /* find the value by incrementing start, if found returns true, false otherwise */

@@ -112,7 +112,6 @@
 
 namespace sp
 {
-
     /* things left as implementation details for subclasses
      * - RX ISR and RX buffer (not the fragment queue)
      * - address (must be representable by interface::address), broadcast address //TODO
@@ -141,8 +140,8 @@ namespace sp
          *   then the receive_event is emitted, otherwise the other_receive_event is emitted
          * - max_queue_size sets the maximum number of fragments the transmit queue can hold
          */
-        interface(std::string name, address_type address, uint max_queue_size) : 
-            _max_queue_size(max_queue_size), _name(name), _address(address) {}
+        interface(interface_identifier iid, address_type address, uint max_queue_size) : 
+            _max_queue_size(max_queue_size), _interface_id(iid), _address(address) {}
         
         void main_task() noexcept
         {
@@ -178,7 +177,7 @@ namespace sp
             if (p.destination() == 0) throw no_destination();
             if (p.data().size() > max_data_size() || p.data().is_empty()) throw bad_data();
             /* complete the fragment */
-            p._complete(get_address(), this);
+            p._complete(get_address(), interface_id());
             auto b = serialize_fragment(std::move(p));
             _tx_queue.push(std::move(b));
         }
@@ -186,8 +185,7 @@ namespace sp
         //TODO is there a better way?
         bool is_writable() const {return _tx_queue.size() <= _max_queue_size;}
         
-        /* returns a unique name of the interface */
-        std::string name() const noexcept {return _name;}
+        interface_identifier interface_id() const noexcept {return _interface_id;}
         void reset_address(address_type addr) noexcept {_address = addr;}
         address_type get_address() const noexcept {return _address;}
         /* returns the maximum size of the data portion in a fragment, this is interface dependent */
@@ -230,32 +228,11 @@ namespace sp
         std::queue<bytes> _tx_queue;
         uint _max_queue_size = 0;
 
-        std::string _name;
+        interface_identifier _interface_id;
         address_type _address = 0;
     };
 
 }
-
-bool operator==(const sp::fragment & lhs, const sp::fragment & rhs)
-{
-    return ((lhs.get_interface() && rhs.get_interface()) ? (lhs.get_interface()->name() == rhs.get_interface()->name()) : true) 
-    && lhs.source() == rhs.source() && lhs.destination() == rhs.destination() && lhs.data() == rhs.data();
-}
-
-bool operator!=(const sp::fragment & lhs, const sp::fragment & rhs)
-{
-    return !(lhs == rhs);
-}
-
-#ifndef SP_NO_IOSTREAM
-std::ostream& operator<<(std::ostream& os, const sp::fragment& p) 
-{
-    os << "dst: " << p.destination() << ", src: " << p.source();
-    os << ", int: " << (p.get_interface() ? p.get_interface()->name() : "null");
-    os << ", " << p.data();
-    return os;
-}
-#endif
 
 
 #endif

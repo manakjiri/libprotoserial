@@ -25,6 +25,7 @@
 
 #include "libprotoserial/container.hpp"
 #include "libprotoserial/clock.hpp"
+#include "libprotoserial/interface/interface_id.hpp"
 
 namespace sp
 {
@@ -39,16 +40,16 @@ namespace sp
         using address_type = uint;
         using time_point = clock::time_point;
 
-        fragment_metadata(address_type src, address_type dst, interface *i, time_point timestamp_creation):
-            _timestamp_creation(timestamp_creation), _interface(i), _source(src), _destination(dst) {}
+        fragment_metadata(address_type src, address_type dst, interface_identifier iid, time_point timestamp_creation):
+            _timestamp_creation(timestamp_creation), _interface_id(iid), _source(src), _destination(dst) {}
 
         fragment_metadata(const fragment_metadata &) = default;
         fragment_metadata(fragment_metadata &&) = default;
         fragment_metadata & operator=(const fragment_metadata &) = default;
         fragment_metadata & operator=(fragment_metadata &&) = default;
 
-        constexpr time_point timestamp_creation() const {return _timestamp_creation;}
-        constexpr interface* get_interface() const noexcept {return _interface;}
+        constexpr time_point timestamp_creation() const noexcept {return _timestamp_creation;}
+        constexpr interface_identifier interface_id() const noexcept {return _interface_id;}
         constexpr address_type source() const noexcept {return _source;}
         constexpr address_type destination() const noexcept {return _destination;}
 
@@ -56,7 +57,7 @@ namespace sp
 
         protected:
         time_point _timestamp_creation;
-        mutable interface *_interface;
+        interface_identifier _interface_id;
         address_type _source, _destination;
     };
 
@@ -67,12 +68,12 @@ namespace sp
 
         typedef bytes   data_type;
 
-        fragment(address_type src, address_type dst, data_type && d, interface *i) :
-            fragment_metadata(src, dst, i, clock::now()), _data(std::move(d)) {}
+        fragment(address_type src, address_type dst, data_type && d, interface_identifier iid) :
+            fragment_metadata(src, dst, iid, clock::now()), _data(std::move(d)) {}
 
         /* this object can be passed to the interface::write() function */
         fragment(address_type dst, data_type && d) :
-            fragment((address_type)0, dst, std::move(d), nullptr) {}
+            fragment((address_type)0, dst, std::move(d), interface_identifier()) {}
 
         fragment():
             fragment(0, data_type()) {}
@@ -84,7 +85,7 @@ namespace sp
         
         constexpr const data_type& data() const noexcept {return _data;}
         constexpr data_type& data() noexcept {return _data;}
-        constexpr void _complete(address_type src, interface *i) {_source = src; _interface = i;}
+        constexpr void _complete(address_type src, interface_identifier iid) {_source = src; _interface_id = iid;}
         
         bool carries_information() const {return _data && _destination;}
         explicit operator bool() const {return carries_information();}
@@ -93,6 +94,27 @@ namespace sp
         data_type _data;
     };
 }
+
+bool operator==(const sp::fragment & lhs, const sp::fragment & rhs)
+{
+    return lhs.interface_id() == rhs.interface_id() && lhs.source() == rhs.source() && 
+        lhs.destination() == rhs.destination() && lhs.data() == rhs.data();
+}
+
+bool operator!=(const sp::fragment & lhs, const sp::fragment & rhs)
+{
+    return !(lhs == rhs);
+}
+
+#ifndef SP_NO_IOSTREAM
+std::ostream& operator<<(std::ostream& os, const sp::fragment& p) 
+{
+    os << "dst: " << p.destination() << ", src: " << p.source();
+    os << ", int: " << p.interface_id();
+    os << ", " << p.data();
+    return os;
+}
+#endif
 
 
 #endif

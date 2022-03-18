@@ -91,8 +91,8 @@ namespace sp
 
         struct interface_endpoint
         {
-            interface_endpoint(std::string interface_name, ports_handler * handler) :
-                _handler(handler), _interface_name(interface_name) {}
+            interface_endpoint(interface_identifier iid, ports_handler * handler) :
+                _handler(handler), _interface_identifier(iid) {}
             
             /* fires when the ports_handler wants to transmit a transfer, 
             complemented by transfer_receive_callback */
@@ -102,14 +102,14 @@ namespace sp
             complemented by transfer_transmit_event */
             void transfer_receive_callback(transfer t)
             {
-                _handler->transfer_receive_callback(_interface_name, std::move(t));
+                _handler->transfer_receive_callback(_interface_identifier, std::move(t));
             }
 
-            const std::string & get_interface_name() const {return _interface_name;}
+            interface_identifier get_interface_identifier() const {return _interface_identifier;}
 
             private:
             ports_handler * _handler;
-            std::string _interface_name;
+            interface_identifier _interface_identifier;
         };
 
         private:
@@ -124,14 +124,14 @@ namespace sp
             });
         }
 
-        auto _find_interface(const std::string & interface_name)
+        auto _find_interface(interface_identifier iid)
         {
             return std::find_if(_interfaces.begin(), _interfaces.end(), [&](const auto & pw){
-                return pw.get_interface_name() == interface_name;
+                return pw.get_interface_identifier() == iid;
             });
         }
 
-        void transfer_receive_callback(const std::string & interface_name, transfer t)
+        void transfer_receive_callback(interface_identifier iid, transfer t)
         {
             if (t.data_size() >= sizeof(Header))
             {
@@ -160,22 +160,19 @@ namespace sp
 
         void transfer_transmit(port_type source, packet p)
         {
-            if (!p.get_interface())
-                return;
-
             Header h(p.destination_port(), source);
             p.push_front(to_bytes(h));
 
-            auto i = _find_interface(p.get_interface()->name());
+            auto i = _find_interface(p.interface_id());
             if (i != _interfaces.end())
                 i->transfer_transmit_event.emit(std::move(p.to_transfer()));
         }
 
         /* use this to register a new interface, bind events and callbacks within the
         returned interface_endpoint object to a transfer factory */
-        interface_endpoint & register_port(const std::string & interface_name)
+        interface_endpoint & register_port(interface_identifier iid)
         {
-            if (_find_interface(interface_name) != _interfaces.end())
+            if (_find_interface(iid) != _interfaces.end())
                 throw already_registered();
 
             return _interfaces.emplace_back(interface_name, this);

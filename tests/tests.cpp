@@ -483,25 +483,25 @@ TEST(Fragmentation, Transfer)
     sp::bytes bc;
     sp::bytes::size_type i;
 
-    p._assign(2, sp::fragment(2, 3, sp::bytes(b1), &interface));
+    p._assign(2, sp::fragment(2, 3, sp::bytes(b1), interface.interface_id()));
     bc = b1; i = 0;
     for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
         EXPECT_TRUE(bc[i] == *it) << "b1 index " << i << ": " << (int)bc[i] << " == " << (int)*it;
     EXPECT_EQ(i, bc.size());
 
-    p._assign(4, sp::fragment(2, 3, sp::bytes(b2), &interface));
+    p._assign(4, sp::fragment(2, 3, sp::bytes(b2), interface.interface_id()));
     bc = b1 + b2; i = 0;
     for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
         EXPECT_TRUE(bc[i] == *it) << "b1 + b2 index " << i << ": " << (int)bc[i] << " == " << (int)*it;
     EXPECT_EQ(i, bc.size());
 
-    p._assign(1, sp::fragment(2, 3, sp::bytes(b3), &interface));
+    p._assign(1, sp::fragment(2, 3, sp::bytes(b3), interface.interface_id()));
     bc = b3 + b1 + b2; i = 0;
     for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
         EXPECT_TRUE(bc[i] == *it) << "b3 + b1 + b2 index " << i << ": " << (int)bc[i] << " == " << (int)*it;
     EXPECT_EQ(i, bc.size());
 
-    p._assign(3, sp::fragment(2, 3, sp::bytes(b4), &interface));
+    p._assign(3, sp::fragment(2, 3, sp::bytes(b4), interface.interface_id()));
     bc = b3 + b1 + b4 + b2; i = 0;
     for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
         EXPECT_TRUE(bc[i] == *it) << "b3 + b1 + b4 + b2 index " << i << ": " << (int)bc[i] << " == " << (int)*it;

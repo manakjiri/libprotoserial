@@ -37,9 +37,9 @@ namespace sp
         using id_type = uint;
         using index_type = uint;
 
-        transfer_metadata(address_type src, address_type dst, interface * i, time_point timestamp_creation, 
-            id_type id, id_type prev_id) :
-                fragment_metadata(src, dst, i, timestamp_creation), _id(id), _prev_id(prev_id) {}
+        transfer_metadata(address_type src, address_type dst, interface_identifier iid, 
+            time_point timestamp_creation, id_type id, id_type prev_id) :
+                fragment_metadata(src, dst, iid, timestamp_creation), _id(id), _prev_id(prev_id) {}
 
         transfer_metadata(const transfer_metadata &) = default;
         transfer_metadata(transfer_metadata &&) = default;
@@ -267,12 +267,12 @@ namespace sp
         the correct order of fragments within this object */
         template<class Header>
         transfer(const Header & h, fragmentation_handler * handler) :
-            transfer_metadata(0, 0, nullptr, clock::now(), h.get_id(), h.get_prev_id()),
+            transfer_metadata(0, 0, interface_identifier(), clock::now(), h.get_id(), h.get_prev_id()),
             transfer_data(h.fragments_total()), _handler(handler) {}
 
         /* constructor used by the fragmentation_handler in new_transfer */
         transfer(fragmentation_handler * handler, id_type id, id_type prev_id = 0):
-            transfer_metadata(0, 0, nullptr, clock::now(), id, prev_id), _handler(handler) {}
+            transfer_metadata(0, 0, interface_identifier(), clock::now(), id, prev_id), _handler(handler) {}
 
         transfer(transfer_metadata && metadata, transfer_data && data):
             transfer_metadata(std::move(metadata)), transfer_data(std::move(data)) {}
@@ -298,7 +298,7 @@ namespace sp
         friend std::ostream& operator<<(std::ostream& os, const transfer & t) 
         {
             os << "dst: " << t.destination() << ", src: " << t.source();
-            os << ", int: " << (t.get_interface() ? t.get_interface()->name() : "null");
+            os << ", int: " << t.interface_id();
             os << ", id: " << t.get_id() << ", prev_id: " << t.get_prev_id();
             os << ", " << t.data_contiguous();
             return os;
@@ -318,7 +318,7 @@ namespace sp
             transfer_data::refresh();
             _source = p.source();
             _destination = p.destination();
-            _interface = p.get_interface();
+            _interface_id = p.interface_id();
         }
 
         mutable fragmentation_handler * _handler;
