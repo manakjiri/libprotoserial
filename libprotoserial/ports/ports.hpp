@@ -72,14 +72,14 @@ namespace sp
 
             /* source port of the transfer, service should subscribe to this 
             in order to receive transfers */
-            subject<packet> transfer_receive_event;
+            subject<packet> receive_event;
 
             /* port where to send the provided transfer, service should call this
             when it wants to transmit a transfer, creating a subject<port_type, transfer>
             within the service and subscribing using this fuction is recommended */
-            void transfer_transmit_callback(packet p)
+            void transmit_callback(packet p)
             {
-                _handler->transfer_transmit(_port, std::move(p));
+                _handler->transmit(_port, std::move(p));
             }
 
             auto get_port() const {return _port;}
@@ -144,7 +144,7 @@ namespace sp
                     {
                         /* hide the header and forward the transfer to the registered service */
                         t.remove_first_n(sizeof(Header));
-                        pw->transfer_receive_event.emit(std::move(packet(std::move(t))));
+                        pw->receive_event.emit(std::move(packet(std::move(t))));
                     }
                 }
             }
@@ -158,7 +158,7 @@ namespace sp
 
         }
 
-        void transfer_transmit(port_type source, packet p)
+        void transmit(port_type source, packet p)
         {
             Header h(p.destination_port(), source);
             p.push_front(to_bytes(h));
@@ -170,7 +170,7 @@ namespace sp
 
         /* use this to register a new interface, bind events and callbacks within the
         returned interface_endpoint object to a transfer factory */
-        interface_endpoint & register_port(interface_identifier iid)
+        interface_endpoint & register_interface(interface_identifier iid) [[nodiscard]]
         {
             if (_find_interface(iid) != _interfaces.end())
                 throw already_registered();
@@ -178,9 +178,16 @@ namespace sp
             return _interfaces.emplace_back(iid, this);
         }
 
+        void register_interface(interface_identifier iid, fragmentation_handler & l)
+        {
+            auto & ie = register_interface(iid);
+            ie.transfer_transmit_event.subscribe(&fragmentation_handler::transmit, &l);
+            l.transfer_receive_event.subscribe(&ports_handler::interface_endpoint::transfer_receive_callback, &ie);
+        }
+
         /* use this to register a new service, you must subscribe to events of interest
         within the returned service_endpoint reference */
-        service_endpoint & register_port(port_type p)
+        service_endpoint & register_port(port_type p) [[nodiscard]]
         {
             if (_find_service(p) != _services.end())
                 throw already_registered();

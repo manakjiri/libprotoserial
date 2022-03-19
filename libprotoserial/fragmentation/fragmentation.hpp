@@ -153,9 +153,9 @@ namespace sp
 
         public:
 
-        fragmentation_handler(size_type max_fragment_size, clock::duration retransmit_time, clock::duration drop_time, 
-            uint retransmit_multiplier) :
-                _retransmit_time(retransmit_time), _drop_time(drop_time), _id_counter(0),
+        fragmentation_handler(interface_identifier iid, size_type max_fragment_size, clock::duration retransmit_time, 
+            clock::duration drop_time, uint retransmit_multiplier) :
+                _retransmit_time(retransmit_time), _drop_time(drop_time), _interface_identifier(iid),
                 _max_fragment_size(max_fragment_size - sizeof(Header)), _retransmit_multiplier(retransmit_multiplier) {}
 
 
@@ -286,11 +286,6 @@ namespace sp
             tp.transmit_done();
         }
 
-        transfer new_transfer()
-        {
-            return transfer(new_id(), 0, new_id());
-        }
-
         size_type max_fragment_size() const
         {
             return _max_fragment_size;
@@ -324,12 +319,6 @@ namespace sp
         subject<transfer_metadata> transfer_ack_event;
 
         private:
-
-        id_type new_id()
-        {
-            if (++_id_counter == 0) ++_id_counter;
-            return _id_counter;
-        }
 
         Header make_header(types type, index_type fragment_pos, const transfer_progress & tp)
         {
@@ -371,7 +360,7 @@ namespace sp
 #endif
                     /* we don't know this transfer ID, create new incoming transfer */
                     auto& t = _incoming_transfers.emplace_back(
-                        transfer_progress(transfer_wrapper(transfer(h, new_id()), this))
+                        transfer_progress(transfer_wrapper(transfer(_interface_identifier, h), this))
                     );
                     t.tr->_assign(h.fragment(), std::move(p));
                 }
@@ -436,7 +425,7 @@ namespace sp
 
         std::list<transfer_progress> _incoming_transfers, _outgoing_transfers;
         clock::duration _retransmit_time, _drop_time;
-        id_type _id_counter;
+        interface_identifier _interface_identifier;
         size_type _max_fragment_size;
         uint _retransmit_multiplier;
     };

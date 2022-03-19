@@ -34,19 +34,20 @@ namespace sp
     {
         using port_type = ports_handler::port_type;
 
-        /* port where to send the provided transfer */
-        subject<port_type, transfer> transfer_transmit_event;
+        subject<packet> transmit_event;
         /* source port of the transfer */
-        virtual void transfer_receive_callback(port_type p, transfer t) = 0;
+        virtual void receive_callback(packet) = 0;
 
         void bind_to(ports_handler & l, port_type port)
         {
-            auto & h = l.register_port(_port = port);
-            h.transfer_receive_event.subscribe(&port_service_base::transfer_receive_callback, this);
-            transfer_transmit_event.subscribe(&ports_handler::service_endpoint::transfer_transmit_callback, &h);
+            auto & h = l.register_port((_port = port));
+            h.receive_event.subscribe(&port_service_base::receive_callback, this);
+            transmit_event.subscribe(&ports_handler::service_endpoint::transmit_callback, &h);
         }
 
         port_type get_port() const {return _port;}
+
+        
 
         private:
 

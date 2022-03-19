@@ -25,6 +25,7 @@
 
 #include "libprotoserial/interface.hpp"
 #include "libprotoserial/clock.hpp"
+#include "libprotoserial/fragmentation/id_factory.hpp"
 
 namespace sp
 {
@@ -38,9 +39,9 @@ namespace sp
         using index_type = uint;
 
         transfer_metadata(address_type src, address_type dst, interface_identifier iid, 
-            time_point timestamp_creation, id_type id, id_type prev_id, id_type next_id) :
+            time_point timestamp_creation, id_type id, id_type prev_id) :
                 fragment_metadata(src, dst, iid, timestamp_creation), _id(id), 
-                _prev_id(prev_id), _next_id(next_id) {}
+                _prev_id(prev_id) {}
 
         transfer_metadata(const transfer_metadata &) = default;
         transfer_metadata(transfer_metadata &&) = default;
@@ -51,7 +52,6 @@ namespace sp
         addresses and the interface name. It is issued by the transmittee of the fragment */
         id_type get_id() const {return _id;}
         id_type get_prev_id() const {return _prev_id;}
-        id_type get_next_id() const {return _next_id;}
 
         /* checks if p's addresses and interface match the transfer's, this along with id match means that p 
         should be part of this transfer */
@@ -63,15 +63,15 @@ namespace sp
             {return p.source() == destination();}
 
         /* use only once for creating actual response, each transfer only holds one next_id */
-        virtual transfer_metadata create_response() 
+        transfer_metadata create_response() 
         {
             return transfer_metadata(destination(), source(), interface_id(), 
-                clock::now(), get_next_id(), get_id(), 0
+                clock::now(), global_id_factory.new_id(interface_id()), get_id()
             );
         }
 
         protected:
-        id_type _id, _prev_id, _next_id;
+        id_type _id, _prev_id;
     };
 
     struct transfer_data
@@ -271,18 +271,15 @@ namespace sp
         */
     struct transfer : public transfer_metadata, public transfer_data
     {
-        /* constructor used when the fragmentation_handler receives the first piece of the 
-        fragment - when new a fragment transfer is initiated by other peer. This initial fragment
-        does not need to be the first fragment, fragmentation_handler is responsible for 
-        the correct order of fragments within this object */
+        /* constructor used when the fragmentation_handler receives the first piece of the transfer */
         template<class Header>
-        transfer(const Header & h, id_type next_id) :
-            transfer_metadata(0, 0, interface_identifier(), clock::now(), h.get_id(), h.get_prev_id(), next_id),
+        transfer(interface_identifier iid, const Header & h) :
+            transfer_metadata(0, 0, iid, clock::now(), h.get_id(), h.get_prev_id()),
             transfer_data(h.fragments_total()) {}
 
         /* constructor used by the fragmentation_handler in new_transfer */
-        transfer(id_type id, id_type prev_id, id_type next_id):
-            transfer_metadata(0, 0, interface_identifier(), clock::now(), id, prev_id, next_id) {}
+        transfer(interface_identifier iid, id_type prev_id = 0):
+            transfer_metadata(0, 0, iid, clock::now(), global_id_factory.new_id(iid), prev_id) {}
 
         transfer(transfer_metadata && metadata, transfer_data && data):
             transfer_metadata(std::move(metadata)), transfer_data(std::move(data)) {}

@@ -126,11 +126,9 @@ namespace sp
         struct bad_data : std::exception {
             const char * what () const throw () {return "bad_data";}
         };
-
         struct no_destination : std::exception {
             const char * what () const throw () {return "no_destination";}
         };
-
         struct not_writable : std::exception {
             const char * what () const throw () {return "not_writable";}
         };

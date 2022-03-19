@@ -33,14 +33,30 @@ namespace sp
         using port_type = uint;
 
         packet_metadata(address_type src, address_type dst, interface_identifier iid, time_point timestamp_creation, 
-            id_type id, id_type prev_id, id_type next_id, port_type src_port, port_type dst_port) :
-                transfer_metadata(src, dst, iid, timestamp_creation, id, prev_id, next_id),
+            id_type id, id_type prev_id, port_type src_port, port_type dst_port) :
+                transfer_metadata(src, dst, iid, timestamp_creation, id, prev_id),
                 _src_port(src_port), _dst_port(dst_port) {}
+
+        //packet_metadata(address_type src, interface_identifier iid, )
 
         port_type source_port() const {return _src_port;}
         port_type destination_port() const {return _dst_port;}
 
         void set_destination_port(port_type p) {_dst_port = p;}
+
+        packet_metadata create_response()
+        {
+            return packet_metadata(destination(), source(), interface_id(), 
+                clock::now(), global_id_factory.new_id(interface_id()), get_id(), 
+                destination_port(), source_port()
+            );
+        }
+
+        bool match_as_response(const packet_metadata & p) const 
+        {
+            return p.source() == destination() && p.interface_id() == interface_id() && 
+                p.get_prev_id() == get_id() && p.source_port() == destination_port();
+        }
 
         protected:
         port_type _src_port, _dst_port;
@@ -50,13 +66,15 @@ namespace sp
     {
         packet(transfer && t, port_type src_port = 0, port_type dst_port = 0) :
             packet_metadata(t.source(), t.destination(), t.interface_id(), t.timestamp_creation(),
-            t.get_id(), t.get_prev_id(), t.get_next_id(), src_port, dst_port), transfer_data(std::move(t)) {}
+            t.get_id(), t.get_prev_id(), src_port, dst_port), transfer_data(std::move(t)) {}
         
         packet(transfer && t, const headers::ports_8b & h) :
             packet(std::move(t), h.source, h.destination) {}
 
-        transfer to_transfer() {return transfer(std::move(*this), std::move(*this));}
+        packet(packet_metadata && metadata, transfer_data && data = transfer_data()):
+            packet_metadata(std::move(metadata)), transfer_data(std::move(data)) {}
 
+        transfer to_transfer() {return transfer(std::move(*this), std::move(*this));}
     };
 
 }

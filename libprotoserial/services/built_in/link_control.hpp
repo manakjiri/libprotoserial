@@ -37,17 +37,16 @@ namespace services
             PING_RESP,
         };
 
-        void transfer_receive_callback(port_type p, transfer t)
+        void transfer_receive_callback(packet p)
         {
-            message_types type = static_cast<message_types>(*t.data_begin());
-            t.remove_first_n(sizeof(message_types));
+            message_types type = static_cast<message_types>(*p.data_begin());
+            p.remove_first_n(sizeof(message_types));
             
             switch (type)
             {
             case message_types::PING_REQ:
-                t.push_front(to_bytes(static_cast<byte>(message_types::PING_RESP)));
-                t.set_destination(t.source());
-                transfer_transmit_event.emit(p, std::move(t));
+                p.push_front(to_bytes(static_cast<byte>(message_types::PING_RESP)));
+                transmit_event.emit(std::move(packet(p.create_response(), std::move(p))));
                 break;
             
             default:
@@ -58,7 +57,13 @@ namespace services
 
         public:
 
-        void ping(interface::address_type addr, )
+        void ping(interface::address_type addr, interface_identifier iid, port_type port = 0, bytes data = bytes())
+        {
+            if (!port) 
+                port = get_port();
+
+            packet p()
+        }
 
     };
 }
