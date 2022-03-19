@@ -19,41 +19,44 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/gpl.html>
  */
 
-#ifndef _SP_INTERFACE
-#define _SP_INTERFACE
 
-#include "libprotoserial/libconfig.hpp"
+#ifndef _SP_SERVICES_BASE
+#define _SP_SERVICES_BASE
 
-#include "libprotoserial/interface/loopback.hpp"
-#include "libprotoserial/interface/headers.hpp"
-#include "libprotoserial/interface/footers.hpp"
-
-#ifdef SP_STM32
-#include "libprotoserial/interface/stm32/uart.hpp"
-#include "libprotoserial/interface/stm32/usbcdc.hpp"
-#endif
+#include "libprotoserial/observer.hpp"
+#include "libprotoserial/ports/ports.hpp"
 
 namespace sp
 {
-    class loopback_interface : 
-        public detail::loopback_interface<sp::headers::interface_8b8b, sp::footers::crc32> 
+    /* this base class is not required for a service, it is just a "template" 
+     * for built-in services and enables a function like */
+    struct port_service_base
     {
-        using detail::loopback_interface<sp::headers::interface_8b8b, sp::footers::crc32>::loopback_interface;
+        using port_type = ports_handler::port_type;
+
+        subject<packet> transmit_event;
+        /* source port of the transfer */
+        virtual void receive_callback(packet) = 0;
+
+        void bind_to(ports_handler & l, port_type port)
+        {
+            auto & h = l.register_port((_port = port));
+            h.receive_event.subscribe(&port_service_base::receive_callback, this);
+            transmit_event.subscribe(&ports_handler::service_endpoint::transmit_callback, &h);
+        }
+
+        port_type get_port() const {return _port;}
+
+        
+
+        private:
+
+        port_type _port;
     };
-
-
-#ifdef SP_STM32
-    namespace device = detail::stm32;
-#endif
-
-#ifdef SP_EMBEDDED
-    class uart_interface:
-    	public device::uart_interface<sp::headers::interface_8b8b, sp::footers::crc32>
-    {
-    	using device::uart_interface<sp::headers::interface_8b8b, sp::footers::crc32>::uart_interface;
-    };
-#endif
-
 }
 
+
 #endif
+
+
+

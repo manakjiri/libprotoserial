@@ -20,18 +20,12 @@
  */
 
 /* 
- * > We can build the packet fragmentation logic on top of the interface, 
- * > this logic should have its own internal buffer for packets received
- * > from events, because once the event firess, the packet is forgotten on 
+ * > We can build the fragment fragmentation logic on top of the interface, 
+ * > this logic should have its own internal buffer for fragments received
+ * > from events, because once the event firess, the fragment is forgotten on 
  * > the interface side to avoid the need for direct access to the interface's 
  * > RX queue.
- * 
- * 
- * 
- * 
  */
-
-
 
 
 #ifndef _SP_FRAGMENTATION_HANDLER
@@ -64,14 +58,22 @@ namespace sp
 {
     class fragmentation_handler
     {
+        public:
+
+        using Header = headers::fragment_8b16b;
+        using types = Header::message_types;
+        using index_type = transfer::index_type;
+        using id_type = transfer::id_type;
+        using size_type = fragment::data_type::size_type;
+
+        private:
+
         struct transfer_wrapper : public transfer
         {
-            using transfer::transfer;
+            transfer_wrapper(transfer && t, fragmentation_handler * handler) :
+                transfer(std::move(t)), _handler(handler) {}
 
-            transfer_wrapper(transfer && t) :
-                transfer(std::move(t)) {}
-
-            /* returns the number of packets needed to transmit this transfer,
+            /* returns the number of fragments needed to transmit this transfer,
             this obviously depends on the mode but we can make some assumptions:
             -   when in mode1 transfer has internally preallocated the needed number of 
                 slots for fragments so this returns that number
@@ -81,8 +83,8 @@ namespace sp
             {
                 if (_is_complete())
                     /* mode 2 */
-                    return data_size() / _handler->max_packet_size() + 
-                        (data_size() % _handler->max_packet_size() == 0 ? 0 : 1);
+                    return data_size() / _handler->max_fragment_size() + 
+                        (data_size() % _handler->max_fragment_size() == 0 ? 0 : 1);
                 else
                     /* mode 1 */
                     return _data.size();
@@ -111,19 +113,21 @@ namespace sp
             }
 
             /* mode 2) only, preferably */
-            interface::packet _get_fragment(index_type fragment) const
+            fragment _get_fragment(index_type fragment_pos) const
             {
-                if (fragment == 0) throw std::invalid_argument("fragment == 0");
-                fragment -= 1;
-                auto p_size = _handler->max_packet_size();
-                if (fragment * p_size > data_size()) throw std::invalid_argument("fragment * p_size > data_size()");
+                if (fragment_pos == 0) throw std::invalid_argument("fragment_pos == 0");
+                fragment_pos -= 1;
+                auto p_size = _handler->max_fragment_size();
+                if (fragment_pos * p_size > data_size()) throw std::invalid_argument("fragment_pos * p_size > data_size()");
 
-                bytes data(sizeof(header), 0, p_size);
-                auto b = data_begin() + fragment * p_size, e = data_end();
+                bytes data(sizeof(Header), 0, p_size);
+                auto b = data_begin() + fragment_pos * p_size, e = data_end();
                 for (; b != e && data.size() < p_size; ++b) data.push_back(*b);
                 
-                return interface::packet(destination(), std::move(data));
+                return fragment(destination(), std::move(data));
             }
+
+            fragmentation_handler * _handler;
         };
         
         /* this wraps the underlaying transfer to strip it off otherwise unneeded values
@@ -136,10 +140,11 @@ namespace sp
             clock::time_point timestamp_accessed;
             uint retransmitions = 0;
             /* this should always match the tr->get_id() */
-            transfer::id_type id;
+            id_type id;
 
             transfer_progress(transfer_wrapper && t) :
-                tr(std::unique_ptr<transfer_wrapper>(new transfer_wrapper(std::move(t)))), timestamp_accessed(clock::now()), id(tr->get_id()) {}
+                tr(std::unique_ptr<transfer_wrapper>(new transfer_wrapper(std::move(t)))), 
+                    timestamp_accessed(clock::now()), id(tr->get_id()) {}
 
             void transmit_done() {timestamp_accessed = clock::now();}
             void retransmit_done() {timestamp_accessed = clock::now(); ++retransmitions;}
@@ -148,35 +153,28 @@ namespace sp
 
         public:
 
-        using header = headers::fragment_header_8b16b;
-        using types = header::message_types;
-        using index_type = typename header::index_type;
-        using size_type = interface::packet::data_type::size_type;
-
-        fragmentation_handler(size_type max_packet_size, clock::duration retransmit_time, clock::duration drop_time, 
-            uint retransmit_multiplier) :
-                _retransmit_time(retransmit_time), _drop_time(drop_time), _max_packet_size(max_packet_size - sizeof(header)),
-                _retransmit_multiplier(retransmit_multiplier) {}
-
-        public:
+        fragmentation_handler(interface_identifier iid, size_type max_fragment_size, clock::duration retransmit_time, 
+            clock::duration drop_time, uint retransmit_multiplier) :
+                _retransmit_time(retransmit_time), _drop_time(drop_time), _interface_identifier(iid),
+                _max_fragment_size(max_fragment_size - sizeof(Header)), _retransmit_multiplier(retransmit_multiplier) {}
 
 
-        /* the callback handles the incoming packets, it does not handle any timeouts, sending requests, 
+        /* the callback handles the incoming fragments, it does not handle any timeouts, sending requests, 
         or anything that assumes periodicity, the main_task is for that */
-        void receive_callback(interface::packet p) noexcept
+        void receive_callback(fragment p) noexcept
         {
 #ifdef SP_FRAGMENTATION_DEBUG
             std::cout << "receive_callback got: " << p << std::endl;
 #endif
-            if (p && p.data().size() >= sizeof(header))
+            if (p && p.data().size() >= sizeof(Header))
             {
-                /* copy the header from the packet data after some obvious sanity checks, discard 
-                the header from packet's data afterward */
-                auto h = parsers::byte_copy<header>(p.data().begin(), p.data().begin() + sizeof(header));
+                /* copy the header from the fragment data after some obvious sanity checks, discard 
+                the header from fragment's data afterward */
+                auto h = parsers::byte_copy<Header>(p.data().begin());
                 if (h.is_valid())
                 {
-                    p.data().shrink(sizeof(header), 0);
-                    handle_packet(h, std::move(p));
+                    p.data().shrink(sizeof(Header), 0);
+                    handle_fragment(h, std::move(p));
                 }
             }
         }
@@ -199,14 +197,14 @@ namespace sp
                 {
                     /* checks whether any of the transfers is complete, if so emit it as receive event */
                     transmit_event.emit(std::move(
-                        interface::packet(it->tr->source(), 
-                        to_bytes(make_header(types::PACKET_ACK, it->tr->_fragments_count(), *it)))
+                        fragment(it->tr->source(), 
+                        to_bytes(make_header(types::FRAGMENT_ACK, it->tr->_fragments_count(), *it)))
                     ));
                     transfer_receive_event.emit(std::move(*it->tr));
                     it->tr.reset();
                     /* std::move moved the local copy of the transfer out of the handler, but we
                     will hold onto that transfer_progress structure for a while longer. in case
-                    the ACK packet gets lost, the source will try to retransmit this transfer
+                    the ACK fragment gets lost, the source will try to retransmit this transfer
                     thinking that we didn't notice it */
                 }
                 else
@@ -222,14 +220,14 @@ namespace sp
                     else if (older_than(it->tr->timestamp_modified(), _retransmit_time) && 
                         older_than(it->timestamp_accessed, _retransmit_time))
                     {
-                        /* find the missing packet's index and request a retransmit */
+                        /* find the missing fragment's index and request a retransmit */
                         auto index = it->tr->_missing_fragment();
 #ifdef SP_FRAGMENTATION_WARNING
                         std::cout << "requesting retransmit for id " << it->id << " index " << index << std::endl;
 #endif
                         transmit_event.emit(std::move(
-                            interface::packet(it->tr->source(), 
-                            to_bytes(make_header(types::PACKET_REQ, index, *it)))
+                            fragment(it->tr->source(), 
+                            to_bytes(make_header(types::FRAGMENT_REQ, index, *it)))
                         ));
                         it->retransmit_done();
                     }
@@ -261,7 +259,7 @@ namespace sp
 #ifdef SP_FRAGMENTATION_WARNING
                         std::cout << "retransmitting first fragment of id " << it->id << std::endl;
 #endif
-                    transmit_event.emit(std::move(serialize_packet(types::PACKET, 1, *it)));
+                    transmit_event.emit(std::move(serialize_fragment(types::FRAGMENT, 1, *it)));
                     it->retransmit_done();
                 }
                 else
@@ -276,26 +274,21 @@ namespace sp
 #elif defined(SP_FRAGMENTATION_WARNING)
             std::cout << "transmit got id " << t.get_id() << std::endl;
 #endif
-            /* transmit all packets within this transfer and store it in case we get a retransmit request */
-            auto & tp = _outgoing_transfers.emplace_back(transfer_wrapper(std::move(t)));
-            for (index_type fragment = 1; fragment <= tp.tr->_fragments_count(); ++fragment)
+            /* transmit all fragments within this transfer and store it in case we get a retransmit request */
+            auto & tp = _outgoing_transfers.emplace_back(transfer_wrapper(std::move(t), this));
+            for (index_type fragment_pos = 1; fragment_pos <= tp.tr->_fragments_count(); ++fragment_pos)
             {
 #ifdef SP_FRAGMENTATION_DEBUG
                 std::cout << "transmit emitting event" << std::endl;
 #endif
-                transmit_event.emit(std::move(serialize_packet(types::PACKET, fragment, tp)));
+                transmit_event.emit(std::move(serialize_fragment(types::FRAGMENT, fragment_pos, tp)));
             }
             tp.transmit_done();
         }
 
-        transfer new_transfer()
+        size_type max_fragment_size() const
         {
-            return transfer(this, new_id(), 0);
-        }
-
-        size_type max_packet_size() const
-        {
-            return _max_packet_size;
+            return _max_fragment_size;
         }
 
         void print_debug() const
@@ -311,43 +304,43 @@ namespace sp
 #endif
         }
 
-        //const interface * get_interface() const {return _interface;}
+        /* shortcut for event subscribe */
+        void bind_to(interface & l)
+        {
+            l.receive_event.subscribe(&fragmentation_handler::receive_callback, this);
+            transmit_event.subscribe(&interface::write_noexcept, &l);
+        }
 
-        /* fires when the handler wants to transmit a packet */
-        subject<interface::packet> transmit_event;
-        /* fires when the handler receives and fully reconstructs a packet */
+        /* fires when the handler wants to transmit a fragment, complemented by receive_callback */
+        subject<fragment> transmit_event;
+        /* fires when the handler receives and fully reconstructs a fragment, complemented by transmit */
         subject<transfer> transfer_receive_event;
-        subject<transfer> transfer_ack_event;
+        /* fires when ACK was received from destination for this transfer */
+        subject<transfer_metadata> transfer_ack_event;
 
         private:
 
-        transfer::id_type new_id()// 89[0] 180[0] 389[0] 
+        Header make_header(types type, index_type fragment_pos, const transfer_progress & tp)
         {
-            if (++_id_counter == 0) ++_id_counter;
-            return _id_counter;
+            return Header(type, fragment_pos, tp.tr->_fragments_count(), tp.tr->get_id(), tp.tr->get_prev_id());
         }
 
-        header make_header(types type, index_type fragment, const transfer_progress & tp)
+        /* copy the data of the fragment within the transfer and create an fragment from it */
+        fragment serialize_fragment(types type, index_type fragment_pos, const transfer_progress & tp)
         {
-            return header(type, fragment, tp.tr->_fragments_count(), tp.tr->get_id(), tp.tr->get_prev_id());
-        }
-
-        /* copy the data of the fragment within the transfer and create an interface::packet from it */
-        interface::packet serialize_packet(types type, index_type fragment, const transfer_progress & tp)
-        {
-            auto p = tp.tr->_get_fragment(fragment);
-            bytes h = to_bytes(make_header(type, fragment, tp));
+            auto p = tp.tr->_get_fragment(fragment_pos);
+            bytes h = to_bytes(make_header(type, fragment_pos, tp));
             p.data().push_front(std::move(h));
             return p;
         }
 
-        void handle_packet(const header & h, interface::packet && p)
+        void handle_fragment(const Header & h, fragment && p)
         {
 #ifdef SP_FRAGMENTATION_DEBUG
-            std::cout << "handle_packet got: " << p << std::endl;
+            std::cout << "handle_fragment got: " << p << std::endl;
 #endif
-            /* handle the reception of user packets and their ordering */
-            if (h.type() == types::PACKET)
+            /* handle the reception of user fragments and their ordering */
+            if (h.type() == types::FRAGMENT)
             {
                 /* branch for handling _incoming_transfers */
                 /* check if we already know that incoming transfer ID */
@@ -366,7 +359,9 @@ namespace sp
                     std::cout << "creating new incoming transfer id " << h.get_id() << std::endl;
 #endif
                     /* we don't know this transfer ID, create new incoming transfer */
-                    auto& t = _incoming_transfers.emplace_back(transfer_progress(transfer_wrapper(h, this)));
+                    auto& t = _incoming_transfers.emplace_back(
+                        transfer_progress(transfer_wrapper(transfer(_interface_identifier, h), this))
+                    );
                     t.tr->_assign(h.fragment(), std::move(p));
                 }
                 else
@@ -378,7 +373,7 @@ namespace sp
 #ifdef SP_FRAGMENTATION_DEBUG
                         std::cout << "assigning to existing incoming transfer id " << h.get_id() << " at " << (int)h.fragment() << " of " << (int)h.fragments_total() << std::endl;
 #endif
-                        /* the ID is in known transfers, we need to add the incoming interface::packet to it */
+                        /* the ID is in known transfers, we need to add the incoming fragment to it */
                         it->tr->_assign(h.fragment(), std::move(p));
                     }
                     else
@@ -389,8 +384,8 @@ namespace sp
                         std::cout << "sending ACK for already received id " << h.get_id() << std::endl;
 #endif
                         transmit_event.emit(std::move(
-                            interface::packet(p.source(), 
-                            std::move(to_bytes(header(types::PACKET_ACK, h.fragment(), h.fragments_total(), h.get_id(), h.get_prev_id()))))
+                            fragment(p.source(), 
+                            std::move(to_bytes(Header(types::FRAGMENT_ACK, h.fragment(), h.fragments_total(), h.get_id(), h.get_prev_id()))))
                         ));
                     }
                 }
@@ -403,25 +398,25 @@ namespace sp
                 
                 if (it != _outgoing_transfers.end())
                 {
-                    if (h.type() == types::PACKET_REQ)
+                    if (h.type() == types::FRAGMENT_REQ)
                     {
 #ifdef SP_FRAGMENTATION_WARNING
                         std::cout << "handling retransmit request of id " << h.get_id() << " fragment " << (int)h.fragment() << " of " << (int)h.fragments_total() << std::endl;
 #endif
                         /* fullfill the retransmit request */
-                        transmit_event.emit(std::move(serialize_packet(types::PACKET, h.fragment(), *it)));
+                        transmit_event.emit(std::move(serialize_fragment(types::FRAGMENT, h.fragment(), *it)));
                         it->retransmit_done();
                     }
-                    else if (h.type() == types::PACKET_ACK)
+                    else if (h.type() == types::FRAGMENT_ACK)
                     {
 #ifdef SP_FRAGMENTATION_DEBUG
-                        std::cout << "got packet ACK for id " << h.get_id() << std::endl;
+                        std::cout << "got fragment ACK for id " << h.get_id() << std::endl;
 #endif
                         /* emit the ACK event for the sender and destroy this outgoing transfer
-                        since we've done our job and don't need it anymore in contrast to the 
+                        since we've done our job and don't need it anymore - in contrast to the 
                         incoming transfer where the transmitted ACK may not be received, here we
                         can be sure */
-                        transfer_ack_event.emit(std::move(*it->tr));
+                        transfer_ack_event.emit(it->tr->get_metadata());
                         it = _outgoing_transfers.erase(it);
                     }
                 }
@@ -430,11 +425,10 @@ namespace sp
 
         std::list<transfer_progress> _incoming_transfers, _outgoing_transfers;
         clock::duration _retransmit_time, _drop_time;
-        transfer::id_type _id_counter = 0;
-        size_type _max_packet_size;
+        interface_identifier _interface_identifier;
+        size_type _max_fragment_size;
         uint _retransmit_multiplier;
     };
-
 }
 
 

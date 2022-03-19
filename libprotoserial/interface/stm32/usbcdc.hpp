@@ -43,7 +43,7 @@ namespace stm32
 			interface("usb" + std::to_string(id), address, max_queue_size) {}
 
 
-		bytes::size_type max_data_size() const noexcept {return _max_packet_size - sizeof(header) - sizeof(footer);}
+		bytes::size_type max_data_size() const noexcept {return _max_fragment_size - sizeof(header) - sizeof(footer);}
 		bool can_transmit() noexcept
 		{
 			return true; //TODO
@@ -54,7 +54,7 @@ namespace stm32
 			//TODO
 		}
 
-		bytes serialize_packet(packet && p) const
+		bytes serialize_fragment(fragment && p) const
 		{
 			/* preallocate the container since we know the final size */
 			auto b = bytes(0, 0, sizeof(header) + p.data().size() + sizeof(footer));
@@ -73,7 +73,7 @@ namespace stm32
 		}
 
 		private:
-		const uint _max_packet_size = 64;
+		const uint _max_fragment_size = 64;
 	};
 }
 }

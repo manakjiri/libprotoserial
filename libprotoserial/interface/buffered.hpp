@@ -34,13 +34,13 @@ namespace sp
             public:
             
         	/* - name should uniquely identify the interface on this device
-			 * - address is the interface address, when a packet is received where destination() == address
+			 * - address is the interface address, when a fragment is received where destination() == address
 			 *   then the receive_event is emitted, otherwise the other_receive_event is emitted
-			 * - max_queue_size sets the maximum number of packets the transmit queue can hold
+			 * - max_queue_size sets the maximum number of fragments the transmit queue can hold
 			 * - buffer_size sets the size of the receive buffer in bytes
 			 */
-            buffered_interface(std::string name, address_type address, uint max_queue_size, uint buffer_size):
-                interface(name, address, max_queue_size), _rx_buffer(buffer_size) {}
+            buffered_interface(interface_identifier iid, address_type address, uint max_queue_size, uint buffer_size):
+                interface(iid, address, max_queue_size), _rx_buffer(buffer_size) {}
 
 
             /* iterator pointing into the _rx_buffer, it supports wrapping */
@@ -60,6 +60,11 @@ namespace sp
 
                 circular_iterator():
                     circular_iterator(nullptr, nullptr, nullptr) {}
+
+                circular_iterator(const circular_iterator &) = default;
+                circular_iterator(circular_iterator &&) = default;
+                circular_iterator & operator=(const circular_iterator &) = default;
+                circular_iterator & operator=(circular_iterator &&) = default;
 
                 reference operator*() const { return *_current; }
                 pointer operator->() { return _current; }

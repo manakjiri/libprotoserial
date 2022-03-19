@@ -29,7 +29,7 @@
  * when the actual procesing takes place.
  * 
  * it seems that the right balance would be: decode, check, correct and 
- * determine whether the packet belongs to us within the interrupt routine - 
+ * determine whether the fragment belongs to us within the interrupt routine - 
  * that way only the relevant stuff gets put into the procesing queue.
  * 
  * in terms of structure it would be nice for the interface to only handle
@@ -38,26 +38,26 @@
  * with that in order to maintain modularity.
  * 
  * USB
- * - one interrupt callback for receive, packets are already pieced together
+ * - one interrupt callback for receive, fragments are already pieced together
  * - somewhat error checked
- * - 64B packet size limit
+ * - 64B fragment size limit
  * 
  * UART
  * - need to receive byte-by-byte in an interrupt (we could make it more 
- *   efficient if we could constraint the packet size to something like
+ *   efficient if we could constraint the fragment size to something like
  *   8B multiples so that we benefit from the hardware)
  * - don't know the size in advance, it should be constrained though
  * 
- * it would be nice to somehow ignore packets that are not meant for us, 
+ * it would be nice to somehow ignore fragments that are not meant for us, 
  * which can be done if the address class exposes how long the address 
- * should be and then vets tha packet. But we cannot necessarily stop 
+ * should be and then vets tha fragment. But we cannot necessarily stop 
  * listening as soon as we figure this out, because we need to catch the 
- * end of the packet + it may be useful to have a callback with packets 
+ * end of the fragment + it may be useful to have a callback with fragments 
  * that were not meant to us, but someone may be interrested for debuging
  * purposes for example.
  * 
  * so interface must already be concerned with addresses as well as with
- * all the lower layer stuff. However it should not be handling packet 
+ * all the lower layer stuff. However it should not be handling fragment 
  * fragmentation, I'd leave that to the thing that processes the RX queue.
  * 
  * which leads us to what the interface class should expose
@@ -66,14 +66,14 @@
  * - a TX complete event
  * 
  * interface has an RX and a TX queue, it will throw an exception? when the
- * TX packet is over the maximum length. Events are fired from the main 
+ * TX fragment is over the maximum length. Events are fired from the main 
  * interface task, not from the interrupts, because event callbacks could 
  * take a long time to return. Queues isolate the interrupts from the main 
  * task. 
  * 
- * We can build the packet fragmentation logic on top of the interface, 
- * this logic should have its own internal buffer for packets received
- * from events, because once the event firess, the packet is forgotten on 
+ * We can build the fragment fragmentation logic on top of the interface, 
+ * this logic should have its own internal buffer for fragments received
+ * from events, because once the event firess, the fragment is forgotten on 
  * the interface side to avoid the need for direct access to the interface's 
  * RX queue.
  * 
@@ -82,7 +82,7 @@
  * the function call because the queue is too large.
  * 
  * so it should also expose
- * - write(packet[, callback?]) a potentially blocking call
+ * - write(fragment[, callback?]) a potentially blocking call
  * - writable() or something similar
  * 
  * 
@@ -94,8 +94,8 @@
  * just puts each byte it receives into the buffer and increments an index
  * and handles the index wrap. 
  * 
- * It may be best to introduce a start sequence into the packets, something
- * like 0x5555 or whatever, which we use to lookup the start of the packet
+ * It may be best to introduce a start sequence into the fragments, something
+ * like 0x5555 or whatever, which we use to lookup the start of the fragment
  * in this large array sort of efficiently. How to handle the wrap?
  * 
  * 
@@ -104,18 +104,16 @@
 #ifndef _SP_INTERFACE_INTERFACE
 #define _SP_INTERFACE_INTERFACE
 
-#include "libprotoserial/container.hpp"
-#include "libprotoserial/clock.hpp"
 #include "libprotoserial/observer.hpp"
+#include "libprotoserial/interface/fragment.hpp"
 
 #include <string>
 #include <queue>
 
 namespace sp
 {
-
     /* things left as implementation details for subclasses
-     * - RX ISR and RX buffer (not the packet queue)
+     * - RX ISR and RX buffer (not the fragment queue)
      * - address (must be representable by interface::address), broadcast address //TODO
      * - error checking and data encoding
      * - filling the _name variable in the constructor
@@ -123,80 +121,25 @@ namespace sp
     class interface
     {
         public:
-        /* an integer that can hold any used device address, the actual address format 
-        is interface specific, address 0 is reserved internally and should never appear 
-        in a packet */
-        typedef uint    address_type;
+        using address_type = fragment::address_type;
 
         struct bad_data : std::exception {
             const char * what () const throw () {return "bad_data";}
         };
-
         struct no_destination : std::exception {
             const char * what () const throw () {return "no_destination";}
         };
-
         struct not_writable : std::exception {
             const char * what () const throw () {return "not_writable";}
         };
-
-        class packet_metadata
-        {
-            public:
-            using address_type = interface::address_type;
-
-            packet_metadata(address_type src, address_type dst, const interface *i, clock::time_point timestamp_creation):
-                _timestamp_creation(timestamp_creation), _interface(i), _source(src), _destination(dst) {}
-
-            constexpr clock::time_point timestamp_creation() const {return _timestamp_creation;}
-            constexpr const interface* get_interface() const noexcept {return _interface;}
-            constexpr address_type source() const noexcept {return _source;}
-            constexpr address_type destination() const noexcept {return _destination;}
-
-            void set_destination(address_type dst) {_destination = dst;}
-
-            protected:
-            clock::time_point _timestamp_creation;
-            const sp::interface *_interface;
-            address_type _source, _destination;
-        };
-
-        /* interface packet representation */
-        class packet : public packet_metadata
-        {
-            public:
-
-            typedef bytes   data_type;
-
-            packet(address_type src, address_type dst, data_type && d, const sp::interface *i) :
-                //_data(d), _timestamp_creation(clock::now()), _interface(i), _source(src), _destination(dst) {}
-                packet_metadata(src, dst, i, clock::now()), _data(std::move(d)) {}
-
-            /* this object can be passed to the interface::write() function */
-            packet(address_type dst, data_type && d) :
-                packet((address_type)0, dst, std::move(d), nullptr) {}
-
-            packet():
-                packet(0, data_type()) {}
-            
-            constexpr const data_type& data() const noexcept {return _data;}
-            constexpr data_type& data() noexcept {return _data;}
-            constexpr void _complete(address_type src, const sp::interface *i) {_source = src; _interface = i;}
-            
-            bool carries_information() const {return _data && _destination;}
-            explicit operator bool() const {return carries_information();}
-
-            protected:
-            data_type _data;
-        };
         
         /* - name should uniquely identify the interface on this device
-         * - address is the interface address, when a packet is received where destination() == address
+         * - address is the interface address, when a fragment is received where destination() == address
          *   then the receive_event is emitted, otherwise the other_receive_event is emitted
-         * - max_queue_size sets the maximum number of packets the transmit queue can hold
+         * - max_queue_size sets the maximum number of fragments the transmit queue can hold
          */
-        interface(std::string name, address_type address, uint max_queue_size) : 
-            _max_queue_size(max_queue_size), _name(name), _address(address) {}
+        interface(interface_identifier iid, address_type address, uint max_queue_size) : 
+            _max_queue_size(max_queue_size), _interface_id(iid), _address(address) {}
         
         void main_task() noexcept
         {
@@ -206,14 +149,14 @@ namespace sp
                 if (do_transmit(std::move(_tx_queue.front())))
                     _tx_queue.pop();
             }
-            /* receive, this will call the put_received() function if a packet is received */
+            /* receive, this will call the put_received() function if a fragment is received */
             do_receive();
         }
 
-        /* fills the source address field, serializes the provided packet object,
+        /* fills the source address field, serializes the provided fragment object,
         and puts the serialized buffer into the TX queue. This wraps the write function, 
-        if the write fails for whatever reason, the packet is dropped */
-        void write_noexcept(packet p) noexcept
+        if the write fails for whatever reason, the fragment is dropped */
+        void write_noexcept(fragment p) noexcept
         {
             //TODO consider avoiding exceptions entirely here
             try {write(std::move(p));}
@@ -223,54 +166,53 @@ namespace sp
         virtual void write_failed(std::exception & e) {}
 
         /* fills the source address field,
-        serializes the provided packet object (which will throw if the packet is malformed)
+        serializes the provided fragment object (which will throw if the fragment is malformed)
         and puts the serialized buffer into the TX queue */
-        void write(packet p)
+        void write(fragment p)
         {
             /* sanity checks */
             if (!is_writable()) throw not_writable();
             if (p.destination() == 0) throw no_destination();
             if (p.data().size() > max_data_size() || p.data().is_empty()) throw bad_data();
-            /* complete the packet */
-            p._complete(get_address(), this);
-            auto b = serialize_packet(std::move(p));
+            /* complete the fragment */
+            p._complete(get_address(), interface_id());
+            auto b = serialize_fragment(std::move(p));
             _tx_queue.push(std::move(b));
         }
 
         //TODO is there a better way?
         bool is_writable() const {return _tx_queue.size() <= _max_queue_size;}
         
-        /* returns a unique name of the interface */
-        std::string name() const noexcept {return _name;}
+        interface_identifier interface_id() const noexcept {return _interface_id;}
         void reset_address(address_type addr) noexcept {_address = addr;}
         address_type get_address() const noexcept {return _address;}
-        /* returns the maximum size of the data portion in a packet, this is interface dependent */
+        /* returns the maximum size of the data portion in a fragment, this is interface dependent */
         virtual bytes::size_type max_data_size() const noexcept = 0;
 
-        /* emitted by the main_task function when a new packet is received where the destination address matches
+        /* emitted by the main_task function when a new fragment is received where the destination address matches
         the interface address */
-        subject<packet> receive_event;
-        /* emitted by the main_task function when a new packet is received where the destination address 
+        subject<fragment> receive_event;
+        /* emitted by the main_task function when a new fragment is received where the destination address 
         does not match the interface address */
-        subject<packet> other_receive_event;
+        subject<fragment> other_receive_event;
 
         protected:
 
-        /* TX (serialize_packet => can_transmit => do_transmit) */
-        /* packet serialization is implemented here, exceptions can be thrown 
-        the serialized packet well be passed to transmit after can_transmit() returns true */
-        virtual bytes serialize_packet(packet && p) const = 0;
+        /* TX (serialize_fragment => can_transmit => do_transmit) */
+        /* fragment serialization is implemented here, exceptions can be thrown 
+        the serialized fragment well be passed to transmit after can_transmit() returns true */
+        virtual bytes serialize_fragment(fragment && p) const = 0;
         /* return true when the interface is ready to transmit */
         virtual bool can_transmit() noexcept = 0;
         /* transmit is implemented here, called from the main_task after can_transmit() returns true, 
         if the transmit fails for whatever reason, the transmit() function can return false and the 
-        transmit will be reattempted with the same packet later */
+        transmit will be reattempted with the same fragment later */
         virtual bool do_transmit(bytes && buff) noexcept = 0;
         
         /* RX (do_receive => put_received) */
-        /* called from the main_task, this is where the derived class should handle packet parsing */
+        /* called from the main_task, this is where the derived class should handle fragment parsing */
         virtual void do_receive() noexcept = 0;
-        void put_received(packet && p) noexcept
+        void put_received(fragment && p) noexcept
         {
             if (p.destination() == _address)
                 receive_event.emit(p);
@@ -280,36 +222,15 @@ namespace sp
 
         private:
 
-        /* queue of serialized packets ready to be transmitted */
+        /* queue of serialized fragments ready to be transmitted */
         std::queue<bytes> _tx_queue;
         uint _max_queue_size = 0;
 
-        std::string _name;
+        interface_identifier _interface_id;
         address_type _address = 0;
     };
 
 }
-
-bool operator==(const sp::interface::packet & lhs, const sp::interface::packet & rhs)
-{
-    return ((lhs.get_interface() && rhs.get_interface()) ? (lhs.get_interface()->name() == rhs.get_interface()->name()) : true) 
-    && lhs.source() == rhs.source() && lhs.destination() == rhs.destination() && lhs.data() == rhs.data();
-}
-
-bool operator!=(const sp::interface::packet & lhs, const sp::interface::packet & rhs)
-{
-    return !(lhs == rhs);
-}
-
-#ifndef SP_NO_IOSTREAM
-std::ostream& operator<<(std::ostream& os, const sp::interface::packet& p) 
-{
-    os << "dst: " << p.destination() << ", src: " << p.source();
-    os << ", int: " << (p.get_interface() ? p.get_interface()->name() : "null");
-    os << ", " << p.data();
-    return os;
-}
-#endif
 
 
 #endif

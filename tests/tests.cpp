@@ -2,6 +2,7 @@
 #include <libprotoserial/container.hpp>
 #include <libprotoserial/interface.hpp>
 #include <libprotoserial/fragmentation.hpp>
+#include <libprotoserial/ports/packet.hpp>
 
 #include "helpers/random.hpp"
 
@@ -369,10 +370,10 @@ TEST(Interface, CircularIterator)
 uint test_interface(sp::interface & interface, uint loops, function<sp::bytes(void)> data_gen, 
     function<sp::interface::address_type(void)> addr_gen)
 {
-    std::unique_ptr<sp::interface::packet> tmp;
+    std::unique_ptr<sp::fragment> tmp;
     uint i = 0, received = 0;
 
-    interface.receive_event.subscribe([&](sp::interface::packet p){
+    interface.receive_event.subscribe([&](sp::fragment p){
         //cout << "receive_event: " << p << endl;
         EXPECT_TRUE(tmp->data() == p.data() && tmp->destination() == p.source()) << "loop: " << i << "\nORIG: " << *tmp << "\nGOT:  " << p << endl;
         if (tmp->data() != p.data())
@@ -385,9 +386,9 @@ uint test_interface(sp::interface & interface, uint loops, function<sp::bytes(vo
 #ifdef SP_LOOPBACK_DEBUG
         cout << i << endl;
 #endif
-        tmp.reset(new sp::interface::packet(addr_gen(), data_gen()));
+        tmp.reset(new sp::fragment(addr_gen(), data_gen()));
         
-        interface.write(sp::interface::packet(*tmp));
+        interface.write(sp::fragment(*tmp));
 
         for (int j = 0; j < 3; j++)
             interface.main_task();
@@ -473,34 +474,34 @@ TEST(Fragmentation, Transfer)
     //sp::loopback_interface interface(0, 1, 10, 64, 256);
     const sp::bytes b1 = {10_B, 11_B, 12_B, 13_B, 14_B}, b2 = {20_B, 21_B, 22_B}, b3 = {30_B, 31_B}, b4 = {40_B};
     sp::loopback_interface interface(0, 1, 10, 64, 256);
-    sp::fragmentation_handler handler(interface.max_data_size(), 100ms, 10ms, 2);
+    sp::fragmentation_handler handler(interface.interface_id(), interface.max_data_size(), 100ms, 10ms, 2);
     
     // MODE 1
-    sp::headers::fragment_header_8b16b h(sp::headers::fragment_header_8b16b::message_types::PACKET, 0, 4, 1);
-    sp::transfer p(h, &handler);
+    sp::headers::fragment_8b16b h(sp::headers::fragment_8b16b::message_types::FRAGMENT, 0, 4, 1);
+    sp::transfer p(interface.interface_id(), h);
 
     sp::bytes bc;
     sp::bytes::size_type i;
 
-    p._assign(2, sp::interface::packet(2, 3, sp::bytes(b1), &interface));
+    p._assign(2, sp::fragment(2, 3, sp::bytes(b1), interface.interface_id()));
     bc = b1; i = 0;
     for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
         EXPECT_TRUE(bc[i] == *it) << "b1 index " << i << ": " << (int)bc[i] << " == " << (int)*it;
     EXPECT_EQ(i, bc.size());
 
-    p._assign(4, sp::interface::packet(2, 3, sp::bytes(b2), &interface));
+    p._assign(4, sp::fragment(2, 3, sp::bytes(b2), interface.interface_id()));
     bc = b1 + b2; i = 0;
     for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
         EXPECT_TRUE(bc[i] == *it) << "b1 + b2 index " << i << ": " << (int)bc[i] << " == " << (int)*it;
     EXPECT_EQ(i, bc.size());
 
-    p._assign(1, sp::interface::packet(2, 3, sp::bytes(b3), &interface));
+    p._assign(1, sp::fragment(2, 3, sp::bytes(b3), interface.interface_id()));
     bc = b3 + b1 + b2; i = 0;
     for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
         EXPECT_TRUE(bc[i] == *it) << "b3 + b1 + b2 index " << i << ": " << (int)bc[i] << " == " << (int)*it;
     EXPECT_EQ(i, bc.size());
 
-    p._assign(3, sp::interface::packet(2, 3, sp::bytes(b4), &interface));
+    p._assign(3, sp::fragment(2, 3, sp::bytes(b4), interface.interface_id()));
     bc = b3 + b1 + b4 + b2; i = 0;
     for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
         EXPECT_TRUE(bc[i] == *it) << "b3 + b1 + b4 + b2 index " << i << ": " << (int)bc[i] << " == " << (int)*it;
@@ -508,8 +509,9 @@ TEST(Fragmentation, Transfer)
 
 
     //MODE2
-    auto t = handler.new_transfer();
+    //auto t = handler.new_transfer();
     //EXPECT_EQ()
+    //TODO
 }
 
 
@@ -540,7 +542,7 @@ uint test_handler(sp::interface & interface, sp::fragmentation_handler & handler
 
     for (; i < loops; i++)
     {        
-        auto t = handler.new_transfer();
+        sp::transfer t(interface.interface_id());
         check[t.get_id()] = tuple(data_gen(), 0);
         t.push_back(sp::bytes(get<0>(check[t.get_id()])));
         t.set_destination(addr_gen());
@@ -578,7 +580,7 @@ uint test_handler(sp::interface & interface, sp::fragmentation_handler & handler
 TEST(Fragmentation, UnalteredRandom)
 {
     sp::loopback_interface interface(0, 1, 10, 32, 256);
-    sp::fragmentation_handler handler(interface.max_data_size(), 10ms, 100ms, 2);
+    sp::fragmentation_handler handler(interface.interface_id(), interface.max_data_size(), 10ms, 100ms, 2);
 
     auto data = [&](){return random_bytes(1, interface.max_data_size() * 2);};
     auto addr = [&](){return random(2, 100);};
@@ -592,7 +594,7 @@ TEST(Fragmentation, CorruptedRandom)
         if (chance(0.5)) b |= random_byte();
         return b;
     });
-    sp::fragmentation_handler handler(interface.max_data_size(), 10ms, 100ms, 5);
+    sp::fragmentation_handler handler(interface.interface_id(), interface.max_data_size(), 10ms, 100ms, 5);
 
     auto data = [&](){return random_bytes(1, interface.max_data_size() * 2);};
     auto addr = [&](){return random(2, 100);};
@@ -600,4 +602,60 @@ TEST(Fragmentation, CorruptedRandom)
     EXPECT_EQ(test_handler(interface, handler, 500, data, addr, 25), 500);
 }
 
+
+
+
+TEST(Ports, PacketConstructor)
+{
+    const sp::bytes b1 = {10_B, 11_B, 12_B, 13_B, 14_B}, b2 = {20_B, 21_B, 22_B}, b3 = {30_B, 31_B};
+    sp::loopback_interface interface(0, 1, 10, 64, 256);
+    sp::fragmentation_handler handler(interface.interface_id(), interface.max_data_size(), 100ms, 10ms, 2);
+    
+    sp::headers::ports_8b h(2, 3);
+    sp::transfer t(interface.interface_id());
+    t.push_back(b1);
+    t.push_front(b2);
+    t.push_back(b3);
+    t.set_destination(10);
+    
+    sp::packet p(std::move(t), h);
+
+    sp::bytes bc;
+    sp::bytes::size_type i;
+
+    bc = b2 + b1 + b3; i = 0;
+    for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
+        EXPECT_TRUE(bc[i] == *it) << "b2 + b1 + b3 index " << i << ": " << (int)bc[i] << " == " << (int)*it;
+
+    EXPECT_TRUE(bc == p.data_contiguous());
+    //EXPECT_EQ(p.get_id(), 2); //TODO
+    //EXPECT_EQ(p.get_prev_id(), 1);
+    EXPECT_EQ(p.source_port(), 3);
+    EXPECT_EQ(p.destination_port(), 2);
+    EXPECT_EQ(p.destination(), 10);
+
+    sp::transfer t2(std::move(p.to_transfer()));
+
+    i = 0;
+    for (auto it = t2.data_begin(); it != t2.data_end(); ++it, ++i)
+        EXPECT_TRUE(bc[i] == *it) << "b2 + b1 + b3 index " << i << ": " << (int)bc[i] << " == " << (int)*it;
+
+    EXPECT_TRUE(bc == t2.data_contiguous());
+    //EXPECT_EQ(t2.get_id(), 2);
+    //EXPECT_EQ(t2.get_prev_id(), 1);
+    EXPECT_EQ(t2.destination(), 10);
+}
+
+/* TEST(Ports, PortsPing)
+{
+    sp::loopback_interface interface(0, 1, 10, 64, 256);
+    sp::fragmentation_handler handler(interface.max_data_size(), 100ms, 10ms, 2);
+    sp::ports_handler ports;
+    sp::
+
+    handler.bind_to(interface);
+    ports.register_interface(interface.interface_id(), handler);
+
+    
+} */
 
