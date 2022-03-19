@@ -25,6 +25,7 @@
 #include "libprotoserial/libconfig.hpp"
 
 #include "libprotoserial/interface/loopback.hpp"
+#include "libprotoserial/interface/virtual.hpp"
 #include "libprotoserial/interface/headers.hpp"
 #include "libprotoserial/interface/footers.hpp"
 
@@ -39,6 +40,12 @@ namespace sp
         public detail::loopback_interface<sp::headers::interface_8b8b, sp::footers::crc32> 
     {
         using detail::loopback_interface<sp::headers::interface_8b8b, sp::footers::crc32>::loopback_interface;
+    };
+
+    class virtual_interface : 
+        public detail::virtual_interface<sp::headers::interface_8b8b, sp::footers::crc32> 
+    {
+        using detail::virtual_interface<sp::headers::interface_8b8b, sp::footers::crc32>::virtual_interface;
     };
 
 

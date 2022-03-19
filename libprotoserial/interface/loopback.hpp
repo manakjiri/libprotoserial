@@ -52,9 +52,7 @@ namespace sp
             loopback_interface(interface_identifier::instance_type instance, interface::address_type address, 
                 uint max_queue_size, uint max_fragment_size, uint buffer_size, transfer_function wire = [](byte b){return b;}):
                     parent(interface_identifier(interface_identifier::identifier_type::LOOPBACK, instance), 
-                    address, max_queue_size, buffer_size), _wire(wire), _max_fragment_size(max_fragment_size) {}
-
-            bytes::size_type max_data_size() const noexcept {return _max_fragment_size - sizeof(Header) - sizeof(Footer) - parent::preamble_length;}
+                    address, max_queue_size, buffer_size, max_fragment_size), _wire(wire) {}
 
             protected:
 
@@ -113,7 +111,6 @@ namespace sp
 
             private:
             transfer_function _wire;
-            uint _max_fragment_size = 0;
         };
     }
 } // namespace sp

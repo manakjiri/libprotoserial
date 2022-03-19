@@ -36,6 +36,7 @@ namespace sp
         enum identifier_type : std::uint8_t
         {
             NONE,
+            VIRTUAL,
             LOOPBACK,
             UART,
         };

@@ -47,12 +47,15 @@ namespace sp
             const preamble_type preamble = (preamble_type)0x55;
             const typename Header::size_type preamble_length = 2;
 
-            buffered_parsed_interface(interface_identifier iid, address_type address, uint max_queue_size, uint buffer_size):
-                buffered_interface(iid, address, max_queue_size, buffer_size)
+            buffered_parsed_interface(interface_identifier iid, address_type address, uint max_queue_size, uint buffer_size, 
+                uint max_fragment_size):
+                    buffered_interface(iid, address, max_queue_size, buffer_size), _max_fragment_size(max_fragment_size)
             {
                 _read = get_rx_buffer();
                 _write = get_rx_buffer();
             }
+
+            bytes::size_type max_data_size() const noexcept {return _max_fragment_size - sizeof(Header) - sizeof(Footer) - preamble_length;}
             
             protected:
 
@@ -187,6 +190,7 @@ namespace sp
             }
 
             buffered_interface::circular_iterator _write, _read;
+            uint _max_fragment_size;
         };
     }
 } // namespace sp
