@@ -28,7 +28,6 @@ namespace sp
 {
     namespace detail
     {
-
         class buffered_interface : public interface
         {
             public:
@@ -106,6 +105,8 @@ namespace sp
                 bytes::iterator _begin, _end, _current;
                 private:
             }; 
+
+            protected:
 
             /* returns the interator that points to the beginning of the _rx_buffer, store this in
             member variable at init and use it to access the buffer */
