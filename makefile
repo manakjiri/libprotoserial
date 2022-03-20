@@ -5,9 +5,9 @@ OPT = -pedantic -Wall -std=c++20 -g -pg
 
 SDIR = libprotoserial
 TESTDIR = tests
-IDIR = .
+IDIRS = . submodules/serial/include/
 
-CFLAGS=-I$(IDIR)
+CFLAGS=$(patsubst %, -I%, $(IDIRS))
 
 
 interface:
@@ -18,3 +18,6 @@ observer:
 
 fragmentation:
 	$(CC) -o $(TARGET) $(OPT) $(CFLAGS) $(TESTDIR)/fragmentation.cpp
+
+linux_uart:
+	$(CC) -o $(TARGET) $(OPT) $(CFLAGS) $(TESTDIR)/linux_uart.cpp

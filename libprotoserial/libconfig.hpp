@@ -32,5 +32,9 @@
 #define SP_EMBEDDED
 #endif
 
+#ifdef __linux__
+#define SP_LINUX
+#endif
+
 #endif
 

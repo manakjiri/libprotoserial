@@ -59,8 +59,12 @@ namespace sp
             
             protected:
 
+            virtual void do_single_receive() {}
+            void put_single_received(byte b) {*(++_write) = b;}
+
             void do_receive() noexcept
             {
+                do_single_receive();
                 /* while we are trying to parse the buffer, the ISR is continually filling it
                 (not in this case, obviously, but in the real world it will) 
                 _write is the position of the last byte written, so we can read up to that point
