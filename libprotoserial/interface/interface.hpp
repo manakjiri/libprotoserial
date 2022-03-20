@@ -140,6 +140,8 @@ namespace sp
          */
         interface(interface_identifier iid, address_type address, uint max_queue_size) : 
             _max_queue_size(max_queue_size), _interface_id(iid), _address(address) {}
+
+        virtual ~interface() {}
         
         void main_task() noexcept
         {

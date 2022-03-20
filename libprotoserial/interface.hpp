@@ -25,12 +25,17 @@
 #include "libprotoserial/libconfig.hpp"
 
 #include "libprotoserial/interface/loopback.hpp"
+#include "libprotoserial/interface/virtual.hpp"
 #include "libprotoserial/interface/headers.hpp"
 #include "libprotoserial/interface/footers.hpp"
 
 #ifdef SP_STM32
 #include "libprotoserial/interface/stm32/uart.hpp"
 #include "libprotoserial/interface/stm32/usbcdc.hpp"
+#endif
+
+#ifdef SP_LINUX
+#include "libprotoserial/interface/linux/uart.hpp"
 #endif
 
 namespace sp
@@ -41,16 +46,24 @@ namespace sp
         using detail::loopback_interface<sp::headers::interface_8b8b, sp::footers::crc32>::loopback_interface;
     };
 
+    class virtual_interface : 
+        public detail::virtual_interface<sp::headers::interface_8b8b, sp::footers::crc32> 
+    {
+        using detail::virtual_interface<sp::headers::interface_8b8b, sp::footers::crc32>::virtual_interface;
+    };
 
-#ifdef SP_STM32
-    namespace device = detail::stm32;
+
+#if defined(SP_STM32)
+    namespace env = detail::stm32;
+#elif defined(SP_LINUX)
+    namespace env = detail::linux;
 #endif
 
-#ifdef SP_EMBEDDED
+#if defined(SP_EMBEDDED) || defined(SP_LINUX)
     class uart_interface:
-    	public device::uart_interface<sp::headers::interface_8b8b, sp::footers::crc32>
+    	public env::uart_interface<sp::headers::interface_8b8b, sp::footers::crc32>
     {
-    	using device::uart_interface<sp::headers::interface_8b8b, sp::footers::crc32>::uart_interface;
+    	using env::uart_interface<sp::headers::interface_8b8b, sp::footers::crc32>::uart_interface;
     };
 #endif
 
