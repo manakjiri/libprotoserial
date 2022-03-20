@@ -51,8 +51,14 @@ namespace sp
         constexpr interface_identifier & operator=(const interface_identifier &) = default;
         constexpr interface_identifier & operator=(interface_identifier &&) = default;
         
-        constexpr bool operator==(const interface_identifier &) const = default;
-        constexpr bool operator!=(const interface_identifier &) const = default;
+        constexpr bool operator==(const interface_identifier & other) const
+		{
+        	return identifier == other.identifier && instance == other.instance;
+		}
+        constexpr bool operator!=(const interface_identifier & other) const
+		{
+        	return !(*this == other);
+		}
 
         identifier_type identifier;
         instance_type instance;
