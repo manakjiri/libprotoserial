@@ -63,7 +63,7 @@ namespace sp
 #ifndef SP_NO_IOSTREAM
 std::ostream& operator<<(std::ostream& os, const sp::interface_identifier & iid) 
 {
-    os << iid.identifier << '-' << iid.instance;
+    os << (int)iid.identifier << '-' << (int)iid.instance;
     return os;
 }
 #endif

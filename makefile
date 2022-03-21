@@ -5,7 +5,7 @@ OPT = -pedantic -Wall -std=c++20 -g -pg
 
 SDIR = libprotoserial
 TESTDIR = tests
-IDIRS = . submodules/serial/include/
+IDIRS = .
 
 CFLAGS=$(patsubst %, -I%, $(IDIRS))
 
