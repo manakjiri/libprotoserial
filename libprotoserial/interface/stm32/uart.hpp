@@ -33,7 +33,7 @@ namespace detail
 namespace stm32
 {
 	template<class Header, class Footer>
-	class uart_interface : public buffered_interface
+	class uart_interface : public buffered_parsed_interface<Header, Footer>
 	{
 		using parent = buffered_parsed_interface<Header, Footer>;
 		
@@ -50,16 +50,15 @@ namespace stm32
 		uart_interface(UART_HandleTypeDef * huart, interface_identifier::instance_type instance, interface::address_type address, 
         	uint max_queue_size, uint max_fragment_size, uint buffer_size) :
 				parent(interface_identifier(interface_identifier::identifier_type::UART, instance), address, max_queue_size, buffer_size, max_fragment_size),
-				_is_transmitting(false)
+				_huart(huart), _is_transmitting(false)
 		{
 			next_receive();
 		}
 
-		bool can_transmit() noexcept {return _is_transmitting;}
+		bool can_transmit() noexcept {return !_is_transmitting;}
 
 		void isr_rx_done()
 		{
-			/* the iterator wraps around to the beginning at the end of the buffer */
 			next_receive();
 		}
 
@@ -72,7 +71,9 @@ namespace stm32
 
 		inline void next_receive()
 		{
-			HAL_UART_Receive_IT(_huart, reinterpret_cast<uint8_t*>(&(*(++_write))), 1);
+			/* the iterator wraps around to the beginning at the end of the buffer */
+			HAL_UART_Receive_IT(_huart, reinterpret_cast<uint8_t*>(&(*(++parent::_write))), 1);
+			//HAL_GPIO_TogglePin(DBG1_GPIO_Port, DBG1_Pin);
 		}
 
 		bool do_transmit(bytes && buff) noexcept
