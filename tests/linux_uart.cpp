@@ -1,14 +1,21 @@
 
-/* #include "libprotoserial/fragmentation.hpp"
+#define SP_FRAGMENTATION_WARNING
+
+#include "libprotoserial/fragmentation.hpp"
 #include "tests/helpers/random.hpp"
+
+#include <chrono>
+#include <thread>
 
 using namespace sp::literals;
 using namespace std;
+using namespace std::chrono_literals;
 
 int main(int argc, char const *argv[])
 {
-    sp::uart_interface interface("/dev/ttyACM0", B115200, 0, 2, 10, 64, 256);
-    sp::fragmentation_handler handler(interface.interface_id(), interface.max_data_size(), 10ms, 100ms, 5);
+    //sp::uart_interface interface("/dev/ttyACM0", B115200, 0, 2, 10, 64, 256);
+    sp::uart_interface interface("/dev/rfcomm0", B115200, 0, 2, 10, 64, 256);
+    sp::fragmentation_handler handler(interface.interface_id(), interface.max_data_size(), 50ms, 100ms, 3);
     handler.bind_to(interface);
     
     int i = 0;
@@ -19,10 +26,10 @@ int main(int argc, char const *argv[])
         cout << "ACK" << endl;
     });
 
-    for (; i < 5; ++i)
+    for (; i < 10; ++i)
     {
-        //sp::bytes data = random_bytes(2, interface.max_data_size());
-        sp::bytes data = random_bytes(3);
+        sp::bytes data = random_bytes(2, interface.max_data_size() * 2);
+        //sp::bytes data = random_bytes(3);
         
         sp::transfer t(interface.interface_id());
         t.push_back(data);
@@ -35,16 +42,18 @@ int main(int argc, char const *argv[])
         {
             interface.main_task();
             handler.main_task();
+            this_thread::sleep_for(10ms);
         }
+
     }
     
 
     //cout << "Sent" << endl;
 
     return 0;
-} */
+}
 
-#define SP_BUFFERED_DEBUG
+/* #define SP_BUFFERED_DEBUG
 
 #include "libprotoserial/interface.hpp"
 #include "tests/helpers/random.hpp"
@@ -80,7 +89,7 @@ int main(int argc, char const *argv[])
     //cout << "Sent" << endl;
 
     return 0;
-}
+} */
 
 
 

@@ -189,7 +189,7 @@ class uart_interface : public buffered_parsed_interface<Header, Footer>
         // tty.c_oflag &= ~OXTABS; // Prevent conversion of tabs to spaces (NOT PRESENT ON LINUX)
         // tty.c_oflag &= ~ONOEOT; // Prevent removal of C-d chars (0x004) in output (NOT PRESENT ON LINUX)
 
-        tty.c_cc[VTIME] = 10;    // Wait for up to 1s (10 deciseconds), returning as soon as any data is received.
+        tty.c_cc[VTIME] = 1;    // Wait for up to 0.1s (1 deciseconds), returning as soon as any data is received.
         tty.c_cc[VMIN] = 0;
 
 
@@ -199,24 +199,6 @@ class uart_interface : public buffered_parsed_interface<Header, Footer>
                 return -1;
         }
         return 0;
-    }
-
-    void
-    set_blocking (int fd, int should_block)
-    {
-        struct termios tty;
-        memset (&tty, 0, sizeof tty);
-        if (tcgetattr (fd, &tty) != 0)
-        {
-                fprintf (stderr, "error %d from tggetattr", errno);
-                return;
-        }
-
-        tty.c_cc[VMIN]  = should_block ? 1 : 0;
-        tty.c_cc[VTIME] = 1;            // 0.1 seconds read timeout
-
-        if (tcsetattr (fd, TCSANOW, &tty) != 0)
-                fprintf (stderr, "error %d setting term attributes", errno);
     }
 
     void uart_writestr(const char* string) {
@@ -239,7 +221,6 @@ class uart_interface : public buffered_parsed_interface<Header, Footer>
             return 0;
         }
         set_interface_attribs (uartFd, baud, 0);  // set speed, 8n1 (no parity)
-        set_blocking (uartFd, blocking); //set blocking mode
         printf("Port %s opened.\n", port); 
         return 1;
     }
