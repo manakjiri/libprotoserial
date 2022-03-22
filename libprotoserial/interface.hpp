@@ -56,7 +56,7 @@ namespace sp
 #if defined(SP_STM32)
     namespace env = detail::stm32;
 #elif defined(SP_LINUX)
-    namespace env = detail::linux;
+    namespace env = detail::pc;
 #endif
 
 #if defined(SP_EMBEDDED) || defined(SP_LINUX)

@@ -39,7 +39,7 @@ namespace sp
 {
 namespace detail
 {
-namespace linux
+namespace pc
 {
 template<class Header, class Footer>
 class uart_interface : public buffered_parsed_interface<Header, Footer>
@@ -49,7 +49,7 @@ class uart_interface : public buffered_parsed_interface<Header, Footer>
     public: 
 
     struct open_failed : std::exception {
-        open_failed(std::string m): _m(std::move(m)) {}
+        open_failed(std::string m = ""): _m(std::move(m)) {}
         const char* what () const throw () {return _m.c_str();}
         std::string _m;
     };
@@ -58,7 +58,10 @@ class uart_interface : public buffered_parsed_interface<Header, Footer>
         uint max_queue_size, uint max_fragment_size, uint buffer_size):
             parent(interface_identifier(interface_identifier::identifier_type::UART, instance), address, max_queue_size, buffer_size, max_fragment_size)
     {
-        // Open the serial port. Change device path as needed (currently set to an standard FTDI USB-UART cable type device)
+        if(!uart_open(port.c_str(), baud, 0)) 
+            throw open_failed();
+        
+        /* // Open the serial port. Change device path as needed (currently set to an standard FTDI USB-UART cable type device)
         int _serial_port = open(port.c_str(), O_RDWR);
 
         // Create new termios struct, we call it 'tty' for convention
@@ -97,12 +100,12 @@ class uart_interface : public buffered_parsed_interface<Header, Footer>
 
         // Save tty settings, also checking for error
         if (tcsetattr(_serial_port, TCSANOW, &tty) != 0)
-            throw open_failed("Error " + std::to_string(errno) + " from tcgetattr: " + strerror(errno));
+            throw open_failed("Error " + std::to_string(errno) + " from tcgetattr: " + strerror(errno)); */
     }
 
     ~uart_interface() 
     {
-        close(_serial_port);
+        close(uartFd);
     }
 
     protected:
@@ -110,18 +113,110 @@ class uart_interface : public buffered_parsed_interface<Header, Footer>
     bool can_transmit() noexcept {return true;}
     bool do_transmit(bytes && buff) noexcept 
     {
-        write(_serial_port, buff.data(), buff.size());
+        //write(_serial_port, buff.data(), buff.size());
+        uart_write(buff.data(), buff.size());
         return true;
     }
     void do_single_receive() 
     {
-        uint8_t read_buf;
-        int num_bytes = read(_serial_port, &read_buf, 1);
-        if (num_bytes > 0)
-            this->put_single_received((byte)read_buf);
+        uint8_t read_buf[8];
+        int num_bytes = 0;
+        do {
+            num_bytes = read(uartFd, read_buf, sizeof(read_buf));
+            if (num_bytes > 0)
+            {
+                for (int i = 0; i < num_bytes; i++)
+                    this->put_single_received((byte)read_buf[i]);
+            }
+        } while (num_bytes == sizeof(read_buf));
     }
 
-    int _serial_port;
+
+
+    int set_interface_attribs (int fd, int speed, int parity)
+    {
+        struct termios tty;
+        memset (&tty, 0, sizeof tty);
+        if (tcgetattr (fd, &tty) != 0)
+        {
+                fprintf (stderr, "error %d from tcgetattr", errno);
+                return -1;
+        }
+
+        cfsetospeed (&tty, speed);
+        cfsetispeed (&tty, speed);
+
+        tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8;     // 8-bit chars
+        // disable IGNBRK for mismatched speed tests; otherwise receive break
+        // as \000 chars
+        tty.c_iflag &= ~IGNBRK;         // disable break processing
+        tty.c_lflag = 0;                // no signaling chars, no echo,
+                                        // no canonical processing
+        tty.c_oflag = 0;                // no remapping, no delays
+        tty.c_cc[VMIN]  = 0;            // read doesn't block
+        tty.c_cc[VTIME] = 1;            // 0.1 seconds read timeout
+
+        tty.c_iflag &= ~(IXON | IXOFF | IXANY); // shut off xon/xoff ctrl
+
+        tty.c_cflag |= (CLOCAL | CREAD);// ignore modem controls,
+                                        // enable reading
+        tty.c_cflag &= ~(PARENB | PARODD);      // shut off parity
+        tty.c_cflag |= parity;
+        tty.c_cflag &= ~CSTOPB;
+        //tty.c_cflag &= ~CRTSCTS;
+
+        if (tcsetattr (fd, TCSANOW, &tty) != 0)
+        {
+                fprintf (stderr, "error %d from tcsetattr", errno);
+                return -1;
+        }
+        return 0;
+    }
+
+    void
+    set_blocking (int fd, int should_block)
+    {
+        struct termios tty;
+        memset (&tty, 0, sizeof tty);
+        if (tcgetattr (fd, &tty) != 0)
+        {
+                fprintf (stderr, "error %d from tggetattr", errno);
+                return;
+        }
+
+        tty.c_cc[VMIN]  = should_block ? 1 : 0;
+        tty.c_cc[VTIME] = 1;            // 0.1 seconds read timeout
+
+        if (tcsetattr (fd, TCSANOW, &tty) != 0)
+                fprintf (stderr, "error %d setting term attributes", errno);
+    }
+
+    void uart_writestr(const char* string) {
+        write(uartFd, string, strlen(string));
+    }	
+
+    void uart_write(void* data, size_t len) {
+        write(uartFd, data, len); 
+    }
+
+    ssize_t uart_read(void* buffer, size_t charsToRead) {
+        return read(uartFd, buffer, charsToRead); 
+    }
+
+    int uart_open(const char* port, int baud, int blocking) {
+        uartFd = open (port, O_RDWR | O_NOCTTY | O_SYNC);
+        if (uartFd < 0)
+        {
+            fprintf (stderr, "error %d opening %s: %s", errno, port, strerror (errno));
+            return 0;
+        }
+        set_interface_attribs (uartFd, baud, 0);  // set speed, 8n1 (no parity)
+        set_blocking (uartFd, blocking); //set blocking mode
+        printf("Port %s opened.\n", port); 
+        return 1;
+    }
+
+    int uartFd;
 };
 }
 }

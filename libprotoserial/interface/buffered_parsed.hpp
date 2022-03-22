@@ -28,7 +28,7 @@
 
 #ifndef SP_NO_IOSTREAM
 //#define SP_BUFFERED_DEBUG
-//#define SP_BUFFERED_WARNING
+#define SP_BUFFERED_WARNING
 #endif
 
 #ifdef SP_BUFFERED_DEBUG
