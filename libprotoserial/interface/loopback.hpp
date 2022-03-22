@@ -70,7 +70,7 @@ namespace sp
                 std::cout << "transmit: " << buff << std::endl;
 #endif
                 for (auto i = buff.begin(); i < buff.end(); i++)
-                    rx_isr(_wire(*i));
+                    this->put_single_received(_wire(*i));
                 return true;
             }
 
@@ -101,12 +101,6 @@ namespace sp
                 std::cout << "serialize_fragment returning: " << b << std::endl;
 #endif
                 return b;
-            }
-            
-            void rx_isr(byte b)
-            {
-                /* the iterator wraps around to the beginning at the end of the buffer */
-                *(++parent::_write) = b;
             }
 
             private:

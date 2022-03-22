@@ -103,7 +103,7 @@ namespace sp
                 friend bool operator== (const circular_iterator& a, const circular_iterator& b) { return a._current == b._current; };
                 friend bool operator!= (const circular_iterator& a, const circular_iterator& b) { return a._current != b._current; };
 
-                private:
+                //private:
                 /* _begin is the first byte of the container, _end is one past the last byte of the container, 
                 _current is in the interval [_begin, _end) */
                 bytes::iterator _begin, _end, _current;
@@ -127,7 +127,7 @@ namespace sp
             }
             /* returns a pointer that points to the byte to be written within the _rx_buffer, use this
             to provide a buffer for single byte interrupt receive */
-            inline volatile bytes::pointer rx_buffer_future_write()
+            inline bytes::pointer rx_buffer_future_write()
             {
             	/* enable postpone, this is important because we are merely providing a buffer
             	to be written to, so the rx_buffer_latest cannot assume that it holds the latest value */
@@ -136,17 +136,15 @@ namespace sp
             	return _write_it;
             }
             /* simple assign into the receive buffer */
-            inline volatile void put_single_received(byte b)
+            inline void put_single_received(byte b)
             {
             	_postpone_by_one = false;
             	rx_buffer_advance();
             	*_write_it = b;
             }
 
-            private:
-
             /* advances the buffer pointer by one, wraps if necessary, call this in receive complete interrupt */
-			inline volatile void rx_buffer_advance()
+			inline void rx_buffer_advance()
 			{
 				++_write_it;
 				if (_write_it >= _rx_buffer.end())

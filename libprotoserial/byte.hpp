@@ -37,10 +37,10 @@ namespace sp
     namespace literals
     {
     	/* beware that the _B suffix apparently clashes with a macro definition from ctype.h, a-amazing */
-        /*constexpr byte operator"" _B (const unsigned long long number)
+        constexpr byte operator"" _B (const unsigned long long number)
         {
             return static_cast<byte>(number);
-        }*/
+        }
     }
 }
 

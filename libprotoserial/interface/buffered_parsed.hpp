@@ -28,7 +28,7 @@
 
 #ifndef SP_NO_IOSTREAM
 //#define SP_BUFFERED_DEBUG
-#define SP_BUFFERED_WARNING
+//#define SP_BUFFERED_WARNING
 #endif
 
 #ifdef SP_BUFFERED_DEBUG
@@ -128,7 +128,7 @@ namespace sp
 #endif
                                     }
 #ifdef SP_BUFFERED_DEBUG
-                                    std::cout << "do_receive returning at: " << _read._current - _read._begin << " of " << _write._current - _write._begin << std::endl;
+                                    std::cout << "do_receive returning at: " << _read._current - _read._begin << " of " << this->_write_it - _read._begin << std::endl;
 #endif
                                     return;
                                 }
@@ -139,7 +139,7 @@ namespace sp
                                     _read = read;
 #ifdef SP_BUFFERED_WARNING
                                     std::cout << "do_receive distance fragment" << std::endl;
-                                    std::cout << "do_receive returning at: " << _read._current - _read._begin << " of " << _write._current - _write._begin << std::endl;
+                                    std::cout << "do_receive returning at: " << _read._current - _read._begin << " of " << this->_write_it - _read._begin << std::endl;
 #endif
                                     return;
                                 }
@@ -150,7 +150,7 @@ namespace sp
                                 at all, move the read pointer past this and try again */
                                 _read = read = fragment_start;
 #ifdef SP_BUFFERED_WARNING
-                                std::cout << "do_receive invalid size: " << _read._current - _read._begin << " of " << _write._current - _write._begin << std::endl;
+                                std::cout << "do_receive invalid size: " << _read._current - _read._begin << " of " << this->_write_it - _read._begin << std::endl;
 #endif
                             }
                         }
@@ -161,14 +161,14 @@ namespace sp
                             _read = read;
 #ifdef SP_BUFFERED_WARNING
                             std::cout << "do_receive distance Header" << std::endl;
-                            std::cout << "do_receive returning at: " << _read._current - _read._begin << " of " << _write._current - _write._begin << std::endl;
+                            std::cout << "do_receive returning at: " << _read._current - _read._begin << " of " << this->_write_it - _read._begin << std::endl;
 #endif
                             return;
                         }
                     }
                 }
 #ifdef SP_BUFFERED_DEBUG
-                std::cout << "do_receive returning at: " << _read._current - _read._begin << " of " << _write._current - _write._begin << std::endl;
+                std::cout << "do_receive returning at: " << _read._current - _read._begin << " of " << this->_write_it - _read._begin << std::endl;
 #endif
             }
 
