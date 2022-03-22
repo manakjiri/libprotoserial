@@ -34,11 +34,11 @@ TEST(Bytes, Constructor)
     EXPECT_EQ(0, b3.size());
     EXPECT_EQ(0, b3.capacity());
 
-    sp::bytes b4 = {1_B, 10_B, 25_B};
+    sp::bytes b4 = {1_BYTE, 10_BYTE, 25_BYTE};
     EXPECT_TRUE(b4.size() == 3);
-    EXPECT_TRUE(b4[0] == 1_B);
-    EXPECT_TRUE(b4[1] == 10_B);
-    EXPECT_TRUE(b4[2] == 25_B);
+    EXPECT_TRUE(b4[0] == 1_BYTE);
+    EXPECT_TRUE(b4[1] == 10_BYTE);
+    EXPECT_TRUE(b4[2] == 25_BYTE);
 
 }
 
@@ -131,47 +131,47 @@ TEST(Bytes, Set)
     sp::bytes b2(4, 5, 3);
     sp::bytes bc;
 
-    bc = {0_B, 0_B, 0_B, 0_B, 0_B};
+    bc = {0_BYTE, 0_BYTE, 0_BYTE, 0_BYTE, 0_BYTE};
     EXPECT_TRUE(b1 == bc) << bc;
     EXPECT_TRUE(b2 == bc) << bc;
 
-    bc = {255_B, 255_B, 255_B, 255_B, 255_B};
-    b1.set(255_B);
-    b2.set(255_B);
+    bc = {255_BYTE, 255_BYTE, 255_BYTE, 255_BYTE, 255_BYTE};
+    b1.set(255_BYTE);
+    b2.set(255_BYTE);
     EXPECT_TRUE(b1 == bc) << bc;
     EXPECT_TRUE(b2 == bc) << bc;
 
-    bc = {2_B, 2_B, 255_B, 255_B, 255_B};
-    b1.set(0, 2, 2_B);
-    b2.set(0, 2, 2_B);
+    bc = {2_BYTE, 2_BYTE, 255_BYTE, 255_BYTE, 255_BYTE};
+    b1.set(0, 2, 2_BYTE);
+    b2.set(0, 2, 2_BYTE);
     EXPECT_TRUE(b1 == bc) << bc;
     EXPECT_TRUE(b2 == bc) << bc;
 
-    bc = {2_B, 2_B, 3_B, 3_B, 3_B};
-    b1.set(2, 3, 3_B);
-    b2.set(2, 3, 3_B);
+    bc = {2_BYTE, 2_BYTE, 3_BYTE, 3_BYTE, 3_BYTE};
+    b1.set(2, 3, 3_BYTE);
+    b2.set(2, 3, 3_BYTE);
     EXPECT_TRUE(b1 == bc) << bc;
     EXPECT_TRUE(b2 == bc) << bc;
 
-    bc = {2_B, 4_B, 4_B, 4_B, 3_B};
-    b1.set(1, 3, 4_B);
-    b2.set(1, 3, 4_B);
+    bc = {2_BYTE, 4_BYTE, 4_BYTE, 4_BYTE, 3_BYTE};
+    b1.set(1, 3, 4_BYTE);
+    b2.set(1, 3, 4_BYTE);
     EXPECT_TRUE(b1 == bc) << bc;
     EXPECT_TRUE(b2 == bc) << bc;
 
-    EXPECT_THROW(b1.set(0, 6, 10_B), sp::out_of_range);
-    EXPECT_THROW(b2.set(0, 6, 10_B), sp::out_of_range);
-    EXPECT_THROW(b1.set(3, 6, 11_B), sp::out_of_range);
-    EXPECT_THROW(b2.set(3, 6, 11_B), sp::out_of_range);
+    EXPECT_THROW(b1.set(0, 6, 10_BYTE), sp::out_of_range);
+    EXPECT_THROW(b2.set(0, 6, 10_BYTE), sp::out_of_range);
+    EXPECT_THROW(b1.set(3, 6, 11_BYTE), sp::out_of_range);
+    EXPECT_THROW(b2.set(3, 6, 11_BYTE), sp::out_of_range);
 
-    bc = {10_B, 10_B, 10_B, 11_B, 11_B};
+    bc = {10_BYTE, 10_BYTE, 10_BYTE, 11_BYTE, 11_BYTE};
     EXPECT_TRUE(b1 == bc) << bc;
     EXPECT_TRUE(b2 == bc) << bc;
 }
 
 TEST(Bytes, Expand)
 {
-    const sp::bytes bo = {1_B, 2_B, 3_B};
+    const sp::bytes bo = {1_BYTE, 2_BYTE, 3_BYTE};
     std::vector<std::unique_ptr<sp::bytes>> vb;
     vb.push_back(std::make_unique<sp::bytes>(3));
     vb.push_back(std::make_unique<sp::bytes>(2, 3, 0));
@@ -187,17 +187,17 @@ TEST(Bytes, Expand)
         EXPECT_TRUE(*b == bc) << "should be: " << bc << " is: " << *b;
 
         b->expand(1, 0);
-        bc = {0_B, 1_B, 2_B, 3_B};
+        bc = {0_BYTE, 1_BYTE, 2_BYTE, 3_BYTE};
         EXPECT_TRUE(*b == bc) << "should be: " << bc << " is: " << *b;
-        b->at(0) = 10_B;
+        b->at(0) = 10_BYTE;
 
         b->expand(0, 1);
-        bc = {10_B, 1_B, 2_B, 3_B, 0_B};
+        bc = {10_BYTE, 1_BYTE, 2_BYTE, 3_BYTE, 0_BYTE};
         EXPECT_TRUE(*b == bc) << "should be: " << bc << " is: " << *b;
-        b->at(4) = 20_B;
+        b->at(4) = 20_BYTE;
 
         b->expand(1, 1);
-        bc = {0_B, 10_B, 1_B, 2_B, 3_B, 20_B, 0_B};
+        bc = {0_BYTE, 10_BYTE, 1_BYTE, 2_BYTE, 3_BYTE, 20_BYTE, 0_BYTE};
         EXPECT_TRUE(*b == bc) << "should be: " << bc << " is: " << *b;
     }
 
@@ -205,19 +205,19 @@ TEST(Bytes, Expand)
 
     sp::bytes b1, bc;
     b1.expand(1, 0);
-    b1[0] = 1_B;
+    b1[0] = 1_BYTE;
     b1.expand(0, 1);
-    b1[1] = 2_B;
+    b1[1] = 2_BYTE;
     b1.expand(1, 0);
-    b1[0] = 3_B;
+    b1[0] = 3_BYTE;
     b1.expand(1, 1);
-    bc = {0_B, 3_B, 1_B, 2_B, 0_B};
+    bc = {0_BYTE, 3_BYTE, 1_BYTE, 2_BYTE, 0_BYTE};
     EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
 }
 
 TEST(Bytes, Push)
 {
-    const sp::bytes ob1 = {10_B, 11_B}, ob2 = {20_B, 21_B, 22_B};
+    const sp::bytes ob1 = {10_BYTE, 11_BYTE}, ob2 = {20_BYTE, 21_BYTE, 22_BYTE};
 
     sp::bytes b1(3), b2(4, 3, 10), b3(3), b4(10, 3, 0), bc;
 
@@ -225,38 +225,38 @@ TEST(Bytes, Push)
         b4[i] = b3[i] = b2[i] = b1[i] = (sp::byte)(i);
 
     b1.push_back(ob1);
-    bc = {0_B, 1_B, 2_B, 10_B, 11_B};
+    bc = {0_BYTE, 1_BYTE, 2_BYTE, 10_BYTE, 11_BYTE};
     EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
 
     b2.push_back(ob2);
-    bc = {0_B, 1_B, 2_B, 20_B, 21_B, 22_B};
+    bc = {0_BYTE, 1_BYTE, 2_BYTE, 20_BYTE, 21_BYTE, 22_BYTE};
     EXPECT_TRUE(b2 == bc) << "should be: " << bc << " is: " << b2;
 
     b3.push_front(ob2);
-    bc = {20_B, 21_B, 22_B, 0_B, 1_B, 2_B};
+    bc = {20_BYTE, 21_BYTE, 22_BYTE, 0_BYTE, 1_BYTE, 2_BYTE};
     EXPECT_TRUE(b3 == bc) << "should be: " << bc << " is: " << b3;
 
     b4.push_front(ob1);
-    bc = {10_B, 11_B, 0_B, 1_B, 2_B};
+    bc = {10_BYTE, 11_BYTE, 0_BYTE, 1_BYTE, 2_BYTE};
     EXPECT_TRUE(b4 == bc) << "should be: " << bc << " is: " << b4;
 
     
     sp::bytes b5;
-    b5.push_back({3_B, 4_B});
-    b5.push_front({1_B, 2_B});
-    bc = {1_B, 2_B, 3_B, 4_B};
+    b5.push_back({3_BYTE, 4_BYTE});
+    b5.push_front({1_BYTE, 2_BYTE});
+    bc = {1_BYTE, 2_BYTE, 3_BYTE, 4_BYTE};
     EXPECT_TRUE(b5 == bc) << "should be: " << bc << " is: " << b5;
 
     sp::bytes b6(1);
-    b6.push_back({3_B, 4_B});
-    b6.push_front({1_B, 2_B});
-    bc = {1_B, 2_B, 0_B, 3_B, 4_B};
+    b6.push_back({3_BYTE, 4_BYTE});
+    b6.push_front({1_BYTE, 2_BYTE});
+    bc = {1_BYTE, 2_BYTE, 0_BYTE, 3_BYTE, 4_BYTE};
     EXPECT_TRUE(b6 == bc) << "should be: " << bc << " is: " << b6;
 
     sp::bytes b7(2, 1, 2);
-    b7.push_back({3_B, 4_B});
-    b7.push_front({1_B, 2_B});
-    bc = {1_B, 2_B, 0_B, 3_B, 4_B};
+    b7.push_back({3_BYTE, 4_BYTE});
+    b7.push_front({1_BYTE, 2_BYTE});
+    bc = {1_BYTE, 2_BYTE, 0_BYTE, 3_BYTE, 4_BYTE};
     EXPECT_TRUE(b7 == bc) << "should be: " << bc << " is: " << b7;
 }
 
@@ -269,19 +269,19 @@ TEST(Bytes, Sub)
     
     //std::cout << b1 << std::endl;
 
-    bc = {10_B, 11_B};
+    bc = {10_BYTE, 11_BYTE};
     b = b1.sub(b1.begin(), b1.begin() + 2);
     EXPECT_TRUE(b == bc) << "should be: " << bc << " is: " << b;
     b = b1.sub(0, 2);
     EXPECT_TRUE(b == bc) << "should be: " << bc << " is: " << b;
 
-    bc = {17_B, 18_B, 19_B};
+    bc = {17_BYTE, 18_BYTE, 19_BYTE};
     b = b1.sub(b1.end() - 3, b1.end());
     EXPECT_TRUE(b == bc) << "should be: " << bc << " is: " << b;
     b = b1.sub(7, 3);
     EXPECT_TRUE(b == bc) << "should be: " << bc << " is: " << b;
 
-    bc = {17_B};
+    bc = {17_BYTE};
     b = b1.sub(7, 1);
     EXPECT_TRUE(b == bc) << "should be: " << bc << " is: " << b;
 }
@@ -289,42 +289,42 @@ TEST(Bytes, Sub)
 TEST(Bytes, Shrink)
 {
     sp::bytes b1(5), bc;
-    b1.set(100_B);
+    b1.set(100_BYTE);
 
-    bc = {100_B, 100_B, 100_B, 100_B, 100_B};
+    bc = {100_BYTE, 100_BYTE, 100_BYTE, 100_BYTE, 100_BYTE};
     EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
 
     b1.shrink(2, 0);
-    bc = {100_B, 100_B, 100_B};
+    bc = {100_BYTE, 100_BYTE, 100_BYTE};
     EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
 
     b1.expand(2, 0);
-    bc = {0_B, 0_B, 100_B, 100_B, 100_B};
+    bc = {0_BYTE, 0_BYTE, 100_BYTE, 100_BYTE, 100_BYTE};
     EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
 
     b1.shrink(0, 2);
-    bc = {0_B, 0_B, 100_B};
+    bc = {0_BYTE, 0_BYTE, 100_BYTE};
     EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
 
     b1.expand(0, 2);
-    bc = {0_B, 0_B, 100_B, 0_B, 0_B};
+    bc = {0_BYTE, 0_BYTE, 100_BYTE, 0_BYTE, 0_BYTE};
     EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
 
-    b1.set(1, 2, 200_B);
-    bc = {0_B, 200_B, 200_B, 0_B, 0_B};
+    b1.set(1, 2, 200_BYTE);
+    bc = {0_BYTE, 200_BYTE, 200_BYTE, 0_BYTE, 0_BYTE};
     EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
 
     b1.shrink(2, 1);
-    bc = {200_B, 0_B};
+    bc = {200_BYTE, 0_BYTE};
     EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
 
     b1.expand(1, 0);
     b1.shrink(1, 1);
-    bc = {200_B};
+    bc = {200_BYTE};
     EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
 
     b1.expand(2, 2);
-    bc = {0_B, 0_B, 200_B, 0_B, 0_B};
+    bc = {0_BYTE, 0_BYTE, 200_BYTE, 0_BYTE, 0_BYTE};
     EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
 
     b1.shrink(3, 3);
@@ -332,7 +332,7 @@ TEST(Bytes, Shrink)
     EXPECT_TRUE(b1.size() == 0);
 
     b1.expand(1, 5);
-    bc = {0_B, 0_B, 0_B, 0_B, 0_B, 0_B};
+    bc = {0_BYTE, 0_BYTE, 0_BYTE, 0_BYTE, 0_BYTE, 0_BYTE};
     EXPECT_TRUE(b1 == bc) << "should be: " << bc << " is: " << b1;
 }
 
@@ -472,7 +472,7 @@ TEST(Interface, HeavilyCorruptedRandom)
 TEST(Fragmentation, Transfer)
 {
     //sp::loopback_interface interface(0, 1, 10, 64, 256);
-    const sp::bytes b1 = {10_B, 11_B, 12_B, 13_B, 14_B}, b2 = {20_B, 21_B, 22_B}, b3 = {30_B, 31_B}, b4 = {40_B};
+    const sp::bytes b1 = {10_BYTE, 11_BYTE, 12_BYTE, 13_BYTE, 14_BYTE}, b2 = {20_BYTE, 21_BYTE, 22_BYTE}, b3 = {30_BYTE, 31_BYTE}, b4 = {40_BYTE};
     sp::loopback_interface interface(0, 1, 10, 64, 256);
     sp::fragmentation_handler handler(interface.interface_id(), interface.max_data_size(), 100ms, 10ms, 2);
     
@@ -607,7 +607,7 @@ TEST(Fragmentation, CorruptedRandom)
 
 TEST(Ports, PacketConstructor)
 {
-    const sp::bytes b1 = {10_B, 11_B, 12_B, 13_B, 14_B}, b2 = {20_B, 21_B, 22_B}, b3 = {30_B, 31_B};
+    const sp::bytes b1 = {10_BYTE, 11_BYTE, 12_BYTE, 13_BYTE, 14_BYTE}, b2 = {20_BYTE, 21_BYTE, 22_BYTE}, b3 = {30_BYTE, 31_BYTE};
     sp::loopback_interface interface(0, 1, 10, 64, 256);
     sp::fragmentation_handler handler(interface.interface_id(), interface.max_data_size(), 100ms, 10ms, 2);
     

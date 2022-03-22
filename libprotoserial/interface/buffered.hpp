@@ -146,7 +146,7 @@ namespace sp
             /* advances the buffer pointer by one, wraps if necessary, call this in receive complete interrupt */
 			inline void rx_buffer_advance()
 			{
-				++_write_it;
+				_write_it = _write_it + 1;
 				if (_write_it >= _rx_buffer.end())
 					_write_it = _rx_buffer.begin();
 			}
