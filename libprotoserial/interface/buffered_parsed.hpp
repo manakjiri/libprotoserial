@@ -26,7 +26,7 @@
 #include "libprotoserial/interface/parsers.hpp"
 
 #ifndef SP_NO_IOSTREAM
-//#define SP_BUFFERED_DEBUG
+#define SP_BUFFERED_DEBUG
 //#define SP_BUFFERED_WARNING
 #endif
 
