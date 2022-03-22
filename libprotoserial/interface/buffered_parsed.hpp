@@ -25,6 +25,7 @@
 #include "libprotoserial/interface/buffered.hpp"
 #include "libprotoserial/interface/parsers.hpp"
 
+
 #ifndef SP_NO_IOSTREAM
 //#define SP_BUFFERED_DEBUG
 //#define SP_BUFFERED_WARNING
@@ -51,8 +52,7 @@ namespace sp
                 uint max_fragment_size):
                     buffered_interface(iid, address, max_queue_size, buffer_size), _max_fragment_size(max_fragment_size)
             {
-                _read = get_rx_buffer();
-                _write = get_rx_buffer();
+                _read = rx_buffer_begin();
             }
 
             bytes::size_type max_data_size() const noexcept {return _max_fragment_size - sizeof(Header) - sizeof(Footer) - preamble_length;}
@@ -60,7 +60,7 @@ namespace sp
             protected:
 
             virtual void do_single_receive() {}
-            void put_single_received(byte b) {*(++_write) = b;}
+
 
             void do_receive() noexcept
             {
@@ -70,7 +70,7 @@ namespace sp
                 _write is the position of the last byte written, so we can read up to that point
                 since this way we cannot possibly collide with the ISR */
                 auto read = _read;
-                auto write = _write;
+                auto write = rx_buffer_latest();
 
                 /* while is necessary since we would never move forward in case we find a valid preamble but fail 
                 before the parsing */
@@ -193,7 +193,7 @@ namespace sp
                 return b;
             }
 
-            buffered_interface::circular_iterator _write, _read;
+            buffered_interface::circular_iterator _read;
             uint _max_fragment_size;
         };
     }

@@ -39,7 +39,10 @@ namespace sp
 			 * - buffer_size sets the size of the receive buffer in bytes
 			 */
             buffered_interface(interface_identifier iid, address_type address, uint max_queue_size, uint buffer_size):
-                interface(iid, address, max_queue_size), _rx_buffer(buffer_size) {}
+                interface(iid, address, max_queue_size), _rx_buffer(buffer_size), _postpone_by_one(false)
+            {
+            	_write_it = _rx_buffer.begin();
+            }
 
 
             /* iterator pointing into the _rx_buffer, it supports wrapping */
@@ -74,7 +77,7 @@ namespace sp
                     ++_current; 
                     if (_current >= _end) _current = _begin;
                     return *this;
-                }  
+                }
 
                 circular_iterator& operator+=(uint shift)
                 {
@@ -100,21 +103,59 @@ namespace sp
                 friend bool operator== (const circular_iterator& a, const circular_iterator& b) { return a._current == b._current; };
                 friend bool operator!= (const circular_iterator& a, const circular_iterator& b) { return a._current != b._current; };
 
+                private:
                 /* _begin is the first byte of the container, _end is one past the last byte of the container, 
                 _current is in the interval [_begin, _end) */
                 bytes::iterator _begin, _end, _current;
-                private:
-            }; 
+            };
 
             protected:
 
-            /* returns the interator that points to the beginning of the _rx_buffer, store this in
+            /* returns an iterator that points to the beginning of the _rx_buffer, store this in
             member variable at init and use it to access the buffer */
-            circular_iterator get_rx_buffer() {return circular_iterator(_rx_buffer, _rx_buffer.begin());}
+            circular_iterator rx_buffer_begin() {return circular_iterator(_rx_buffer, _rx_buffer.begin());}
+            /* returns an iterator that points to the last byte written within the _rx_buffer */
+            circular_iterator rx_buffer_latest()
+            {
+            	bytes::iterator it{_write_it};
+            	if (_postpone_by_one)
+            	{
+            		if (--it < _rx_buffer.begin())
+            			it = _rx_buffer.end() - 1;
+            	}
+            	return circular_iterator(_rx_buffer, it);
+            }
+            /* returns a pointer that points to the byte to be written within the _rx_buffer, use this
+            to provide a buffer for single byte interrupt receive */
+            inline volatile bytes::pointer rx_buffer_future_write()
+            {
+            	/* enable postpone, this is important because we are merely providing a buffer
+            	to be written to, so the rx_buffer_latest cannot assume that it holds the latest value */
+            	_postpone_by_one = true;
+            	rx_buffer_advance();
+            	return _write_it;
+            }
+            /* simple assign into the receive buffer */
+            inline volatile void put_single_received(byte b)
+            {
+            	_postpone_by_one = false;
+            	rx_buffer_advance();
+            	*_write_it = b;
+            }
 
             private:
 
+            /* advances the buffer pointer by one, wraps if necessary, call this in receive complete interrupt */
+			inline volatile void rx_buffer_advance()
+			{
+				++_write_it;
+				if (_write_it >= _rx_buffer.end())
+					_write_it = _rx_buffer.begin();
+			}
+
             bytes _rx_buffer;
+            volatile bytes::pointer _write_it;
+            volatile bool _postpone_by_one;
         };
     }
 } // namespace sp

@@ -57,12 +57,12 @@ namespace stm32
 
 		bool can_transmit() noexcept {return !_is_transmitting;}
 
-		void isr_rx_done()
+		inline volatile void isr_rx_done()
 		{
 			next_receive();
 		}
 
-		void isr_tx_done()
+		inline volatile void isr_tx_done()
 		{
 			_is_transmitting = false;
 		}
@@ -71,9 +71,8 @@ namespace stm32
 
 		inline void next_receive()
 		{
-			/* the iterator wraps around to the beginning at the end of the buffer */
-			HAL_UART_Receive_IT(_huart, reinterpret_cast<uint8_t*>(&(*(++parent::_write))), 1);
-			//HAL_GPIO_TogglePin(DBG1_GPIO_Port, DBG1_Pin);
+			HAL_UART_Receive_IT(_huart, reinterpret_cast<uint8_t*>(this->rx_buffer_future_write()), 1);
+			HAL_GPIO_TogglePin(DBG1_GPIO_Port, DBG1_Pin);
 		}
 
 		bool do_transmit(bytes && buff) noexcept
