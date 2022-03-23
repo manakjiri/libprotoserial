@@ -106,6 +106,7 @@ class uart_interface : public buffered_parsed_interface<Header, Footer>
     ~uart_interface() 
     {
         close(uartFd);
+        printf("Port closed.\n");
     }
 
     protected:

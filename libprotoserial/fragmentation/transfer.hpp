@@ -249,26 +249,6 @@ namespace sp
         transfer_metadata::time_point _timestamp_modified;
     };
 
-    /* there should never be a need for the user to construct this, it is provided by the
-        * fragmentation_handler as fully initialized object ready to be used, user should never
-        * need to use function that start with underscore 
-        * 
-        * there are two modes of usage from within the fragmentation_handler:
-        * 1)  transfer is constructed using the transfer(const Header & h, fragmentation_handler * handler)
-        *     constructor when fragmentation_handler encounters a new ID and such transfer is put into the
-        *     _incoming_transfers list, where it is gradually filled with incoming fragments from the interface.
-        *     This is a mode where transfer's internal vector gets preallocated to a known number, so functions
-        *     _is_complete(), _missing_fragment() and _missing_fragments_total() make sense to call.
-        * 
-        * 2)  transfer is created using the new_transfer() function, where it is constructed by the
-        *     transfer(fragmentation_handler * handler, id_type id, id_type prev_id = 0) constructor on user
-        *     demand. This transfer will, presumably, be transmitted some time in the future. The internal
-        *     vector is empty and gets dynamically larger as user uses the push_front(bytes) and push_back(bytes)
-        *     functions. 
-        *     In contrast to the first scenario data will no longer satisfy the data_size() <= max_fragment_size()
-        *     property, which is required for transmit, so function the _get_fragment() is used by the 
-        *     fragmentation_handler to create fragments that do.
-        */
     struct transfer : public transfer_metadata, public transfer_data
     {
         /* constructor used when the fragmentation_handler receives the first piece of the transfer */
@@ -277,9 +257,10 @@ namespace sp
             transfer_metadata(0, 0, iid, clock::now(), h.get_id(), h.get_prev_id()),
             transfer_data(h.fragments_total()) {}
 
-        /* constructor used by the fragmentation_handler in new_transfer */
         transfer(interface_identifier iid, id_type prev_id = 0):
             transfer_metadata(0, 0, iid, clock::now(), global_id_factory.new_id(iid), prev_id) {}
+        transfer(const interface & i, id_type prev_id = 0):
+            transfer_metadata(0, 0, i.interface_id(), clock::now(), global_id_factory.new_id(i.interface_id()), prev_id) {}
 
         transfer(transfer_metadata && metadata, transfer_data && data):
             transfer_metadata(std::move(metadata)), transfer_data(std::move(data)) {}
