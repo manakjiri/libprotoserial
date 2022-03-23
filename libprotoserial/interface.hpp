@@ -60,6 +60,7 @@ namespace sp
 #endif
 
 #if defined(SP_EMBEDDED) || defined(SP_LINUX)
+    #define SP_UART
     class uart_interface:
     	public env::uart_interface<sp::headers::interface_8b8b, sp::footers::crc32>
     {
