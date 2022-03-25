@@ -42,12 +42,11 @@ namespace stack
 #if defined(SP_LINUX)
         uart_115200(std::string port, sp::interface_identifier::instance_type instance, sp::interface::address_type address):
             interface(port, B115200, instance, address, 25, 64, 1024), 
-            fragmentation(interface.interface_id(), interface.max_data_size(), 25ms, 100ms, 3)
 #elif defined(SP_STM32)
         uart_115200(UART_HandleTypeDef * huart, interface_identifier::instance_type instance, interface::address_type address):
             interface(huart, instance, address, 10, 64, 256), 
-            fragmentation(interface.interface_id(), interface.max_data_size(), 25ms, 100ms, 3)
 #endif
+            fragmentation(interface.interface_id(), interface.max_data_size(), 25ms, 100ms, 3)
         {
             fragmentation.bind_to(interface);
         }

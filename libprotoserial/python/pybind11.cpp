@@ -23,8 +23,8 @@
 #ifndef _SP_PYTHON_PROTOSTACKS
 #define _SP_PYTHON_PROTOSTACKS
 
-#define SP_FRAGMENTATION_WARNING
-#define SP_BUFFERED_WARNING
+//#define SP_FRAGMENTATION_WARNING
+//#define SP_BUFFERED_WARNING
 
 #include "submodules/pybind11/include/pybind11/pybind11.h"
 #include "submodules/pybind11/include/pybind11/functional.h"
@@ -52,6 +52,11 @@ PYBIND11_MODULE(protoserial, m) {
         .def("__repr__", [](const sp::bytes &a) {
             std::stringstream s; s << "bytesbuff(" << a << ')';
             return s.str();
+        })
+        .def("as_list", [](const sp::bytes &arg) {
+            std::list<int> ret;
+            for (auto b : arg) ret.push_back((int)b);
+            return ret;
         });
 
     py::class_<sp::interface_identifier>(m, "interface_identifier")
