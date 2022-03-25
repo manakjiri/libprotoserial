@@ -31,7 +31,7 @@ namespace sp
     namespace detail
     {
         /* this class acts purely as a encoder/decoder of fragments
-        - subscribe to its receive_event and pass it the raw data to decode using the put_received function
+        - subscribe to its receive_event and pass it the raw data to decode using the put_serialized function
         - use the transmit() function to pass in a fragment, then once has_serialized() returns true you can 
           retrieve the encoded data using the get_serialized() function */
         template<class Header, class Footer>
@@ -46,22 +46,30 @@ namespace sp
                     parent(interface_identifier(interface_identifier::identifier_type::VIRTUAL, instance), 
                     address, max_queue_size, buffer_size, max_fragment_size) {}
 
-            bool has_serialized() const {return !_serialized.empty();}
+            bool has_serialized() {this->main_task(); return !_serialized.empty();}
             bytes get_serialized() 
             {
-                parent::main_task();
+                this->main_task();
                 bytes ret = std::move(_serialized.front());
                 _serialized.pop();
                 return ret;
             }
 
-            void put_received(bytes && data)
+            void put_serialized(bytes && data)
             {
                 for (auto & b : data)
-                {
-                    *(++parent::_write) = b;
-                    parent::main_task();
-                }
+                    this->put_single_received(b);
+                this->main_task();
+            }
+
+            void put_single_serialized(byte b)
+            {
+                this->put_single_received(b);
+            }
+
+            bytes & _get_rx_buffer()
+            {
+                return this->_rx_buffer;
             }
 
             protected:
@@ -69,7 +77,6 @@ namespace sp
             bool can_transmit() noexcept {return true;}
             bool do_transmit(bytes && buff) noexcept 
             {
-                parent::main_task();
                 _serialized.push(std::move(buff));
                 return true;
             }

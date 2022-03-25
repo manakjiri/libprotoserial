@@ -53,6 +53,7 @@ namespace sp
                     buffered_interface(iid, address, max_queue_size, buffer_size), _max_fragment_size(max_fragment_size)
             {
                 _read = rx_buffer_begin();
+                _last_byte_count = _byte_count;
             }
 
             bytes::size_type max_data_size() const noexcept {return _max_fragment_size - sizeof(Header) - sizeof(Footer) - preamble_length;}
@@ -71,6 +72,20 @@ namespace sp
                 since this way we cannot possibly collide with the ISR */
                 auto read = _read;
                 auto write = rx_buffer_latest();
+
+                /* number of loaded bytes since the last call of this function */
+                uint loaded = _last_byte_count <= _byte_count ? (_byte_count - _last_byte_count) : 
+                    (UINT_MAX - _last_byte_count + _byte_count >= rx_buffer_size());
+                _last_byte_count = _byte_count;
+                /* rx_buffer may have overflowed since the last call, so our _read does not point
+                where the rest of the parser assumes */
+                if (loaded >= rx_buffer_size())
+                {
+                    _read = read = write;
+#ifdef SP_BUFFERED_WARNING
+                    std::cout << "do_receive: buffer overflow" << '\n';
+#endif               
+                }
 
                 /* while is necessary since we would never move forward in case we find a valid preamble but fail 
                 before the parsing */
@@ -194,7 +209,7 @@ namespace sp
             }
 
             buffered_interface::circular_iterator _read;
-            uint _max_fragment_size;
+            uint _max_fragment_size, _last_byte_count;
         };
     }
 } // namespace sp

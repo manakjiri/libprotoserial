@@ -1,7 +1,10 @@
 
+#define SP_BUFFERED_WARNING
+
 #include <iostream>
 #include <cstdlib>
 #include <memory>
+#include <thread>
 
 #include "libprotoserial/interface.hpp"
 
@@ -10,97 +13,61 @@
 using namespace std;
 using namespace sp::literals;
 
-void test_interface(sp::interface & interface, uint loops, function<sp::bytes(void)> data_gen, 
-    function<sp::interface::address_type(void)> addr_gen)
+
+void receive_handler(int * run, sp::interface * interface)
 {
-    std::unique_ptr<sp::interface::packet> tmp;
-    uint i = 0;
-
-    interface.receive_event.subscribe([&](sp::interface::packet p){
-        if (*tmp != p) 
-            cout << "loop: " << i << "\nORIG: " << *tmp << "\nGOT:  " << p << endl;
-    });
-
-    for (; i < loops; i++)
+    while (*run)
     {
-        cout << i << endl;
-
-        tmp.reset(new sp::interface::packet(addr_gen(), 1, data_gen(), &interface));
-        
-        interface.write(sp::interface::packet(*tmp));
-
-        for (int j = 0; j < 3; j++)
-            interface.main_task();
+        interface->main_task();
+        this_thread::sleep_for(1ns * random(10, 100));
     }
 }
 
-
-
 int main(int argc, char const *argv[])
 {
-    sp::loopback_interface interface(0, 1, 10, 64, 256);
+    sp::virtual_interface interface1(0, 1, 10, 64, 256), interface2(1, 2, 10, 64, 48);
 
-    auto data = [l = 0]() mutable {
-        sp::bytes b(++l);
-        std::generate(b.begin(), b.end(), [pos = 0]() mutable { return (sp::byte)(++pos); });
-        return b;
+    interface2.receive_event.subscribe([](sp::fragment f){
+        cout << "RX: " << f << endl;
+    });
+    
+    //int run = true;
+    //std::jthread receive(receive_handler, &run, &interface2);
+
+    auto serialize = [&](sp::fragment f) {
+        interface1.write(std::move(f));
+        while (!interface1.has_serialized()) {cout << "!has_serialized()" << endl;}
+        return interface1.get_serialized();
     };
-    auto addr = [&](){return (sp::interface::address_type)2;};
-
-    test_interface(interface, 10, data, addr);
-
-    //packet that passed the 32bit CRC but didn't match the TXed:  1 23 5 29 133 0 115 5 41   255 131 8 122
-    
-    
-    /* sp::loopback_interface interface(0, 1, 10, 64, 1024, [](sp::byte b){
-        if (chance(1)) b |= random_byte();
-        return b;
-    }); */
-
-    /* std::unique_ptr<sp::interface::packet> tmp;
-
-    interface.receive_event.subscribe([&](sp::interface::packet p){
-        cout << "packed_received_event" << endl;
-        cout << "  dst: " << p.destination() << "  src: " << p.source() << endl;
-        cout << "  interface: " << p.interface()->name() << endl;
-        cout << "  data: " << p.data() << endl;
-        auto& o = *tmp;
-        if (o != p) 
-        {
-            cout << "  PACKETS DO NOT MATCH - ORIGINAL" << endl;
-            cout << "  dst: " << o.destination() << "  src: " << o.source() << endl;
-            cout << "  interface: " << o.interface()->name() << endl;
-            cout << "  data: " << o.data() << endl;
-        }
-    }); */
 
 
-    /* for (int i = 0; i < 11; i++)
+    for (int i = 0; i < 3; i++)
     {
-        //if (i % 10 == 0)
-            cout << i << endl;
-        
+        sp::bytes d(10); //random(1, interface1.max_data_size())
+        d.set((sp::byte)i);
+        auto data = serialize(sp::fragment(2, std::move(d)));
 
-        tmp.reset(new sp::interface::packet(random(2, 100), 1, 
-            random_bytes(1, interface.max_data_size()), &interface));
+        for (auto b : data)
+            interface2.put_single_serialized(b);
         
-        interface.write(sp::interface::packet(*tmp));
-
-
-        try
-        {
-            for (int j = 0; j < 3; j++)
-                interface.main_task();
-        }
-        catch(std::exception &e)
-        {
-            std::cerr << "main exception: " << e.what() << '\n';
-        }
-        
-    } */
+        cout << interface2._get_rx_buffer() << endl;
+    }
     
+    for (int i = 0; i < 5; i++)
+        interface2.main_task();
+
+
+    auto data = serialize(sp::fragment(2, random_bytes(1, 5)));
+    for (auto b : data)
+            interface2.put_single_serialized(b);
+
+    interface2.main_task();
+
+    //this_thread::sleep_for(1000ms);
+    //run = false;
 
     return 0;
 }
+
 
 

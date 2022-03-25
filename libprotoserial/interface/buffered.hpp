@@ -39,7 +39,7 @@ namespace sp
 			 * - buffer_size sets the size of the receive buffer in bytes
 			 */
             buffered_interface(interface_identifier iid, address_type address, uint max_queue_size, uint buffer_size):
-                interface(iid, address, max_queue_size), _rx_buffer(buffer_size), _postpone_by_one(false)
+                interface(iid, address, max_queue_size), _rx_buffer(buffer_size), _byte_count(0), _postpone_by_one(false)
             {
             	_write_it = _rx_buffer.begin();
             }
@@ -147,12 +147,19 @@ namespace sp
 			inline void rx_buffer_advance()
 			{
 				_write_it = _write_it + 1;
+                _byte_count = _byte_count + 1;
 				if (_write_it >= _rx_buffer.end())
 					_write_it = _rx_buffer.begin();
 			}
 
+            bytes::size_type rx_buffer_size() const
+            {
+                return _rx_buffer.size();
+            }
+
             bytes _rx_buffer;
             volatile bytes::pointer _write_it;
+            volatile uint _byte_count;
             volatile bool _postpone_by_one;
         };
     }
