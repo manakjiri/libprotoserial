@@ -493,7 +493,7 @@ TEST(Fragmentation, UnalteredRandom)
     auto data = [&](){return random_bytes(1, interface.max_data_size() * 2);};
     auto addr = [&](){return random(2, 100);};
 
-    EXPECT_EQ(test_handler(interface, handler, 500, data, addr), 500);
+    EXPECT_EQ(test_handler(interface, handler, 100, data, addr), 100);
 }
 
 TEST(Fragmentation, CorruptedRandom)
@@ -507,7 +507,21 @@ TEST(Fragmentation, CorruptedRandom)
     auto data = [&](){return random_bytes(1, interface.max_data_size() * 2);};
     auto addr = [&](){return random(2, 100);};
 
-    EXPECT_EQ(test_handler(interface, handler, 500, data, addr, 25), 500);
+    EXPECT_EQ(test_handler(interface, handler, 100, data, addr, 25), 100);
+}
+
+TEST(Fragmentation, CorruptedRandomLarge)
+{
+    sp::loopback_interface interface(0, 1, 10, 32, 256, [](sp::byte b){
+        if (chance(0.5)) b |= random_byte();
+        return b;
+    });
+    sp::fragmentation_handler handler(interface.interface_id(), interface.max_data_size(), 10ms, 100ms, 5);
+
+    auto data = [&](){return random_bytes(interface.max_data_size() * 5, interface.max_data_size() * 10);};
+    auto addr = [&](){return random(2, 100);};
+
+    EXPECT_EQ(test_handler(interface, handler, 10, data, addr, 100), 10);
 }
 
 

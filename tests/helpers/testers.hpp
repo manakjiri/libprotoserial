@@ -46,9 +46,7 @@ uint test_handler(sp::interface & interface, sp::fragmentation_handler & handler
     sp::bytes tmp;
     uint i = 0, received = 0;
 
-    interface.receive_event.subscribe(&sp::fragmentation_handler::receive_callback, &handler);
-    handler.transmit_event.subscribe(&sp::loopback_interface::write_noexcept, 
-        reinterpret_cast<sp::interface*>(&interface));
+    handler.bind_to(interface);
 
     handler.transfer_receive_event.subscribe([&](sp::transfer t){
 #ifdef SP_FRAGMENTATION_DEBUG
@@ -72,6 +70,8 @@ uint test_handler(sp::interface & interface, sp::fragmentation_handler & handler
         t.set_destination(addr_gen());
         handler.transmit(t);
 
+        if (i == loops-1) runs *= 10;
+        
         for (int j = 0; j < runs; j++)
         {
             auto s = sp::clock::now();

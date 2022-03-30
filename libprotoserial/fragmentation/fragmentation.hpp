@@ -193,7 +193,7 @@ namespace sp
                     if (older_than(it->timestamp_accessed, _drop_time * 5))
                         it = _incoming_transfers.erase(it);
                 }
-                else if (it->tr->_is_complete())
+                else if (it->tr->_is_complete() && can_transmit())
                 {
                     /* checks whether any of the transfers is complete, if so emit it as receive event */
                     transmit_event.emit(std::move(
@@ -217,7 +217,7 @@ namespace sp
                         /* drop the incoming transfer because it is inactive for too long */
                         it = _incoming_transfers.erase(it);
                     }
-                    else if (older_than(it->tr->timestamp_modified(), _retransmit_time) && 
+                    else if (can_transmit() && older_than(it->tr->timestamp_modified(), _retransmit_time) && 
                         older_than(it->timestamp_accessed, _retransmit_time))
                     {
                         /* find the missing fragment's index and request a retransmit */
@@ -251,7 +251,7 @@ namespace sp
 #endif
                     it = _outgoing_transfers.erase(it);
                 }
-                else if (it->retransmitions < it->tr->_fragments_count() * _retransmit_multiplier &&
+                else if (can_transmit() && it->retransmitions < it->tr->_fragments_count() * _retransmit_multiplier &&
                     older_than(it->timestamp_accessed, _retransmit_time))
                 {
                     /* either the destination is dead or the first fragment got lost during
@@ -281,7 +281,10 @@ namespace sp
 #ifdef SP_FRAGMENTATION_DEBUG
                 std::cout << "transmit emitting event" << std::endl;
 #endif
-                transmit_event.emit(std::move(serialize_fragment(types::FRAGMENT, fragment_pos, tp)));
+                if (can_transmit())
+                    transmit_event.emit(std::move(serialize_fragment(types::FRAGMENT, fragment_pos, tp)));
+                else
+                    break;
             }
             tp.transmit_done();
         }
@@ -308,6 +311,7 @@ namespace sp
         void bind_to(interface & l)
         {
             l.receive_event.subscribe(&fragmentation_handler::receive_callback, this);
+            l.status_event.subscribe(&fragmentation_handler::interface_status_callback, this);
             transmit_event.subscribe(&interface::write_noexcept, &l);
         }
 
@@ -319,6 +323,11 @@ namespace sp
         subject<transfer_metadata> transfer_ack_event;
 
         private:
+
+        void interface_status_callback(interface::status status)
+        {
+            _interface_status = status;
+        }
 
         Header make_header(types type, index_type fragment_pos, const transfer_progress & tp)
         {
@@ -383,10 +392,12 @@ namespace sp
 #ifdef SP_FRAGMENTATION_WARNING
                         std::cout << "sending ACK for already received id " << h.get_id() << std::endl;
 #endif
-                        transmit_event.emit(std::move(
-                            fragment(p.source(), 
-                            std::move(to_bytes(Header(types::FRAGMENT_ACK, h.fragment(), h.fragments_total(), h.get_id(), h.get_prev_id()))))
-                        ));
+                        if (can_transmit())
+                        {
+                            transmit_event.emit(std::move(fragment(p.source(), 
+                                std::move(to_bytes(Header(types::FRAGMENT_ACK, h.fragment(), h.fragments_total(), h.get_id(), h.get_prev_id()))))
+                            ));
+                        }
                     }
                 }
             }
@@ -398,7 +409,7 @@ namespace sp
                 
                 if (it != _outgoing_transfers.end())
                 {
-                    if (h.type() == types::FRAGMENT_REQ)
+                    if (h.type() == types::FRAGMENT_REQ && can_transmit())
                     {
 #ifdef SP_FRAGMENTATION_WARNING
                         std::cout << "handling retransmit request of id " << h.get_id() << " fragment " << (int)h.fragment() << " of " << (int)h.fragments_total() << std::endl;
@@ -423,9 +434,12 @@ namespace sp
             }
         }
 
+        bool can_transmit() const {return _interface_status.available_transmit_slots != 0;}
+
         std::list<transfer_progress> _incoming_transfers, _outgoing_transfers;
         clock::duration _retransmit_time, _drop_time;
         interface_identifier _interface_identifier;
+        interface::status _interface_status;
         size_type _max_fragment_size;
         uint _retransmit_multiplier;
     };

@@ -123,6 +123,15 @@ namespace sp
         public:
         using address_type = fragment::address_type;
 
+        struct status
+        {
+            status() = default;
+            status(interface * i) : 
+                available_transmit_slots(i->writable_count()) {}
+
+            uint available_transmit_slots = 0;
+        };
+
         struct bad_data : std::exception {
             const char * what () const throw () {return "bad_data";}
         };
@@ -153,6 +162,7 @@ namespace sp
             }
             /* receive, this will call the put_received() function if a fragment is received */
             do_receive();
+            emit_status();
         }
 
         /* fills the source address field, serializes the provided fragment object,
@@ -180,10 +190,12 @@ namespace sp
             p._complete(get_address(), interface_id());
             auto b = serialize_fragment(std::move(p));
             _tx_queue.push(std::move(b));
+            emit_status();
         }
 
         //TODO is there a better way?
         bool is_writable() const {return _tx_queue.size() <= _max_queue_size;}
+        uint writable_count() const {return _max_queue_size - _tx_queue.size();}
         
         interface_identifier interface_id() const noexcept {return _interface_id;}
         void reset_address(address_type addr) noexcept {_address = addr;}
@@ -197,6 +209,8 @@ namespace sp
         /* emitted by the main_task function when a new fragment is received where the destination address 
         does not match the interface address */
         subject<fragment> other_receive_event;
+
+        subject<status> status_event;
 
         protected:
 
@@ -223,6 +237,11 @@ namespace sp
         }
 
         private:
+
+        void emit_status()
+        {
+            status_event.emit(status(this));
+        }
 
         /* queue of serialized fragments ready to be transmitted */
         std::queue<bytes> _tx_queue;
