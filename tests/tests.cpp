@@ -448,7 +448,7 @@ TEST(Fragmentation, Transfer)
     sp::fragmentation_handler handler(interface.interface_id(), interface.max_data_size(), 100ms, 10ms, 2);
     
     // MODE 1
-    sp::headers::fragment_8b16b h(sp::headers::fragment_8b16b::message_types::FRAGMENT, 0, 4, 1);
+    sp::headers::fragment_8b8b h(sp::headers::fragment_8b8b::message_types::FRAGMENT, 0, 4, 1);
     sp::transfer p(interface.interface_id(), h);
 
     sp::bytes bc;
@@ -496,6 +496,19 @@ TEST(Fragmentation, UnalteredRandom)
     EXPECT_EQ(test_handler(interface, handler, 100, data, addr), 100);
 }
 
+TEST(Fragmentation, IdOverflow)
+{
+    sp::loopback_interface interface(0, 1, 10, 32, 256);
+    sp::fragmentation_handler handler(interface.interface_id(), interface.max_data_size(), 10ms, 100ms, 2);
+
+    auto data = [&](){return random_bytes(1, interface.max_data_size() * 2);};
+    auto addr = [&](){return random(2, 100);};
+
+    while (250 > sp::global_id_factory.new_id(interface.interface_id()));
+    cout << "starting with id " << sp::global_id_factory.new_id(interface.interface_id()) << endl;
+    EXPECT_EQ(test_handler(interface, handler, 10, data, addr), 10);
+}
+
 TEST(Fragmentation, CorruptedRandom)
 {
     sp::loopback_interface interface(0, 1, 10, 32, 256, [](sp::byte b){
@@ -523,8 +536,6 @@ TEST(Fragmentation, CorruptedRandomLarge)
 
     EXPECT_EQ(test_handler(interface, handler, 10, data, addr, 100), 10);
 }
-
-
 
 
 TEST(Ports, PacketConstructor)

@@ -60,7 +60,7 @@ namespace sp
     {
         public:
 
-        using Header = headers::fragment_8b16b;
+        using Header = headers::fragment_8b8b;
         using types = Header::message_types;
         using index_type = transfer::index_type;
         using id_type = transfer::id_type;
