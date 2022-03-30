@@ -37,6 +37,14 @@
 
 namespace py = pybind11;
 
+struct uart_115200_interface: public sp::uart_interface
+{
+    uart_115200_interface(std::string port, sp::interface_identifier::instance_type instance, sp::interface::address_type addr):
+        sp::uart_interface(port, B115200, instance, addr, 25, 64, 1024) {}
+
+    void fragment_receive_subscribe(std::function<void(sp::fragment)> fn) {receive_event.subscribe(fn);}
+};
+
 
 
 PYBIND11_MODULE(protoserial, m) {
@@ -57,13 +65,31 @@ PYBIND11_MODULE(protoserial, m) {
             std::list<int> ret;
             for (auto b : arg) ret.push_back((int)b);
             return ret;
-        });
+        })
+        .def("size", &sp::bytes::size);
 
     py::class_<sp::interface_identifier>(m, "interface_identifier")
         .def("__repr__", [](const sp::interface_identifier &a) {
             std::stringstream s; s << "interface_identifier(" << a << ')';
             return s.str();
         });
+
+    py::class_<uart_115200_interface>(m, "uart_115200_interface")
+        .def(py::init<std::string, sp::interface_identifier::instance_type, sp::interface::address_type>())
+        .def("main_task", static_cast<void(uart_115200_interface::*)()>(&uart_115200_interface::main_task))
+        .def("fragment_receive_subscribe", &uart_115200_interface::fragment_receive_subscribe)
+        .def("fragment_transmit", static_cast<void(uart_115200_interface::*)(sp::fragment)>(&uart_115200_interface::write_noexcept));
+
+    py::class_<sp::fragment>(m, "fragment")
+        .def("__repr__", [](const sp::fragment &a) {
+            std::stringstream s; s << "fragment(" << a << ')';
+            return s.str();
+        })
+        .def(py::init<sp::fragment::address_type, sp::fragment::data_type>())
+        .def("data", [](const sp::fragment & arg) {return sp::bytes(arg.data());})
+        .def("source", &sp::fragment::source)
+        .def("destination", &sp::fragment::destination)
+        .def("set_destination", &sp::fragment::set_destination);
     
     py::class_<sp::transfer_metadata>(m, "transfer_metadata")
         .def("get_id", &sp::transfer_metadata::get_id)

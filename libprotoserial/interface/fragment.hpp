@@ -72,7 +72,7 @@ namespace sp
             fragment_metadata(src, dst, iid, clock::now()), _data(std::move(d)) {}
 
         /* this object can be passed to the interface::write() function */
-        fragment(address_type dst, data_type && d) :
+        fragment(address_type dst, data_type d) :
             fragment((address_type)0, dst, std::move(d), interface_identifier()) {}
 
         fragment():
