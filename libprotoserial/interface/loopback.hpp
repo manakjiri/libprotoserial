@@ -49,10 +49,10 @@ namespace sp
             /* PACKET STRUCTURE: [preamble][preamble][Header][data >= 1][Footer] */
 
             /* use the wire to implement data in transit corrupting function */
-            loopback_interface(interface_identifier::instance_type instance, interface::address_type address, 
+            loopback_interface(interface_identifier::instance_type instance, interface::address_type address, interface::address_type broadcast_address,
                 uint max_queue_size, uint max_fragment_size, uint buffer_size, transfer_function wire = [](byte b){return b;}):
                     parent(interface_identifier(interface_identifier::identifier_type::LOOPBACK, instance), 
-                    address, max_queue_size, buffer_size, max_fragment_size), _wire(wire) {}
+                    address, broadcast_address, max_queue_size, buffer_size, max_fragment_size), _wire(wire) {}
 
             protected:
 

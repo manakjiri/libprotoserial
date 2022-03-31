@@ -33,6 +33,27 @@ namespace sp
 {
 namespace stack
 {
+    struct loopback
+    {
+        loopback_interface interface;
+        fragmentation_handler fragmentation;
+
+        loopback(sp::interface_identifier::instance_type instance, sp::interface::address_type address, 
+            loopback_interface::transfer_function wire = [](byte b){return b;}):
+                interface(instance, address, 255, 10, 64, 256, wire), 
+                fragmentation(interface.interface_id(), interface.max_data_size(), 25ms, 100ms, 3) 
+        {
+            fragmentation.bind_to(interface);
+        }
+
+        void main_task()
+        {
+            interface.main_task();
+            fragmentation.main_task();
+        }
+    };
+
+
 #ifdef SP_UART
     struct uart_115200
     {
@@ -41,10 +62,10 @@ namespace stack
 
 #if defined(SP_LINUX)
         uart_115200(std::string port, sp::interface_identifier::instance_type instance, sp::interface::address_type address):
-            interface(port, B115200, instance, address, 25, 64, 1024), 
+            interface(port, B115200, instance, address, 255, 25, 64, 1024), 
 #elif defined(SP_STM32)
         uart_115200(UART_HandleTypeDef * huart, interface_identifier::instance_type instance, interface::address_type address):
-            interface(huart, instance, address, 10, 64, 256), 
+            interface(huart, instance, address, 255, 10, 64, 256), 
 #endif
             fragmentation(interface.interface_id(), interface.max_data_size(), 25ms, 100ms, 3)
         {

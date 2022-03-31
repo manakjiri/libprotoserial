@@ -39,8 +39,8 @@ namespace stm32
 
 		/* this is the USB CDC interface yet is uses "usb%n" as its name, if there is some
 		other type of USB interface in the future, be wary of this */
-		usbcdc_stm32_interface(uint id, interface::address_type address, uint max_queue_size):
-			interface("usb" + std::to_string(id), address, max_queue_size) {}
+		/* usbcdc_stm32_interface(uint id, interface::address_type address, uint max_queue_size):
+			interface("usb" + std::to_string(id), address, max_queue_size) {} */
 
 
 		bytes::size_type max_data_size() const noexcept {return _max_fragment_size - sizeof(header) - sizeof(footer);}

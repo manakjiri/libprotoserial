@@ -30,7 +30,7 @@ namespace sp
     {
         struct __attribute__ ((__packed__)) fragment_8b8b
         {
-            typedef std::uint8_t         index_type;
+            typedef std::uint8_t        index_type;
             typedef std::uint8_t        id_type;
 
             enum message_types: std::uint8_t

@@ -114,7 +114,7 @@ namespace sp
 {
     /* things left as implementation details for subclasses
      * - RX ISR and RX buffer (not the fragment queue)
-     * - address (must be representable by interface::address), broadcast address //TODO
+     * - address (must be representable by interface::address), broadcast address
      * - error checking and data encoding
      * - filling the _name variable in the constructor
      */
@@ -147,8 +147,8 @@ namespace sp
          *   then the receive_event is emitted, otherwise the other_receive_event is emitted
          * - max_queue_size sets the maximum number of fragments the transmit queue can hold
          */
-        interface(interface_identifier iid, address_type address, uint max_queue_size) : 
-            _max_queue_size(max_queue_size), _interface_id(iid), _address(address) {}
+        interface(interface_identifier iid, address_type address, address_type broadcast_address, uint max_queue_size) : 
+            _max_queue_size(max_queue_size), _interface_id(iid), _address(address), _broadcast_address(broadcast_address) {}
 
         virtual ~interface() {}
         
@@ -206,6 +206,9 @@ namespace sp
         /* emitted by the main_task function when a new fragment is received where the destination address matches
         the interface address */
         subject<fragment> receive_event;
+        /* emitted by the main_task function when a new fragment is received where the destination address matches
+        the interface broadcast address */
+        subject<fragment> broadcast_receive_event;
         /* emitted by the main_task function when a new fragment is received where the destination address 
         does not match the interface address */
         subject<fragment> other_receive_event;
@@ -231,9 +234,11 @@ namespace sp
         void put_received(fragment && p) noexcept
         {
             if (p.destination() == _address)
-                receive_event.emit(p);
+                receive_event.emit(std::move(p));
+            else if (p.destination() == _broadcast_address)
+                broadcast_receive_event.emit(std::move(p));
             else
-                other_receive_event.emit(p);
+                other_receive_event.emit(std::move(p));
         }
 
         private:
@@ -245,10 +250,10 @@ namespace sp
 
         /* queue of serialized fragments ready to be transmitted */
         std::queue<bytes> _tx_queue;
-        uint _max_queue_size = 0;
+        uint _max_queue_size;
 
         interface_identifier _interface_id;
-        address_type _address = 0;
+        address_type _address, _broadcast_address;
     };
 
 }

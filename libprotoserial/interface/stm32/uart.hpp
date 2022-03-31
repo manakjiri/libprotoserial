@@ -48,9 +48,9 @@ namespace stm32
 		 * - buffer_size sets the size of the receive buffer in bytes
 		 */
 		uart_interface(UART_HandleTypeDef * huart, interface_identifier::instance_type instance, interface::address_type address, 
-        	uint max_queue_size, uint max_fragment_size, uint buffer_size) :
-				parent(interface_identifier(interface_identifier::identifier_type::UART, instance), address, max_queue_size, buffer_size, max_fragment_size),
-				_huart(huart), _is_transmitting(false)
+			interface::address_type broadcast_address, uint max_queue_size, uint max_fragment_size, uint buffer_size) :
+				parent(interface_identifier(interface_identifier::identifier_type::UART, instance), address, broadcast_address, 
+				max_queue_size, buffer_size, max_fragment_size), _huart(huart), _is_transmitting(false)
 		{
 			next_receive();
 		}

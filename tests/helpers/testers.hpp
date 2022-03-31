@@ -46,8 +46,6 @@ uint test_handler(sp::interface & interface, sp::fragmentation_handler & handler
     sp::bytes tmp;
     uint i = 0, received = 0;
 
-    handler.bind_to(interface);
-
     handler.transfer_receive_event.subscribe([&](sp::transfer t){
 #ifdef SP_FRAGMENTATION_DEBUG
         cout << "receive_event: " << t << endl;

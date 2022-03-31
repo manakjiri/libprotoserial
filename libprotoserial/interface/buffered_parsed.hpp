@@ -48,9 +48,9 @@ namespace sp
             const preamble_type preamble = (preamble_type)0x55;
             const typename Header::size_type preamble_length = 2;
 
-            buffered_parsed_interface(interface_identifier iid, address_type address, uint max_queue_size, uint buffer_size, 
-                uint max_fragment_size):
-                    buffered_interface(iid, address, max_queue_size, buffer_size), _max_fragment_size(max_fragment_size)
+            buffered_parsed_interface(interface_identifier iid, address_type address, address_type broadcast_address, 
+                uint max_queue_size, uint buffer_size, uint max_fragment_size):
+                    buffered_interface(iid, address, broadcast_address, max_queue_size, buffer_size), _max_fragment_size(max_fragment_size)
             {
                 _read = rx_buffer_begin();
                 _last_byte_count = _byte_count;

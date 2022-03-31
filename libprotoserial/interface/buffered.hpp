@@ -38,8 +38,8 @@ namespace sp
 			 * - max_queue_size sets the maximum number of fragments the transmit queue can hold
 			 * - buffer_size sets the size of the receive buffer in bytes
 			 */
-            buffered_interface(interface_identifier iid, address_type address, uint max_queue_size, uint buffer_size):
-                interface(iid, address, max_queue_size), _rx_buffer(buffer_size), _byte_count(0), _postpone_by_one(false)
+            buffered_interface(interface_identifier iid, address_type address, address_type broadcast_address, uint max_queue_size, uint buffer_size):
+                    interface(iid, address, broadcast_address, max_queue_size), _rx_buffer(buffer_size), _byte_count(0), _postpone_by_one(false)
             {
             	_write_it = _rx_buffer.begin();
             }

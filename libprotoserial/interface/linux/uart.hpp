@@ -55,8 +55,9 @@ class uart_interface : public buffered_parsed_interface<Header, Footer>
     };
 
     uart_interface(std::string port, speed_t baud, interface_identifier::instance_type instance, interface::address_type address, 
-        uint max_queue_size, uint max_fragment_size, uint buffer_size):
-            parent(interface_identifier(interface_identifier::identifier_type::UART, instance), address, max_queue_size, buffer_size, max_fragment_size)
+        interface::address_type broadcast_address, uint max_queue_size, uint max_fragment_size, uint buffer_size):
+            parent(interface_identifier(interface_identifier::identifier_type::UART, instance), address, broadcast_address,
+            max_queue_size, buffer_size, max_fragment_size)
     {
         if(!uart_open(port.c_str(), baud, 0)) 
             throw open_failed();
