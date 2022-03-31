@@ -22,12 +22,15 @@ void callback2(int num, string str)
     callback2_count++;
 }
 
-class observer
+struct observer
 {
-    public:
     void callback(int num, string str)
     {
         //cout << "observer(" << ++count << "): num: " << num << " str: " << str << endl;
+        count++;
+    }
+    void watch_callback()
+    {
         count++;
     }
     int count = 0;
@@ -78,7 +81,7 @@ int main(int argc, char const *argv[])
 
     {
         sp::subject<int, string> s;
-        auto subs = s.subscribe(callback1);
+        s.subscribe(callback1);
         TIME_THIS(N, "normal", s.emit(i, "world"));
         cout << callback1_count << endl;
     }
@@ -86,8 +89,17 @@ int main(int argc, char const *argv[])
     {
         observer o;
         sp::subject<int, string> s;
-        auto subs = s.subscribe(&observer::callback, &o);
+        s.subscribe(&observer::callback, &o);
         TIME_THIS(N, "member", s.emit(i, "world"));
+        cout << o.count << endl;
+    }
+
+    {
+        observer o;
+        sp::subject<int, string> s;
+        s.subscribe(&observer::callback, &o);
+        s.watch(&observer::watch_callback, &o);
+        TIME_THIS(N, "member + watch", s.emit(i, "world"));
         cout << o.count << endl;
     }
 
