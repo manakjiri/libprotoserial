@@ -200,6 +200,7 @@ namespace sp
         interface_identifier interface_id() const noexcept {return _interface_id;}
         void reset_address(address_type addr) noexcept {_address = addr;}
         address_type get_address() const noexcept {return _address;}
+        address_type get_broadcast_address() const noexcept {return _broadcast_address;}
         /* returns the maximum size of the data portion in a fragment, this is interface dependent */
         virtual bytes::size_type max_data_size() const noexcept = 0;
 

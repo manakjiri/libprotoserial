@@ -22,9 +22,14 @@
 /* 
  * > We can build the fragment fragmentation logic on top of the interface, 
  * > this logic should have its own internal buffer for fragments received
- * > from events, because once the event firess, the fragment is forgotten on 
+ * > from events, because once the event fires, the fragment is forgotten on 
  * > the interface side to avoid the need for direct access to the interface's 
  * > RX queue.
+ * 
+ * fragmentation handler needs to implement basic congestion and flow control.
+ * each handler manages only one interface, each interface con be connected to
+ * multiple different interfaces with different addresses, so it would be beneficial
+ * to broadcast the state information 
  */
 
 
@@ -71,7 +76,7 @@ namespace sp
         struct transfer_wrapper : public transfer
         {
             transfer_wrapper(transfer && t, fragmentation_handler * handler) :
-                transfer(std::move(t)), _handler(handler) {}
+                transfer(std::move(t)), _handler(handler), timestamp_accessed(clock::now()), retransmitions(0) {}
 
             /* returns the number of fragments needed to transmit this transfer,
             this obviously depends on the mode but we can make some assumptions:
@@ -79,9 +84,9 @@ namespace sp
                 slots for fragments so this returns that number
             -   when in mode 2 slots are allocated on demand with new data, so this 
                 returns the computed number of needed fragments based on the data size */
-            index_type _fragments_count() const 
+            index_type fragments_count() const 
             {
-                if (_is_complete())
+                if (is_complete())
                     /* mode 2 */
                     return data_size() / _handler->max_fragment_size() + 
                         (data_size() % _handler->max_fragment_size() == 0 ? 0 : 1);
@@ -91,7 +96,7 @@ namespace sp
             }
             
             /* mode 1) only */
-            bool _is_complete() const
+            bool is_complete() const
             {
                 for (auto b = _begin(); b != _end(); ++b)
                 {
@@ -102,18 +107,18 @@ namespace sp
             }
 
             /* mode 1) only */
-            index_type _missing_fragment() const
+            index_type missing_fragment() const
             {
                 for (std::size_t i = 0; i < _data.size(); ++i)
                 {
                     if (_data.at(i).is_empty())
                         return (index_type)(i + 1);
                 }
-                return 0; //_fragments_count();
+                return 0; //fragments_count();
             }
 
             /* mode 2) only, preferably */
-            fragment _get_fragment(index_type fragment_pos) const
+            fragment get_fragment(index_type fragment_pos) const
             {
                 if (fragment_pos == 0) throw std::invalid_argument("fragment_pos == 0");
                 fragment_pos -= 1;
@@ -127,24 +132,16 @@ namespace sp
                 return fragment(destination(), std::move(data));
             }
 
-            fragmentation_handler * _handler;
-        };
-        
-        /* this wraps the underlaying transfer to strip it off otherwise unneeded values
-        like timeouts and various housekeeping stuff */
-        struct transfer_progress
-        {
-            /* using a pointer here to free up space when we get rid of the transfer once it's done 
-            but need to keep the transfer_progress object for a while longer */
-            std::unique_ptr<transfer_wrapper> tr;
-            clock::time_point timestamp_accessed;
-            uint retransmitions = 0;
-            /* this should always match the tr->get_id() */
-            id_type id;
+            bool has_data() const {return !_data.empty();}
+            
+            transfer move_out_data()
+            {
+                return transfer(transfer_metadata(*this), std::move(_data));
+            }
 
-            transfer_progress(transfer_wrapper && t) :
-                tr(std::unique_ptr<transfer_wrapper>(new transfer_wrapper(std::move(t)))), 
-                    timestamp_accessed(clock::now()), id(tr->get_id()) {}
+            fragmentation_handler * _handler;
+            clock::time_point timestamp_accessed;
+            uint retransmitions;
 
             void transmit_done() {timestamp_accessed = clock::now();}
             void retransmit_done() {timestamp_accessed = clock::now(); ++retransmitions;}
@@ -184,7 +181,7 @@ namespace sp
             auto it = _incoming_transfers.begin();
             while (it != _incoming_transfers.end())
             {
-                if (!it->tr)
+                if (!it->has_data())
                 {
                     /* we have the transfer_progress object but it does not own any transfer, which means
                     that the block below must have been executed in the near past
@@ -193,23 +190,22 @@ namespace sp
                     if (older_than(it->timestamp_accessed, _drop_time * 5))
                         it = _incoming_transfers.erase(it);
                 }
-                else if (it->tr->_is_complete() && can_transmit())
+                else if (it->is_complete() && can_transmit())
                 {
                     /* checks whether any of the transfers is complete, if so emit it as receive event */
                     transmit_event.emit(std::move(
-                        fragment(it->tr->source(), 
-                        to_bytes(make_header(types::FRAGMENT_ACK, it->tr->_fragments_count(), *it)))
+                        fragment(it->source(), 
+                        to_bytes(make_header(types::FRAGMENT_ACK, it->fragments_count(), *it)))
                     ));
-                    transfer_receive_event.emit(std::move(*it->tr));
-                    it->tr.reset();
-                    /* std::move moved the local copy of the transfer out of the handler, but we
-                    will hold onto that transfer_progress structure for a while longer. in case
+                    transfer_receive_event.emit(std::move(it->move_out_data()));
+                    /* moved the local copy of the transfer out of the handler, but we
+                    will hold onto that transfer_metadata structure for a while longer. in case
                     the ACK fragment gets lost, the source will try to retransmit this transfer
                     thinking that we didn't notice it */
                 }
                 else
                 {
-                    if (older_than(it->tr->timestamp_modified(), _drop_time))
+                    if (older_than(it->timestamp_modified(), _drop_time))
                     {
 #ifdef SP_FRAGMENTATION_WARNING
                         std::cout << "timed out incoming: " << it->tr << std::endl;
@@ -217,16 +213,16 @@ namespace sp
                         /* drop the incoming transfer because it is inactive for too long */
                         it = _incoming_transfers.erase(it);
                     }
-                    else if (can_transmit() && older_than(it->tr->timestamp_modified(), _retransmit_time) && 
+                    else if (can_transmit() && older_than(it->timestamp_modified(), _retransmit_time) && 
                         older_than(it->timestamp_accessed, _retransmit_time))
                     {
                         /* find the missing fragment's index and request a retransmit */
-                        auto index = it->tr->_missing_fragment();
+                        auto index = it->missing_fragment();
 #ifdef SP_FRAGMENTATION_WARNING
                         std::cout << "requesting retransmit for id " << it->id << " index " << index << std::endl;
 #endif
                         transmit_event.emit(std::move(
-                            fragment(it->tr->source(), 
+                            fragment(it->source(), 
                             to_bytes(make_header(types::FRAGMENT_REQ, index, *it)))
                         ));
                         it->retransmit_done();
@@ -251,7 +247,7 @@ namespace sp
 #endif
                     it = _outgoing_transfers.erase(it);
                 }
-                else if (can_transmit() && it->retransmitions < it->tr->_fragments_count() * _retransmit_multiplier &&
+                else if (can_transmit() && it->retransmitions < it->fragments_count() * _retransmit_multiplier &&
                     older_than(it->timestamp_accessed, _retransmit_time))
                 {
                     /* either the destination is dead or the first fragment got lost during
@@ -275,8 +271,8 @@ namespace sp
             std::cout << "transmit got id " << t.get_id() << std::endl;
 #endif
             /* transmit all fragments within this transfer and store it in case we get a retransmit request */
-            auto & tp = _outgoing_transfers.emplace_back(transfer_wrapper(std::move(t), this));
-            for (index_type fragment_pos = 1; fragment_pos <= tp.tr->_fragments_count(); ++fragment_pos)
+            auto & tp = _outgoing_transfers.emplace_back(std::move(t), this);
+            for (index_type fragment_pos = 1; fragment_pos <= tp.fragments_count(); ++fragment_pos)
             {
 #ifdef SP_FRAGMENTATION_DEBUG
                 std::cout << "transmit emitting event" << std::endl;
@@ -299,11 +295,11 @@ namespace sp
 #ifndef SP_NO_IOSTREAM
             std::cout << "incoming_transfers: " << _incoming_transfers.size() << std::endl;
             for (const auto & t : _incoming_transfers)
-                std::cout << t.tr << std::endl;
+                std::cout << static_cast<transfer>(t) << std::endl;
             
             std::cout << "outgoing_transfers: " << _outgoing_transfers.size() << std::endl;
             for (const auto & t : _outgoing_transfers)
-                std::cout << t.tr << std::endl;
+                std::cout << static_cast<transfer>(t) << std::endl;
 #endif
         }
 
@@ -329,15 +325,15 @@ namespace sp
             _interface_status = status;
         }
 
-        Header make_header(types type, index_type fragment_pos, const transfer_progress & tp)
+        Header make_header(types type, index_type fragment_pos, const transfer_wrapper & tp)
         {
-            return Header(type, fragment_pos, tp.tr->_fragments_count(), tp.tr->get_id(), tp.tr->get_prev_id());
+            return Header(type, fragment_pos, tp.fragments_count(), tp.get_id(), tp.get_prev_id());
         }
 
         /* copy the data of the fragment within the transfer and create an fragment from it */
-        fragment serialize_fragment(types type, index_type fragment_pos, const transfer_progress & tp)
+        fragment serialize_fragment(types type, index_type fragment_pos, const transfer_wrapper & tp)
         {
-            auto p = tp.tr->_get_fragment(fragment_pos);
+            auto p = tp.get_fragment(fragment_pos);
             bytes h = to_bytes(make_header(type, fragment_pos, tp));
             p.data().push_front(std::move(h));
             return p;
@@ -356,10 +352,10 @@ namespace sp
                 auto it = std::find_if(_incoming_transfers.begin(), _incoming_transfers.end(), 
                     [&](const auto & t){
                         //FIXME use tr->match() in both cases, as per spec
-                        if (t.tr)
-                            return t.tr->get_id() == h.get_id() && t.tr->match(p);
+                        if (t.has_data())
+                            return t.get_id() == h.get_id() && t.match(p);
                         else
-                            return t.id == h.get_id();
+                            return t.get_id() == h.get_id();
                 });
 
                 if (it == _incoming_transfers.end())
@@ -368,22 +364,20 @@ namespace sp
                     std::cout << "creating new incoming transfer id " << h.get_id() << std::endl;
 #endif
                     /* we don't know this transfer ID, create new incoming transfer */
-                    auto& t = _incoming_transfers.emplace_back(
-                        transfer_progress(transfer_wrapper(transfer(_interface_identifier, h), this))
-                    );
-                    t.tr->_assign(h.fragment(), std::move(p));
+                    auto& t = _incoming_transfers.emplace_back(transfer(_interface_identifier, h), this);
+                    t._assign(h.fragment(), std::move(p));
                 }
                 else
                 {
                     /* we know this ID, now we need to check if we have already received this transfer and
                     is therefor duplicate, or whether we are in the process of receiving it */
-                    if (it->tr)
+                    if (it->has_data())
                     {
 #ifdef SP_FRAGMENTATION_DEBUG
                         std::cout << "assigning to existing incoming transfer id " << h.get_id() << " at " << (int)h.fragment() << " of " << (int)h.fragments_total() << std::endl;
 #endif
                         /* the ID is in known transfers, we need to add the incoming fragment to it */
-                        it->tr->_assign(h.fragment(), std::move(p));
+                        it->_assign(h.fragment(), std::move(p));
                     }
                     else
                     {
@@ -405,7 +399,7 @@ namespace sp
             {
                 /* branch for handling _outgoing_transfers */
                 auto it = std::find_if(_outgoing_transfers.begin(), _outgoing_transfers.end(), 
-                    [&](const auto & t){return t.tr->get_id() == h.get_id() && t.tr->match_as_response(p);});
+                    [&](const auto & t){return t.get_id() == h.get_id() && t.match_as_response(p);});
                 
                 if (it != _outgoing_transfers.end())
                 {
@@ -427,7 +421,7 @@ namespace sp
                         since we've done our job and don't need it anymore - in contrast to the 
                         incoming transfer where the transmitted ACK may not be received, here we
                         can be sure */
-                        transfer_ack_event.emit(it->tr->get_metadata());
+                        transfer_ack_event.emit(it->get_metadata());
                         it = _outgoing_transfers.erase(it);
                     }
                 }
@@ -436,7 +430,7 @@ namespace sp
 
         bool can_transmit() const {return _interface_status.available_transmit_slots != 0;}
 
-        std::list<transfer_progress> _incoming_transfers, _outgoing_transfers;
+        std::list<transfer_wrapper> _incoming_transfers, _outgoing_transfers;
         clock::duration _retransmit_time, _drop_time;
         interface_identifier _interface_identifier;
         interface::status _interface_status;
