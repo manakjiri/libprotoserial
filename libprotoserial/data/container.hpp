@@ -30,7 +30,7 @@
 #define _SP_CONTAINER
 
 
-#include <libprotoserial/byte.hpp>
+#include <libprotoserial/data/byte.hpp>
 
 #include <initializer_list>
 #include <string>

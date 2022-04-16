@@ -104,7 +104,7 @@
 #ifndef _SP_INTERFACE_INTERFACE
 #define _SP_INTERFACE_INTERFACE
 
-#include "libprotoserial/observer.hpp"
+#include "libprotoserial/utils/observer.hpp"
 #include "libprotoserial/interface/fragment.hpp"
 
 #include <string>

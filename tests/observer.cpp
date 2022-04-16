@@ -2,7 +2,7 @@
 #include <iostream>
 #include <chrono>
 
-#include "libprotoserial/observer.hpp"
+#include "libprotoserial/utils/observer.hpp"
 
 using namespace std;
 using namespace std::placeholders;

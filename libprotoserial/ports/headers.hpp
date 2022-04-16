@@ -22,7 +22,7 @@
 #ifndef _SP_PORTS_HEADERS
 #define _SP_PORTS_HEADERS
 
-#include "libprotoserial/byte.hpp"
+#include "libprotoserial/data/byte.hpp"
 
 #include <cstdint>
 

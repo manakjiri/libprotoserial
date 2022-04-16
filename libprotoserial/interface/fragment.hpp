@@ -23,7 +23,7 @@
 #ifndef _SP_INTERFACE_FRAGMENT
 #define _SP_INTERFACE_FRAGMENT
 
-#include "libprotoserial/container.hpp"
+#include "libprotoserial/data/container.hpp"
 #include "libprotoserial/clock.hpp"
 #include "libprotoserial/interface/interface_id.hpp"
 

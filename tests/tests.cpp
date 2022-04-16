@@ -1,5 +1,4 @@
 
-#include <libprotoserial/container.hpp>
 #include <libprotoserial/interface.hpp>
 #include <libprotoserial/fragmentation.hpp>
 #include <libprotoserial/ports/packet.hpp>
