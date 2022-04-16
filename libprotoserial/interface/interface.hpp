@@ -126,10 +126,19 @@ namespace sp
         struct status
         {
             status() = default;
-            status(interface * i) : 
-                available_transmit_slots(i->writable_count()) {}
+            bool operator==(const status &) const = default;
+            bool operator!=(const status &) const = default;
 
-            uint available_transmit_slots = 0;
+            uint used_transmit_slots = 0;
+            uint receive_buffer_level = 0;
+
+#ifndef SP_NO_IOSTREAM
+            friend std::ostream& operator<<(std::ostream& os, const status & s) 
+            {
+                os << "uts: " << s.used_transmit_slots << ", rbl: " << s.receive_buffer_level;
+                return os;
+            }
+#endif
         };
 
         struct bad_data : std::exception {
@@ -158,10 +167,13 @@ namespace sp
             if (!_tx_queue.empty() && can_transmit())
             {
                 if (do_transmit(std::move(_tx_queue.front())))
+                {
                     _tx_queue.pop();
+                    _status.used_transmit_slots = _tx_queue.size();
+                }
             }
             /* receive, this will call the put_received() function if a fragment is received */
-            do_receive();
+            _status.receive_buffer_level = do_receive();
             emit_status();
         }
 
@@ -186,23 +198,24 @@ namespace sp
             if (!is_writable()) throw not_writable();
             if (p.destination() == 0) throw no_destination();
             if (p.data().size() > max_data_size() || p.data().is_empty()) throw bad_data();
+            
             /* complete the fragment */
             p._complete(get_address(), interface_id());
-            auto b = serialize_fragment(std::move(p));
-            _tx_queue.push(std::move(b));
+            _tx_queue.push(std::move(serialize_fragment(std::move(p))));
+            
+            _status.used_transmit_slots = _tx_queue.size();
             emit_status();
         }
 
-        //TODO is there a better way?
         bool is_writable() const {return _tx_queue.size() <= _max_queue_size;}
         uint writable_count() const {return _max_queue_size - _tx_queue.size();}
         
         interface_identifier interface_id() const noexcept {return _interface_id;}
-        void reset_address(address_type addr) noexcept {_address = addr;}
         address_type get_address() const noexcept {return _address;}
         address_type get_broadcast_address() const noexcept {return _broadcast_address;}
         /* returns the maximum size of the data portion in a fragment, this is interface dependent */
         virtual bytes::size_type max_data_size() const noexcept = 0;
+        virtual bytes::size_type overhead_size() const noexcept = 0;
 
         /* emitted by the main_task function when a new fragment is received where the destination address matches
         the interface address */
@@ -213,7 +226,7 @@ namespace sp
         /* emitted by the main_task function when a new fragment is received where the destination address 
         does not match the interface address */
         subject<fragment> other_receive_event;
-
+        /* this is an event that informs about the interface's state, it fires whenever the state changes */
         subject<status> status_event;
 
         protected:
@@ -230,8 +243,10 @@ namespace sp
         virtual bool do_transmit(bytes && buff) noexcept = 0;
         
         /* RX (do_receive => put_received) */
-        /* called from the main_task, this is where the derived class should handle fragment parsing */
-        virtual void do_receive() noexcept = 0;
+        /* called from the main_task, this is where the derived class should handle fragment parsing, 
+        returns the number of bytes to be processed at exit */
+        virtual bytes::size_type do_receive() noexcept = 0;
+        /* can be called from do_receive */
         void put_received(fragment && p) noexcept
         {
             if (p.destination() == _address)
@@ -246,13 +261,17 @@ namespace sp
 
         void emit_status()
         {
-            status_event.emit(status(this));
+            if (_last_status != _status)
+            {
+                status_event.emit(_status);
+                _last_status = _status;
+            }
         }
 
         /* queue of serialized fragments ready to be transmitted */
         std::queue<bytes> _tx_queue;
         uint _max_queue_size;
-
+        status _last_status, _status;
         interface_identifier _interface_id;
         address_type _address, _broadcast_address;
     };

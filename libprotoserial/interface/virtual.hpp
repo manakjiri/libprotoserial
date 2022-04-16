@@ -42,24 +42,27 @@ namespace sp
             public: 
 
             virtual_interface(interface_identifier::instance_type instance, interface::address_type address, 
-                uint max_queue_size, uint max_fragment_size, uint buffer_size):
+                interface::address_type broadcast_address, uint max_queue_size, uint max_fragment_size, uint buffer_size):
                     parent(interface_identifier(interface_identifier::identifier_type::VIRTUAL, instance), 
-                    address, max_queue_size, buffer_size, max_fragment_size) {}
+                    address, broadcast_address, max_queue_size, buffer_size, max_fragment_size) {}
 
-            bool has_serialized() {this->main_task(); return !_serialized.empty();}
+            bool has_serialized() {return !_serialized.empty();}
             bytes get_serialized() 
             {
-                this->main_task();
-                bytes ret = std::move(_serialized.front());
-                _serialized.pop();
-                return ret;
+                if (has_serialized())
+                {
+                    bytes ret = std::move(_serialized.front());
+                    _serialized.pop();
+                    return ret;
+                }
+                else
+                    return bytes();
             }
 
             void put_serialized(bytes && data)
             {
                 for (auto & b : data)
                     this->put_single_received(b);
-                this->main_task();
             }
 
             void put_single_serialized(byte b)

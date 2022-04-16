@@ -56,18 +56,18 @@ namespace sp
                 _last_byte_count = _byte_count;
             }
 
-            bytes::size_type max_data_size() const noexcept {return _max_fragment_size - sizeof(Header) - sizeof(Footer) - preamble_length;}
+            bytes::size_type overhead_size() const noexcept {return sizeof(Header) + sizeof(Footer) + preamble_length;}
+            bytes::size_type max_data_size() const noexcept {return _max_fragment_size - overhead_size();}
             
             protected:
 
             virtual void do_single_receive() {}
 
 
-            void do_receive() noexcept
+            bytes::size_type do_receive() noexcept
             {
                 do_single_receive();
                 /* while we are trying to parse the buffer, the ISR is continually filling it
-                (not in this case, obviously, but in the real world it will) 
                 _write is the position of the last byte written, so we can read up to that point
                 since this way we cannot possibly collide with the ISR */
                 auto read = _read;
@@ -117,8 +117,6 @@ namespace sp
                                 if ((size_t)distance(fragment_start, write) + 1 >= fragment_size)
                                 {
                                     /* we have received the entire fragment, prepare it for parsing */
-                                    //bytes b(fragment_size);
-                                    //std::copy(fragment_start, fragment_start + fragment_size, b.begin());
                                     auto b = parsers::byte_copy(fragment_start, fragment_start + fragment_size);
                                     try
                                     {
@@ -142,10 +140,7 @@ namespace sp
                                         std::cout << "do_receive parse exception: " << e.what() << '\n';
 #endif
                                     }
-#ifdef SP_BUFFERED_DEBUG
-                                    std::cout << "do_receive returning at: " << _read._current - _read._begin << " of " << this->_write_it - _read._begin << std::endl;
-#endif
-                                    return;
+                                    goto END;
                                 }
                                 else
                                 {
@@ -154,9 +149,8 @@ namespace sp
                                     _read = read;
 #ifdef SP_BUFFERED_WARNING
                                     std::cout << "do_receive distance fragment" << std::endl;
-                                    std::cout << "do_receive returning at: " << _read._current - _read._begin << " of " << this->_write_it - _read._begin << std::endl;
 #endif
-                                    return;
+                                    goto END;
                                 }
                             }
                             else
@@ -176,15 +170,16 @@ namespace sp
                             _read = read;
 #ifdef SP_BUFFERED_WARNING
                             std::cout << "do_receive distance Header" << std::endl;
-                            std::cout << "do_receive returning at: " << _read._current - _read._begin << " of " << this->_write_it - _read._begin << std::endl;
 #endif
-                            return;
+                            goto END;
                         }
                     }
                 }
+                END:
 #ifdef SP_BUFFERED_DEBUG
                 std::cout << "do_receive returning at: " << _read._current - _read._begin << " of " << this->_write_it - _read._begin << std::endl;
 #endif
+                return distance(_read, write);
             }
 
             bytes serialize_fragment(fragment && p) const 

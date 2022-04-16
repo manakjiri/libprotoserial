@@ -448,7 +448,7 @@ TEST(Fragmentation, Transfer)
     sp::stack::loopback lo(0, 1);
     
     // MODE 1
-    sp::headers::fragment_8b8b h(sp::headers::fragment_8b8b::message_types::FRAGMENT, 0, 4, 1);
+    sp::headers::fragment_8b8b h(sp::headers::fragment_8b8b::message_types::FRAGMENT, 0, 4, 1, 0, 0);
     sp::transfer p(lo.interface.interface_id(), h);
 
     sp::bytes bc;

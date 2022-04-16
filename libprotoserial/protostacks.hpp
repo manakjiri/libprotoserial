@@ -38,10 +38,29 @@ namespace stack
         loopback_interface interface;
         fragmentation_handler fragmentation;
 
-        loopback(sp::interface_identifier::instance_type instance, sp::interface::address_type address, 
+        loopback(sp::interface_identifier::instance_type instance, sp::interface::address_type address, uint rate,
             loopback_interface::transfer_function wire = [](byte b){return b;}):
-                interface(instance, address, 255, 10, 64, 256, wire), 
-                fragmentation(interface.interface_id(), interface.max_data_size(), 25ms, 100ms, 3) 
+                interface(instance, address, 255, 10, 64, 1024, wire), 
+                fragmentation(interface, fragmentation_handler::configuration(interface, rate, interface.overhead_size(), 1024))
+        {
+            fragmentation.bind_to(interface);
+        }
+
+        void main_task()
+        {
+            interface.main_task();
+            fragmentation.main_task();
+        }
+    };
+
+    struct virtual_full
+    {
+        virtual_interface interface;
+        fragmentation_handler fragmentation;
+
+        virtual_full(sp::interface_identifier::instance_type instance, sp::interface::address_type address, uint rate) :
+            interface(instance, address, 255, 10, 64, 1024), 
+            fragmentation(interface, fragmentation_handler::configuration(interface, rate, interface.overhead_size(), 1024))
         {
             fragmentation.bind_to(interface);
         }
@@ -54,7 +73,7 @@ namespace stack
     };
 
 
-#ifdef SP_UART
+/* #ifdef SP_UART
     struct uart_115200
     {
         uart_interface interface;
@@ -99,7 +118,7 @@ namespace stack
         }
 
     };
-#endif
+#endif */
 }
 }
 

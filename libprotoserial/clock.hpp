@@ -62,5 +62,10 @@ namespace sp
     {
         return point + duration < clock::now();
     }
+
+    constexpr clock::time_point never()
+    {
+        return clock::time_point{clock::duration{0}};
+    }
 }
 #endif

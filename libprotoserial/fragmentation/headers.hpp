@@ -32,6 +32,7 @@ namespace sp
         {
             typedef std::uint8_t        index_type;
             typedef std::uint8_t        id_type;
+            typedef std::uint8_t        status_type;
 
             enum message_types: std::uint8_t
             {
@@ -42,10 +43,10 @@ namespace sp
             };
 
             fragment_8b8b() = default;
-            fragment_8b8b(message_types type, index_type fragment, index_type fragments_total, id_type id, id_type prev_id = 0):
-                _type(type), _fragment(fragment), _fragments_total(fragments_total), _id(id), _prev_id(prev_id)
+            fragment_8b8b(message_types type, index_type fragment, index_type fragments_total, id_type id, id_type prev_id, status_type status):
+                _type(type), _fragment(fragment), _fragments_total(fragments_total), _id(id), _prev_id(prev_id), _status(status)
             {
-                _check = (byte)(_type + _fragment + _fragments_total + _id + _prev_id);
+                _check = (byte)(_type + _fragment + _fragments_total + _id + _prev_id + _status);
             }
 
             message_types type() const {return _type;}
@@ -53,13 +54,14 @@ namespace sp
             index_type fragments_total() const {return _fragments_total;}
             id_type get_id() const {return _id;}
             id_type get_prev_id() const {return _prev_id;}
+            status_type status() const {return _status;}
             
             /* only basic sanity checks are performed, type is not checked, here we assume that this is a secondary
             header, it should already be checksummed by the lower layer, the only real reason for this check
             is the case where the contra-peer does not use this header when we expect it */
             bool is_valid() const 
             {
-                return _check == (byte)(_type + _fragment + _fragments_total + _id + _prev_id) && _fragment != 0 && _fragment <= _fragments_total;
+                return _check == (byte)(_type + _fragment + _fragments_total + _id + _prev_id + _status) && _fragment != 0 && _fragment <= _fragments_total;
             }
 
             private:
@@ -68,6 +70,7 @@ namespace sp
             index_type _fragments_total = 0;
             id_type _id = 0;
             id_type _prev_id = 0;
+            status_type _status = 0;
             byte _check = (byte)0;
         };
     }
