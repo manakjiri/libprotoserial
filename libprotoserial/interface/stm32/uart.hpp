@@ -22,7 +22,7 @@
 #ifndef _SP_INTERFACE_STM32_UART
 #define _SP_INTERFACE_STM32_UART
 
-#include "libprotoserial/interface/buffered_parsed.hpp"
+#include "libprotoserial/interface/buffered.hpp"
 
 #include <memory>
 
@@ -33,9 +33,9 @@ namespace detail
 namespace stm32
 {
 	template<class Header, class Footer>
-	class uart_interface : public buffered_parsed_interface<Header, Footer>
+	class uart_interface : public buffered_parser_interface<Header, Footer>
 	{
-		using parent = buffered_parsed_interface<Header, Footer>;
+		using parent = buffered_parser_interface<Header, Footer>;
 		
 		public:
 

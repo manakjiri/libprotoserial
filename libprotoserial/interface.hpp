@@ -24,8 +24,8 @@
 
 #include "libprotoserial/libconfig.hpp"
 
-#include "libprotoserial/interface/loopback.hpp"
-#include "libprotoserial/interface/virtual.hpp"
+#include "libprotoserial/interface/testing/loopback.hpp"
+#include "libprotoserial/interface/testing/virtual.hpp"
 #include "libprotoserial/interface/headers.hpp"
 #include "libprotoserial/interface/footers.hpp"
 

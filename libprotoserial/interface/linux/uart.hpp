@@ -22,7 +22,7 @@
 #ifndef _SP_INTERFACE_LINUX_UART
 #define _SP_INTERFACE_LINUX_UART
 
-#include "libprotoserial/interface/buffered_parsed.hpp"
+#include "libprotoserial/interface/buffered.hpp"
 
 #include <stdio.h>
 #include <string.h>

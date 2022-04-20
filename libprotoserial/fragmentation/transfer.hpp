@@ -79,7 +79,7 @@ namespace sp
         id_type _id, _prev_id;
     };
 
-    struct transfer : public transfer_metadata
+    struct transfer : public transfer_metadata, public sp_object
     {
         using data_type = fragment::data_type;
 

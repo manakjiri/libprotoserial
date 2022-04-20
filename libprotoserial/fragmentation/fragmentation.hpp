@@ -72,12 +72,12 @@
  * debugger alone, these enable different levels of debug prints */
 //#define SP_FRAGMENTATION_DEBUG
 //#define SP_FRAGMENTATION_WARNING
-#endif
-
-
 #ifdef SP_FRAGMENTATION_DEBUG
 #define SP_FRAGMENTATION_WARNING
 #endif
+#endif
+
+
 
 namespace sp
 {

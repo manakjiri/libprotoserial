@@ -26,6 +26,7 @@
 #include "libprotoserial/data/container.hpp"
 #include "libprotoserial/clock.hpp"
 #include "libprotoserial/interface/interface_id.hpp"
+#include "libprotoserial/utils/object_id.hpp"
 
 namespace sp
 {
@@ -62,7 +63,7 @@ namespace sp
     };
 
     /* interface fragment representation */
-    class fragment : public fragment_metadata
+    class fragment : public fragment_metadata, public sp_object
     {
         public:
 
