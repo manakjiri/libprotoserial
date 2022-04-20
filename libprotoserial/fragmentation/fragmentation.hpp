@@ -81,18 +81,15 @@
 
 namespace sp
 {
-    class fragmentation_handler
+    struct fragmentation_handler
     {
-        public:
-
-        using Header = headers::fragment_8b8b;
-        using types = Header::message_types;
         using index_type = transfer::index_type;
         using id_type = transfer::id_type;
-        using size_type = fragment::data_type::size_type;
-        using address_type = fragment::address_type;
+        using size_type = transfer::data_type::size_type;
+        using address_type = transfer::address_type;
+        using rate_type = uint;
 
-        static clock::duration rate2duration(uint rate, uint size)
+        static clock::duration rate2duration(rate_type rate, size_t size)
         {
             /*                           s             =            B       /      B/s      */
             return std::chrono::nanoseconds{std::chrono::seconds{size}} / (std::chrono::nanoseconds{std::chrono::seconds{rate}} / std::chrono::nanoseconds{std::chrono::seconds{1}});
@@ -162,437 +159,24 @@ namespace sp
             }
         };
 
-        private:
-
-        struct transfer_wrapper : public transfer
-        {
-            transfer_wrapper(transfer && t, fragmentation_handler * handler) :
-                transfer(std::move(t)), _handler(handler), timestamp_accessed(clock::now()), 
-                retransmitions(0), transmit_index(1) {}
-
-            /* returns the number of fragments needed to transmit this transfer,
-            this obviously depends on the mode but we can make some assumptions:
-            -   when in mode1 transfer has internally preallocated the needed number of 
-                slots for fragments so this returns that number
-            -   when in mode 2 slots are allocated on demand with new data, so this 
-                returns the computed number of needed fragments based on the data size */
-            index_type fragments_count() const 
-            {
-                if (is_complete())
-                    /* mode 2 */
-                    return data_size() / _handler->max_fragment_size() + 
-                        (data_size() % _handler->max_fragment_size() == 0 ? 0 : 1);
-                else
-                    /* mode 1 */
-                    return _data.size();
-            }
-            
-            /* mode 1) only */
-            bool is_complete() const
-            {
-                for (auto b = _begin(); b != _end(); ++b)
-                {
-                    if (b->is_empty())
-                        return false;
-                }
-                return true;
-            }
-
-            bool has_data() const {return !_data.empty();}
-            
-            transfer move_out_data()
-            {
-                return transfer(transfer_metadata(*this), std::move(_data));
-            }
-
-            bool completely_transmitted() const
-            {
-                return transmit_index > fragments_count();
-            }
-
-            /* returns the next fragment including the Header in succession to be transmitted, 
-            only use when completely_transmitted() == false */
-            fragment get_next_fragment()
-            {
-                auto ret = get_fragment(transmit_index);
-                bytes h = to_bytes(_handler->make_header(types::FRAGMENT, transmit_index, *this));
-                ret.data().push_front(std::move(h));
-                transmit_done();
-                return ret;
-            }
-
-            /* mode 1) only */
-            index_type missing_fragment() const
-            {
-                for (std::size_t i = 0; i < _data.size(); ++i)
-                {
-                    if (_data.at(i).is_empty())
-                        return (index_type)(i + 1);
-                }
-                return 0;
-            }
-            
-            /* returns the requested fragment at pos, it is assumed that
-            this fragment was requested by other peer and this is therefore a retransmit,
-            use missing_fragment() to obtain pos */
-            fragment get_retransmit_fragment(index_type pos)
-            {
-                auto ret = get_fragment(pos);
-                bytes h = to_bytes(_handler->make_header(types::FRAGMENT, pos, *this));
-                ret.data().push_front(std::move(h));
-                retransmit_done();
-                return ret;
-            }
-
-            uint retransmitions_count() const {return retransmitions;}
-            clock::time_point last_accessed() const {return timestamp_accessed;}
-
-            private:
-            fragmentation_handler * _handler;
-            clock::time_point timestamp_accessed;
-            uint retransmitions, transmit_index;
-
-            /* mode 2) only, preferably */
-            fragment get_fragment(index_type fragment_pos) const
-            {
-                if (fragment_pos == 0) throw std::invalid_argument("fragment_pos == 0");
-                fragment_pos -= 1;
-                auto p_size = _handler->max_fragment_size();
-                if (fragment_pos * p_size > data_size()) throw std::invalid_argument("fragment_pos * p_size > data_size()");
-
-                bytes data(sizeof(Header), 0, p_size);
-                auto b = data_begin() + fragment_pos * p_size, e = data_end();
-                for (; b != e && data.size() < p_size; ++b) data.push_back(*b);
-                
-                return fragment(destination(), std::move(data));
-            }
-            /* fragment get_fragment(index_type fragment_pos) const
-            {
-                auto p_size = get_fragment_size(fragment_pos);
-                bytes data(sizeof(Header), 0, p_size); //TODO add overalloc for interface header
-                
-                auto b = data_begin() + fragment_pos * p_size;
-                for (; data.size() < p_size; ++b) data.push_back(*b);
-                
-                return fragment(destination(), std::move(data));
-            }
-
-            data_type::size_type get_fragment_size(index_type fragment_pos) const
-            {
-                if (fragment_pos == 0) throw std::invalid_argument("fragment_pos == 0");
-                fragment_pos -= 1;
-
-                auto p_size = _handler->max_fragment_size();
-                if (fragment_pos * p_size > data_size()) throw std::invalid_argument("fragment_pos * p_size > data_size()");
-                
-                auto from_end = distance(data_begin() + fragment_pos * p_size, data_end());
-                return from_end < p_size ? from_end : p_size;
-            } */
-
-            void transmit_done()
-            {
-                timestamp_accessed = clock::now();
-                if (!completely_transmitted())
-                    ++transmit_index;
-            }
-            void retransmit_done() 
-            {
-                timestamp_accessed = clock::now();
-                ++retransmitions;
-            }
-        };
-
-        
-        struct status
-        {
-            using type = typename Header::status_type;
-            type value;
-            
-            status(const Header & h) : value(h.status()) {}
-            status(const interface::status & s, const configuration & c)
-            {
-                value = 0;
-                if (s.receive_buffer_level >= c.frb_critical)
-                    value |= 0x03;
-                else if (s.receive_buffer_level >= c.frb_poor)
-                    value |= 0x01;
-            }
-            
-            bool rx_poor() {return (value & 0x01) == 0x01;}
-            bool rx_critical() {return (value & 0x03) == 0x03;}
-            
-        };
-
-        struct peer_state
-        {
-            peer_state(address_type a, const configuration & c)  :
-                addr(a), tx_rate(c.peer_rate), last_rx(never()), tx_holdoff(clock::now()) {}
-
-            address_type addr;
-            /* from our point of view */
-            uint tx_rate;
-            /* from our point of view */
-            clock::time_point last_rx, tx_holdoff;
-
-            bool in_transmit_holdoff() const {return tx_holdoff > clock::now();}
-        };
-
-        auto peer_state_find(address_type addr)
-        {
-            auto peer = std::find_if(_peer_states.begin(), _peer_states.end(), [&](peer_state & ps){
-                return ps.addr == addr;
-            });
-            if (peer == _peer_states.end())
-            {
-                _peer_states.emplace_front(addr, _config);
-                return _peer_states.begin();
-            }
-            else
-                return peer;
-        }
-
-        void peer_state_update(peer_state & peer, const Header & h)
-        {
-            /* update from the status field */
-            auto s = status(h);
-            if (s.rx_critical())
-            {
-                peer.tx_rate /= _config.tr_decrease * 3;
-#ifdef SP_FRAGMENTATION_WARNING
-                std::cout << "received status critical from " << (int)peer.addr << std::endl;
-#endif
-            }
-            else if (s.rx_poor())
-            {
-                peer.tx_rate /= _config.tr_decrease;
-#ifdef SP_FRAGMENTATION_WARNING
-                std::cout << "received status poor from " << (int)peer.addr << std::endl;
-#endif
-            }
-            else
-            {
-                peer.tx_rate += _config.tr_increase;
-#ifdef SP_FRAGMENTATION_DEBUG
-                std::cout << "increasing tx_rate for " << (int)peer.addr << std::endl;
-#endif
-            }
-            limit(_config.peer_rate / 2, peer.tx_rate, _config.tx_rate * 2);
-            
-            peer.last_rx = clock::now();
-        }
-
-        /* if the transfer was not accessed within this duration, than it should be safe to drop such tranfer */
-        clock::duration peer_state_inactivity_timeout(peer_state & peer, size_type data_size)
-        {
-            return rate2duration(peer.tx_rate, data_size) * _config.inactivity_timeout_multiplier;
-        }
-        /* if the transfer was not accessed within this duration, than it should be safe to drop such tranfer */
-        clock::duration peer_state_inactivity_timeout(address_type addr, size_type data_size)
-        {
-            return peer_state_inactivity_timeout(*peer_state_find(addr), data_size);
-        }
-        
-        /* returns true when it is a good time to transmit to this peer, this assumes that 
-        the fragment is transmitted if this evaluates to true,
-        data_size is assumed to be just the fragment data size, additional overhead gets accounted for */
-        bool peer_state_can_transmit(peer_state & peer, size_type data_size)
-        {
-            if (peer.in_transmit_holdoff())
-                return false;
-            else
-            {
-                peer.tx_holdoff = clock::now() + rate2duration(peer.tx_rate, final_fragment_size(data_size));
-                //std::cout << "setting tx_holdoff " << (peer.tx_holdoff - clock::now()).count() << " ns from now " << d.count() << std::endl;
-                return true;
-            }
-        }
-        /* returns true when it is a good time to transmit to this peer, this assumes that 
-        the fragment is transmitted if this evaluates to true,
-        data_size is assumed to be just the fragment data size, fragment_overhead_size gets accounted for */
-        bool peer_state_can_transmit(address_type addr, size_type data_size)
-        {
-            return peer_state_can_transmit(*peer_state_find(addr), data_size);
-        }
-        
-        bool peer_state_can_reqretransmit(peer_state & peer, const transfer_wrapper & tr)
-        {
-            if (older_than(tr.timestamp_modified(), _config.retransmit_request_holdoff_multiplier *
-                rate2duration(_config.rx_rate, _config.max_fragment_data_size))) //FIXME correct size
-            {
-                if (peer_state_can_transmit(peer, _config.max_fragment_data_size)) //HACK
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-        bool peer_state_can_reqretransmit(address_type addr, const transfer_wrapper & tr)
-        {
-            return peer_state_can_reqretransmit(*peer_state_find(addr), tr);
-        }
-
         public:
 
-        fragmentation_handler(interface_identifier iid, configuration config) :
-            _config(std::move(config)), _interface_identifier(iid) {}
+        fragmentation_handler(interface_identifier iid, configuration config, prealloc_size prealloc = prealloc_size()) :
+            _config(std::move(config)), _prealloc(prealloc), _interface_identifier(iid) {}
 
         fragmentation_handler(const interface & i, configuration config) :
-            fragmentation_handler(i.interface_id(), std::move(config)) {}
+            fragmentation_handler(i.interface_id(), std::move(config), i.minimum_prealloc()) {}
 
 
-        /* the callback handles the incoming fragments, it does not handle any timeouts, sending requests, 
-        or anything that assumes periodicity, the main_task is for that */
-        void receive_callback(fragment p) noexcept
-        {
-#ifdef SP_FRAGMENTATION_DEBUG
-            std::cout << "receive_callback got: " << p << std::endl;
-#endif
-            if (p && p.data().size() >= sizeof(Header))
-            {
-                /* copy the header from the fragment data after some obvious sanity checks, discard 
-                the header from fragment's data afterward */
-                auto h = parsers::byte_copy<Header>(p.data().begin());
-                if (h.is_valid())
-                {
-                    p.data().shrink(sizeof(Header), 0);
-                    handle_fragment(h, std::move(p));
-                }
-            }
-        }
-
-        void main_task()
-        {
-            auto it = _incoming_transfers.begin();
-            while (it != _incoming_transfers.end())
-            {
-                if (!it->has_data())
-                {
-                    /* we have the transfer_progress object but it does not own any transfer, which means
-                    that the block below must have been executed in the near past
-                    drop the transfer_progress after some sufficiently long period since its last access */
-                    if (older_than(it->last_accessed(), _config.minimum_incoming_hold_time)) //TODO add a check for _incoming_transfers size 
-                        it = _incoming_transfers.erase(it);
-                }
-                /* checks whether any of the transfers is complete, if so emit it as receive event */
-                else if (it->is_complete())
-                {
-                    /* this does not check the can_transmit() since the check is conservative 
-                    and queing ACKs would result in a lot of added complexity */
-                    transmit_event.emit(std::move(
-                        fragment(it->source(), 
-                        to_bytes(make_header(types::FRAGMENT_ACK, it->fragments_count(), *it)))
-                    ));
-                    transfer_receive_event.emit(std::move(it->move_out_data()));
-                    /* moved the local copy of the transfer out of the handler, but we
-                    will hold onto that transfer_metadata structure for a while longer - in case
-                    the ACK fragment gets lost, the source will try to retransmit this transfer
-                    thinking that we didn't notice it */
-                }
-                else
-                {
-                    auto peer = peer_state_find(it->source());
-                    if (older_than(it->timestamp_modified(), peer_state_inactivity_timeout(*peer, it->data_size())))
-                    {
-#ifdef SP_FRAGMENTATION_WARNING
-                        std::cout << "timed out incoming: " << *it << std::endl;
-#endif
-                        /* drop the incoming transfer because it is inactive for too long */
-                        it = _incoming_transfers.erase(it);
-                    }
-                    else if (can_transmit() && peer_state_can_reqretransmit(*peer, *it))
-                    {
-                        /* find the missing fragment's index and request a retransmit */
-                        auto index = it->missing_fragment();
-#ifdef SP_FRAGMENTATION_WARNING
-                        std::cout << "requesting retransmit for id " << (int)it->get_id() << " index " << (int)index << std::endl;
-#endif
-                        transmit_event.emit(std::move(
-                            fragment(it->source(), 
-                            to_bytes(make_header(types::FRAGMENT_REQ, index, *it)))
-                        ));
-                    }
-                }
-                /* check again because an erase can happen in this branch as well, 
-                we don't need to worry about skipping a transfer when the erase happens
-                since we will return into this function later anyway */
-                if (it != _incoming_transfers.end())
-                    ++it;
-            }
-            /* check for stale outgoing transfers, it may happen that the ACK didn't arrive, 
-            it is not ACKed back, so that can happen */
-            it = _outgoing_transfers.begin();
-            while (it != _outgoing_transfers.end())
-            {
-                auto peer = peer_state_find(it->destination());
-                if (older_than(it->last_accessed(), peer_state_inactivity_timeout(*peer, it->data_size())))
-                {
-                    /* drop the outgoing transfer because it is inactive for too long */
-#ifdef SP_FRAGMENTATION_WARNING
-                        std::cout << "timed out outgoing id " << (int)it->get_id() << std::endl;
-#endif
-                    it = _outgoing_transfers.erase(it);
-                }
-                else if (can_transmit() && peer_state_can_transmit(*peer, _config.max_fragment_data_size)) //FIXME size
-                {
-                    if (!it->completely_transmitted())
-                    {
-                        /* this transfer was just put into the outgoing queue */
-                        transmit_event.emit(std::move(it->get_next_fragment()));
-                    }
-                    else
-                    {
-                        /* either the destination is dead or the first fragment got lost during
-                        transit, try to retransmit the first fragment */
-#ifdef SP_FRAGMENTATION_WARNING
-                            std::cout << "retransmitting first fragment of id " << (int)it->get_id() << std::endl;
-#endif
-                        transmit_event.emit(std::move(it->get_retransmit_fragment(1)));
-                    }
-
-                }
-                else
-                    ++it;
-            }
-        }
-
-        void interface_status_callback(interface::status status)
-        {
-            _interface_status = status;
-        }
-
-        void transmit(transfer t)
-        {
-#ifdef SP_FRAGMENTATION_DEBUG
-            std::cout << "transmit got: " << t << std::endl;
-#elif defined(SP_FRAGMENTATION_WARNING)
-            std::cout << "transmit got id " << (int)t.get_id() << std::endl;
-#endif
-            _outgoing_transfers.emplace_back(std::move(t), this);
-        }
-
-        size_type max_fragment_size() const
-        {
-            return _config.max_fragment_data_size - sizeof(Header);
-        }
-
-        void print_debug() const
-        {
-#ifndef SP_NO_IOSTREAM
-            std::cout << "incoming_transfers: " << _incoming_transfers.size() << std::endl;
-            for (const auto & t : _incoming_transfers)
-                std::cout << static_cast<transfer>(t) << std::endl;
-            
-            std::cout << "outgoing_transfers: " << _outgoing_transfers.size() << std::endl;
-            for (const auto & t : _outgoing_transfers)
-                std::cout << static_cast<transfer>(t) << std::endl;
-#endif
-        }
+        virtual void receive_callback(fragment p) noexcept = 0;
+        virtual void main_task() = 0;
+        virtual void transmit(transfer t) = 0;
 
         /* shortcut for event subscribe */
         void bind_to(interface & l)
         {
             l.receive_event.subscribe(&fragmentation_handler::receive_callback, this);
-            l.status_event.subscribe(&fragmentation_handler::interface_status_callback, this);
+            //l.status_event.subscribe(&fragmentation_handler::interface_status_callback, this);
             transmit_event.subscribe(&interface::write_noexcept, &l);
         }
 
@@ -603,123 +187,103 @@ namespace sp
         /* fires when ACK was received from destination for this transfer */
         subject<transfer_metadata> transfer_ack_event;
 
-        private:
-
-        Header make_header(types type, index_type fragment_pos, const transfer_wrapper & tp)
+        protected:
+        template<typename Header>
+        struct transfer_handler : public transfer
         {
-            return Header(type, fragment_pos, tp.fragments_count(), tp.get_id(), tp.get_prev_id(), our_status());
-        }
-        Header make_header(types type, const Header & h)
-        {
-            return Header(type, h.fragment(), h.fragments_total(), h.get_id(), h.get_prev_id(), our_status());
-        }
-
-        status::type our_status() {return status(_interface_status, _config).value;}
-        bool can_transmit() const {return _interface_status.used_transmit_slots <= 1;}
-        
-        size_type final_fragment_size(size_type data_size) const 
-        {
-            return data_size + _config.fragment_overhead_size + sizeof(Header);
-        }
-
-        void handle_fragment(const Header & h, fragment && p)
-        {
-#ifdef SP_FRAGMENTATION_DEBUG
-            std::cout << "handle_fragment got: " << p << std::endl;
-#endif
-            /* we got a fragment from a peer, update the state */
-            auto peer = peer_state_find(p.source());
-            peer_state_update(*peer, h);
-
-            /* handle the reception of user fragments and their ordering */
-            if (h.type() == types::FRAGMENT)
+            /* receive constructor, f is the first fragment of the transfer (maximum fragment size is derived
+            from this fragment's size)
+            note that this cannot infer the actual size of the final transfer based on this fragment (unless this
+            is the last one as well), so a worst-case scenario is assumed (fragments_total * max_fragment_size) 
+            and the internal data() container will get resized in the put_fragment function when the last fragment 
+            is received */
+            transfer_handler(fragment && f, const Header & h) : 
+                transfer(transfer_metadata(f.source(), f.destination(), f.interface_id(), f.timestamp_creation(), h.get_id(), 
+                h.get_prev_id()), std::move(f.data())), max_fragment_size(f.data().size()), fragments_total(h.fragments_total())
             {
-                /* branch for handling _incoming_transfers */
-                /* check if we already know that incoming transfer ID */
-                auto it = std::find_if(_incoming_transfers.begin(), _incoming_transfers.end(), 
-                    [&](const auto & t){
-                        //FIXME use tr->match() in both cases, as per spec
-                        if (t.has_data())
-                            return t.get_id() == h.get_id() && t.match(p);
-                        else
-                            return t.get_id() == h.get_id();
-                });
-
-                if (it == _incoming_transfers.end())
-                {
-#ifdef SP_FRAGMENTATION_DEBUG
-                    std::cout << "creating new incoming transfer id " << (int)h.get_id() << std::endl;
-#endif
-                    /* we don't know this transfer ID, create new incoming transfer */
-                    auto& t = _incoming_transfers.emplace_back(transfer(_interface_identifier, h), this);
-                    t._assign(h.fragment(), std::move(p));
-                }
-                else
-                {
-                    /* we know this ID, now we need to check if we have already received this transfer and
-                    is therefor duplicate, or whether we are in the process of receiving it */
-                    if (it->has_data())
-                    {
-#ifdef SP_FRAGMENTATION_DEBUG
-                        std::cout << "assigning to existing incoming transfer id " << (int)h.get_id() << " at " << (int)h.fragment() << " of " << (int)h.fragments_total() << std::endl;
-#endif
-                        /* the ID is in known transfers, we need to add the incoming fragment to it */
-                        it->_assign(h.fragment(), std::move(p));
-                    }
-                    else
-                    {
-                        /* we, for some reason, received a fragment of already received transfer, the ACK
-                        from us probably got lost in transit, just reply with another ACK and ignore this fragment */
-#ifdef SP_FRAGMENTATION_WARNING
-                        std::cout << "sending ACK for already received id " << (int)h.get_id() << std::endl;
-#endif
-                        transmit_event.emit(std::move(fragment(p.source(), 
-                            std::move(to_bytes(make_header(types::FRAGMENT_ACK, h)))
-                        )));
-                    }
-                }
+                /* reserve space for up to fragments_total fragments. There is no need to regard prealloc_size since this 
+                is the receive constructor. fragments_total is always >= 1, so this works for all cases, expand does nothing 
+                for arguments (0, 0) */
+                data().expand(0, (fragments_total - 1) * max_fragment_size);
             }
-            else
+
+            transfer_handler(transfer && t, size_type max_fragment_size) : 
+                transfer(std::move(t)), max_fragment_size(max_fragment_size), fragments_total(0)
             {
-                /* branch for handling _outgoing_transfers */
-                auto it = std::find_if(_outgoing_transfers.begin(), _outgoing_transfers.end(), 
-                    [&](const auto & t){return t.get_id() == h.get_id() && t.match_as_response(p);});
+                auto size = data().size();
+                /* calculate the fragments_total count correctly, ie. assume max = 4, then
+                for size = 2 -> total = 1, size = 4 -> total = 1 but size = 5 -> total = 2 */
+                fragments_total = size / max_fragment_size + (size % max_fragment_size == 0 ? 0 : 1);
+            }
+
+            /* returns the fragment's data size, this does not include the Header,
+            use only when constructed using the transmit constructor */
+            size_type fragment_size(index_type pos)
+            {
+                pos -= 1;
+                if (pos >= fragments_total)
+                    return 0;
                 
-                if (it != _outgoing_transfers.end())
-                {
-                    if (h.type() == types::FRAGMENT_REQ && can_transmit())
-                    {
-#ifdef SP_FRAGMENTATION_WARNING
-                        std::cout << "handling retransmit request of id " << (int)h.get_id() << " fragment " << (int)h.fragment() << " of " << (int)h.fragments_total() << std::endl;
-#endif
-                        /* fullfill the retransmit request */
-                        transmit_event.emit(std::move(it->get_retransmit_fragment(h.fragment())));
-                    }
-                    else if (h.type() == types::FRAGMENT_ACK)
-                    {
-#ifdef SP_FRAGMENTATION_DEBUG
-                        std::cout << "got fragment ACK for id " << (int)h.get_id() << std::endl;
-#endif
-                        /* emit the ACK event for the sender and destroy this outgoing transfer
-                        since we've done our job and don't need it anymore - in contrast to the 
-                        incoming transfer where the transmitted ACK may not be received, here we
-                        can be sure */
-                        transfer_ack_event.emit(std::move(it->get_metadata()));
-                        it = _outgoing_transfers.erase(it);
-                    }
-                }
+                auto start = pos * max_fragment_size;
+                auto end = std::min(start + max_fragment_size, data().size());
+                return end - start;
             }
-        }
+
+            /* returns a fragment containing the correct metadata with data copied from pos of the transfer,
+            the data does not contain handler's header! it does however have enough prealloc for it plus
+            the requested prealloc. Just use fragment.data().push_front(header_bytes) to add the header */
+            fragment get_fragment(index_type pos, const prealloc_size & alloc)
+            {
+                auto data_size = fragment_size(pos);
+                if (data_size == 0)
+                    return fragment();
+                
+                bytes data = alloc.create(sizeof(Header), data_size, 0);
+                auto start = fragment_start(pos);
+
+                std::copy(start, start + data_size, data.begin());
+                return fragment(std::move(get_fragment_metadata()), std::move(data));
+            }
+
+            /* this function assumes that this was created using the receive constructor, it only 
+            concernes itself with the fragment's data, not its metadata. */
+            bool put_fragment(index_type pos, const fragment & f)
+            {
+                auto expected_max_size = fragment_size(pos);
+                if (f.data().size() > expected_max_size)
+                    return false;
+            
+                auto start = fragment_start(pos);
+                std::copy(f.data().begin(), f.data().end(), start);
+
+                /* resize the data() so it reflects the actual size now that we have received
+                the last fragment, more on that in the receive constructor comment */
+                if (pos == fragments_total)
+                    data().shrink(0, expected_max_size - f.data().size());
+
+                return true;
+            }
+
+            /* maximum fragment data size excluding the fragmentation header,
+            max_fragment_size * fragments_total >= data().size() should always hold */
+            size_type max_fragment_size;
+            /* max_fragment_size * fragments_total >= data().size() should always hold */
+            index_type fragments_total;
+
+            protected:
+            
+            inline data_type::iterator fragment_start(index_type pos)
+            {
+                return data.begin() + ((pos - 1) * max_fragment_size);
+            }
+        };
 
         configuration _config;
-        std::list<transfer_wrapper> _incoming_transfers, _outgoing_transfers;
-        std::list<peer_state> _peer_states;
+        prealloc_size _prealloc;
         interface_identifier _interface_identifier;
-        interface::status _interface_status;
+        //interface::status _interface_status;
     };
 }
-
-
 
 
 #endif

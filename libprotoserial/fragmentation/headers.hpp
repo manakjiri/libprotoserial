@@ -64,6 +64,26 @@ namespace sp
                 return _check == (byte)(_type + _fragment + _fragments_total + _id + _prev_id + _status) && _fragment != 0 && _fragment <= _fragments_total;
             }
 
+            /* struct status
+            {
+                status(const fragment_8b8b & h) : value(h.status()) {}
+                status(const interface::status & s, const configuration & c)
+                {
+                    //TODO in handler
+                    value = 0;
+                    if (s.receive_buffer_level >= c.frb_critical)
+                        value |= 0x03;
+                    else if (s.receive_buffer_level >= c.frb_poor)
+                        value |= 0x01;
+                }
+                
+                bool rx_poor() {return (value & 0x01) == 0x01;}
+                bool rx_critical() {return (value & 0x03) == 0x03;}
+                
+                private:
+                status_type value;
+            }; */
+
             private:
             message_types _type = INIT;
             index_type _fragment = 0;

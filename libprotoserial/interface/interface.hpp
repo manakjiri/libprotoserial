@@ -106,6 +106,7 @@
 
 #include "libprotoserial/utils/observer.hpp"
 #include "libprotoserial/interface/fragment.hpp"
+#include "libprotoserial/data/prealloc_size.hpp"
 
 #include <string>
 #include <queue>
@@ -216,6 +217,7 @@ namespace sp
         /* returns the maximum size of the data portion in a fragment, this is interface dependent */
         virtual bytes::size_type max_data_size() const noexcept = 0;
         virtual bytes::size_type overhead_size() const noexcept = 0;
+        virtual prealloc_size minimum_prealloc() const noexcept = 0;
 
         /* emitted by the main_task function when a new fragment is received where the destination address matches
         the interface address */
