@@ -22,7 +22,7 @@
 #ifndef _SP_INTERFACE_LOOPBACK
 #define _SP_INTERFACE_LOOPBACK
 
-#include "libprotoserial/interface/buffered_parsed.hpp"
+#include "libprotoserial/interface/buffered.hpp"
 
 #ifndef SP_NO_IOSTREAM
 //#define SP_LOOPBACK_DEBUG
@@ -38,9 +38,9 @@ namespace sp
     namespace detail
     {
         template<class Header, class Footer>
-        class loopback_interface : public buffered_parsed_interface<Header, Footer>
+        class loopback_interface : public buffered_parser_interface<Header, Footer>
         {
-            using parent = buffered_parsed_interface<Header, Footer>;
+            using parent = buffered_parser_interface<Header, Footer>;
 
             public: 
 

@@ -22,7 +22,7 @@
 #ifndef _SP_INTERFACE_VIRTUAL
 #define _SP_INTERFACE_VIRTUAL
 
-#include "libprotoserial/interface/buffered_parsed.hpp"
+#include "libprotoserial/interface/buffered.hpp"
 
 #include <queue>
 
@@ -35,9 +35,9 @@ namespace sp
         - use the transmit() function to pass in a fragment, then once has_serialized() returns true you can 
           retrieve the encoded data using the get_serialized() function */
         template<class Header, class Footer>
-        class virtual_interface : public buffered_parsed_interface<Header, Footer>
+        class virtual_interface : public buffered_parser_interface<Header, Footer>
         {
-            using parent = buffered_parsed_interface<Header, Footer>;
+            using parent = buffered_parser_interface<Header, Footer>;
 
             public: 
 
