@@ -89,7 +89,7 @@ namespace sp
         
         constexpr const data_type& data() const noexcept {return _data;}
         constexpr data_type& data() noexcept {return _data;}
-        constexpr void _complete(address_type src, interface_identifier iid) {_source = src; _interface_id = iid;}
+        constexpr void complete(address_type src, interface_identifier iid) {_source = src; _interface_id = iid;}
         
         bool carries_information() const {return _data && _destination;}
         explicit operator bool() const {return carries_information();}

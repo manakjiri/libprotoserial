@@ -42,9 +42,9 @@ namespace detail
 namespace pc
 {
 template<class Header, class Footer>
-class uart_interface : public buffered_parsed_interface<Header, Footer>
+class uart_interface : public buffered_parser_interface<Header, Footer>
 {
-    using parent = buffered_parsed_interface<Header, Footer>;
+    using parent = buffered_parser_interface<Header, Footer>;
     
     public: 
 

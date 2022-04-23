@@ -184,7 +184,7 @@ namespace sp
             const preamble_type preamble = (preamble_type)0x55;
             const typename Header::size_type preamble_length = 2;
 
-            buffered_parsed_interface(interface_identifier iid, address_type address, address_type broadcast_address, 
+            buffered_parser_interface(interface_identifier iid, address_type address, address_type broadcast_address, 
                 uint max_queue_size, uint buffer_size, uint max_fragment_size):
                     buffered_interface(iid, address, broadcast_address, max_queue_size, buffer_size), _max_fragment_size(max_fragment_size)
             {
@@ -320,19 +320,16 @@ namespace sp
 
             bytes serialize_fragment(fragment && p) const 
             {
-            	//TODO we can avoid the copy here by calling reserve and hope that the container has enough capacity
-                /* preallocate the container since we know the final size */
-                auto b = bytes(0, 0, preamble_length + sizeof(Header) + p.data().size() + sizeof(Footer));
-                /* preamble */
-                auto pr = bytes(preamble_length);
-                pr.set(preamble);
-                b.push_back(pr);
                 /* Header */
-                b.push_back(to_bytes(Header(p)));
-                /* data */
-                b.push_back(p.data());
+                p.data().push_front(to_bytes(Header(p)));
+                /* preamble */
+                auto pr = bytes(parent::preamble_length);
+                pr.set(parent::preamble);
+                p.data().push_front(pr);
                 /* Footer */
-                b.push_back(to_bytes(Footer(b.begin() + preamble_length, b.end())));
+                p.data().push_back(to_bytes(Footer(
+                    p.data().begin() + parent::preamble_length, p.data().end()
+                )));
 #ifdef SP_BUFFERED_DEBUG
                 std::cout << "serialize_fragment returning: " << b << std::endl;
 #endif

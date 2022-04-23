@@ -79,24 +79,21 @@ namespace sp
             do_transmit function */
             bytes serialize_fragment(fragment && p) const 
             {
-            	//TODO we can avoid the copy here by calling reserve and hope that the container has enough capacity
-                /* preallocate the container since we know the final size */
-                auto b = bytes(0, 0, parent::preamble_length + sizeof(Header) + p.data().size() + sizeof(Footer));
+                /* Header */
+                p.data().push_front(to_bytes(Header(p)));
                 /* preamble */
                 auto pr = bytes(parent::preamble_length);
                 pr.set(parent::preamble);
-                b.push_back(pr);
-                /* Header */
-                b.push_back(to_bytes(Header(p)));
-                /* data */
-                b.push_back(p.data());
+                p.data().push_front(pr);
                 /* Footer */
                 /* swap the dst and the src address, this obviously 
                 only works with the 8b8b Header */
                 auto tmp = b[2];
                 b[2] = b[3];
                 b[3] = tmp;
-                b.push_back(to_bytes(Footer(b.begin() + parent::preamble_length, b.end())));
+                p.data().push_back(to_bytes(Footer(
+                    p.data().begin() + parent::preamble_length, p.data().end()
+                )));
 #ifdef SP_LOOPBACK_DEBUG
                 std::cout << "serialize_fragment returning: " << b << std::endl;
 #endif

@@ -120,7 +120,7 @@ namespace sp
             /* counteracts tr_divider by incrementing the transmit rate when the conditions are favorable */
             uint tr_increase;
             
-            /* maximum size of a fragment's data (max_fragment_data_size >= sizeof(Header) + data.size()) */
+            /* maximum size of a fragment's data (max_fragment_data_size >= data.size()) */
             size_type max_fragment_data_size;
             /* approximately how many more bytes are added by lower layers */
             size_type fragment_overhead_size;
@@ -140,17 +140,16 @@ namespace sp
             clock::duration minimum_incoming_hold_time;
 
             /* this tries to set good default values */
-            configuration(const interface & i, uint rate, size_type added_fragment_overhead, size_type rx_buffer)
+            configuration(const interface & i, uint rate, size_type rx_buffer_size)
             {
                 tx_rate = rx_rate = rate;
                 peer_rate = tx_rate / 5;
                 retransmit_request_holdoff_multiplier = 3;
 
                 max_fragment_data_size = i.max_data_size();
-                fragment_overhead_size = added_fragment_overhead;
                 
                 inactivity_timeout_multiplier = 5;
-                minimum_incoming_hold_time = rate2duration(peer_rate, rx_buffer);
+                minimum_incoming_hold_time = rate2duration(peer_rate, rx_buffer_size);
                 tr_decrease = 2;
                 tr_increase = max_fragment_data_size / 10;
 
@@ -207,6 +206,7 @@ namespace sp
                 data().expand(0, (fragments_total - 1) * max_fragment_size);
             }
 
+            /* transmit constructor, max_fragment_size is the maximum fragment data size excluding the fragmentation header */
             transfer_handler(transfer && t, size_type max_fragment_size) : 
                 transfer(std::move(t)), max_fragment_size(max_fragment_size), fragments_total(0)
             {

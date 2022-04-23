@@ -47,9 +47,9 @@ namespace sp
             bool in_transmit_holdoff() const {return tx_holdoff > clock::now();}
         };
 
-        auto peer_state_find(address_type addr)
+        auto peer_find(address_type addr)
         {
-            auto peer = std::find_if(_peer_states.begin(), _peer_states.end(), [&](peer_state & ps){
+            auto peer = std::find_if(_peer_states.begin(), _peer_states.end(), [&](const peer_state & ps){
                 return ps.addr == addr;
             });
             if (peer == _peer_states.end())
@@ -70,7 +70,7 @@ namespace sp
 #elif defined(SP_FRAGMENTATION_WARNING)
             std::cout << "transmit got id " << (int)t.get_id() << std::endl;
 #endif
-            _outgoing_transfers.emplace_back(std::move(t), this);
+            _outgoing_transfers.emplace_back(std::move(t), max_fragment_data_size());
         }
 
         void print_debug() const
@@ -98,8 +98,14 @@ namespace sp
             return Header(type, h.fragment(), h.fragments_total(), h.get_id(), h.get_prev_id(), 0);
         }
 
+        /* data size before the header is added */
+        size_type max_fragment_data_size() const
+        {
+            return _config.max_fragment_data_size - sizeof(Header)
+        }
+
         std::list<peer_state> _peer_states;
-        std::list<transfer_wrapper<Header>> _incoming_transfers, _outgoing_transfers;
+        std::list<transfer_handler<Header>> _incoming_transfers, _outgoing_transfers;
 
     };
 }
