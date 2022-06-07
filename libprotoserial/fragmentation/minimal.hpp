@@ -28,10 +28,27 @@
 namespace sp
 {
     template<typename Header>
-    struct minimal_handler : public fragmentation_handler
+    class base_minimal_handler : public fragmentation_handler
     {
         //using Header = headers::fragment_8b8b;
-        using types = typename Header::message_types;
+        using message_types = typename Header::message_types;
+
+        enum tr_states
+        {
+            NEW,
+            SENT,
+            NEXT,
+            WAITING,
+            RETRY
+        };
+        struct tr_wrapper : public transfer_handler<Header>
+        {
+            using transfer_handler<Header>::transfer_handler;
+            
+            clock::time_point sent_at = never();
+            index_type current_fragment = 0;
+            tr_states state = tr_states::NEW;
+        };
 
         struct peer_state
         {
@@ -61,7 +78,48 @@ namespace sp
                 return peer;
         }
 
+        Header make_header(types type, index_type fragment_pos, const transfer & t)
+        {
+            return Header(type, fragment_pos, t.fragments_count(), t.get_id(), t.get_prev_id(), 0);
+        }
+        Header make_header(types type, const Header & h)
+        {
+            return Header(type, h.fragment(), h.fragments_total(), h.get_id(), h.get_prev_id(), 0);
+        }
 
+        /* data size before the header is added */
+        size_type max_fragment_data_size() const
+        {
+            /* _interface->max_data_size() is the maximum size of a fragment's data */
+            return _interface->max_data_size() - sizeof(Header)
+        }
+
+        
+        
+        inline auto find_outgoing(std::function<bool(const tr_wrapper &)> pred)
+        {
+            return std::find_if(_outgoing_transfers.begin(), _outgoing_transfers.end(), pred);
+        }
+
+        inline auto find_incoming(std::function<bool(const tr_wrapper &)> pred)
+        {
+            return std::find_if(_incoming_transfers.begin(), _incoming_transfers.end(), pred);
+        }
+
+
+
+        void transmit_began_callback(object_id_type id)
+        {
+            auto pt = find_outgoing([id](const tr_wrapper & tr){
+                tr.object_id() == id;
+            });
+            if (pt != _outgoing_transfers.end())
+            {
+                
+            }
+        }
+
+        public:
 
         void transmit(transfer t)
         {
@@ -86,26 +144,16 @@ namespace sp
 #endif
         }
 
-
         private:
 
-        Header make_header(types type, index_type fragment_pos, const transfer & t)
-        {
-            return Header(type, fragment_pos, t.fragments_count(), t.get_id(), t.get_prev_id(), 0);
-        }
-        Header make_header(types type, const Header & h)
-        {
-            return Header(type, h.fragment(), h.fragments_total(), h.get_id(), h.get_prev_id(), 0);
-        }
-
-        /* data size before the header is added */
-        size_type max_fragment_data_size() const
-        {
-            return _config.max_fragment_data_size - sizeof(Header)
-        }
-
         std::list<peer_state> _peer_states;
-        std::list<transfer_handler<Header>> _incoming_transfers, _outgoing_transfers;
+        std::list<tr_wrapper> _incoming_transfers, _outgoing_transfers;
+    };
+
+    template<typename Header>
+    class minimal_handler : public base_minimal_handler<Header>
+    {
+
 
     };
 }

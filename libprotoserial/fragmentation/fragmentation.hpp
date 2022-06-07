@@ -120,11 +120,6 @@ namespace sp
             /* counteracts tr_divider by incrementing the transmit rate when the conditions are favorable */
             uint tr_increase;
             
-            /* maximum size of a fragment's data (max_fragment_data_size >= data.size()) */
-            size_type max_fragment_data_size;
-            /* approximately how many more bytes are added by lower layers */
-            size_type fragment_overhead_size;
-            
             /* 1 means that a retransmit request is sent immediately when it is detected that a fragment
             of such size could have been received given the rx_rate, values > 1 will increase this holdoff
             and are suitable when there are many connections at once. 
@@ -146,28 +141,25 @@ namespace sp
                 peer_rate = tx_rate / 5;
                 retransmit_request_holdoff_multiplier = 3;
 
-                max_fragment_data_size = i.max_data_size();
+                //max_fragment_data_size = i.max_data_size();
                 
                 inactivity_timeout_multiplier = 5;
                 minimum_incoming_hold_time = rate2duration(peer_rate, rx_buffer_size);
                 tr_decrease = 2;
-                tr_increase = max_fragment_data_size / 10;
+                //tr_increase = max_fragment_data_size / 10;
 
-                frb_poor = max_fragment_data_size + (fragment_overhead_size * 2);
+                //frb_poor = max_fragment_data_size + (fragment_overhead_size * 2);
                 frb_critical = frb_poor * 3;
             }
         };
 
         public:
 
-        fragmentation_handler(interface_identifier iid, configuration config, prealloc_size prealloc = prealloc_size()) :
-            _config(std::move(config)), _prealloc(prealloc), _interface_identifier(iid) {}
-
-        fragmentation_handler(const interface & i, configuration config) :
-            fragmentation_handler(i.interface_id(), std::move(config), i.minimum_prealloc()) {}
+        fragmentation_handler(interface * i, configuration config, prealloc_size prealloc) :
+            _config(std::move(config)), _interface(i) {}
 
 
-        virtual void receive_callback(fragment p) noexcept = 0;
+        virtual void receive_callback(fragment p) = 0;
         virtual void main_task() = 0;
         virtual void transmit(transfer t) = 0;
 
@@ -175,8 +167,8 @@ namespace sp
         void bind_to(interface & l)
         {
             l.receive_event.subscribe(&fragmentation_handler::receive_callback, this);
-            //l.status_event.subscribe(&fragmentation_handler::interface_status_callback, this);
-            transmit_event.subscribe(&interface::write_noexcept, &l);
+            l.transmit_began_event.subscribe(&fragmentation_handler::transmit_began_callback, this);
+            transmit_event.subscribe(&interface::transmit, &l);
         }
 
         /* fires when the handler wants to transmit a fragment, complemented by receive_callback */
@@ -187,6 +179,8 @@ namespace sp
         subject<transfer_metadata> transfer_ack_event;
 
         protected:
+
+        virtual void transmit_began_callback(object_id_type id) {}
         template<typename Header>
         struct transfer_handler : public transfer
         {
@@ -280,8 +274,7 @@ namespace sp
 
         configuration _config;
         prealloc_size _prealloc;
-        interface_identifier _interface_identifier;
-        //interface::status _interface_status;
+        interface * _interface;
     };
 }
 
