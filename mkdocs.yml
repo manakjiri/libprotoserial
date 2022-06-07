@@ -1,0 +1,4 @@
+site_name: libprotoserial docs
+
+theme: 
+  name: readthedocs
