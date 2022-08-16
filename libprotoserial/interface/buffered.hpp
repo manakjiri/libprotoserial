@@ -198,14 +198,12 @@ namespace sp
                 _last_byte_count = _byte_count;
             }
 
-            bytes::size_type overhead_size() const noexcept {return sizeof(Header) + sizeof(Footer) + preamble_length;} //TODO deprecate
-            bytes::size_type max_data_size() const noexcept {return _max_fragment_size - overhead_size();}
+            bytes::size_type max_data_size() const noexcept {return _max_fragment_size - (sizeof(Header) + sizeof(Footer) + preamble_length);}
             prealloc_size minimum_prealloc() const noexcept {return prealloc_size(sizeof(Header) + preamble_length, sizeof(Footer));}
             
             protected:
 
             virtual void do_single_receive() {}
-
 
             bytes::size_type do_receive() noexcept
             {

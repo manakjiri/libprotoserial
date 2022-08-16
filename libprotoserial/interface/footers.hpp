@@ -39,11 +39,11 @@ namespace sp
             hash_type hash = 0;
 
             crc32() = default;
-            crc32(bytes::iterator begin, bytes::iterator end):
+            crc32(bytes::const_iterator begin, bytes::const_iterator end):
                 hash(hash_algorithm(reinterpret_cast<const uint8_t*>(begin), 
                     reinterpret_cast<const uint8_t*>(end)).value()) {}
             crc32(const bytes & b) :
-                crc32(b.begin(), b.end()) {}
+                crc32(b.cbegin(), b.cend()) {}
         };
 
         struct __attribute__ ((__packed__)) crc16
@@ -54,11 +54,11 @@ namespace sp
             hash_type hash = 0;
 
             crc16() = default;
-            crc16(bytes::iterator begin, bytes::iterator end):
+            crc16(bytes::const_iterator begin, bytes::const_iterator end):
                 hash(hash_algorithm(reinterpret_cast<const uint8_t*>(begin), 
                     reinterpret_cast<const uint8_t*>(end)).value()) {}
             crc16(const bytes & b) :
-                crc16(b.begin(), b.end()) {}
+                crc16(b.cbegin(), b.cend()) {}
         };
     }
 }

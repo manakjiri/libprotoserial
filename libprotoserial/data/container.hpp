@@ -202,8 +202,8 @@ namespace sp
         iterator end() {return data() + size();}
         //iterator begin() {return iterator(data());}
         //iterator end() {return iterator(data() + size());}
-        iterator begin() const {return data();}
-        iterator end() const {return data() + size();}
+        const_iterator begin() const {return data();}
+        const_iterator end() const {return data() + size();}
         const_iterator cbegin() const {return data();}
         const_iterator cend() const {return data() + size();}
 

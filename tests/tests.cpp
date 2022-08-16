@@ -430,10 +430,7 @@ TEST(Interface, HeavilyCorruptedRandom)
         if (chance(2)) b |= random_byte();
         return b;
     });
-
-    cout << "this test has a high chance of failing because that level of corruption" << endl; 
-    cout << "may be too much for the checksums in use, so feel free to disable it" << endl;
-
+    
     auto data = [&](){return random_bytes(1, interface.max_data_size());};
     auto addr = [&](){return random(2, 100);};
 
