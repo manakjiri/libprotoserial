@@ -1,4 +1,12 @@
 site_name: libprotoserial docs
+repo_url: https://github.com/georges-circuits/libprotoserial
 
 theme: 
   name: readthedocs
+
+markdown_extensions:
+  - smarty
+  - sane_lists
+  - toc
+  - extra
+  
