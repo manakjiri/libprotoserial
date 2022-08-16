@@ -138,7 +138,7 @@ namespace sp
         {
             _data = other.get_base();
             _length = other.size();
-            _offset = other.get_offset();
+            _offset = other.capacity_front();
             _capacity = other.capacity();
             other._init();
         }
@@ -147,7 +147,7 @@ namespace sp
             clear();
             _data = other.get_base();
             _length = other.size();
-            _offset = other.get_offset();
+            _offset = other.capacity_front();
             _capacity = other.capacity();
             other._init();
             return *this;
@@ -219,7 +219,7 @@ namespace sp
         void reserve(const size_type front, const size_type back)
         {
             /* do nothing if the container has enough margin already */
-            if (_offset >= front && _back() >= back)
+            if (_offset >= front && capacity_back() >= back)
                 return;
 
             /* keep reference to the old buffer since we need to reallocate it */
@@ -337,7 +337,7 @@ namespace sp
             
             _init();
         }
-        /* releases the internally stored data buffer, use the get_offset function before calling
+        /* releases the internally stored data buffer, use the capacity_front function before calling
         this one in case capacity != size to obtain the the offset index, which indicates the 
         length of preallocated front */
         pointer release()
@@ -357,10 +357,10 @@ namespace sp
         }
         /* returns the number of actually allocated bytes */
         size_type capacity() const {return _capacity;}
-        size_type get_offset() const {return _offset;}
+        size_type capacity_front() const {return _offset;}
+        size_type capacity_back() const {return _capacity - _offset - _length;}
         /* returns pointer to the beggining of the data */
         pointer get_base() const {return _data;}
-        size_type _back() const {return _capacity - _offset - _length;}
 
 
         
