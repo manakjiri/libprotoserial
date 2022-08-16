@@ -90,7 +90,7 @@ namespace sp
                 reinterpret_cast<byte*>(&t)[pos] = *it;
             return t;
         }
-        bytes byte_copy(const detail::buffered_interface::circular_iterator & start, 
+        /* bytes byte_copy(const detail::buffered_interface::circular_iterator & start, 
             const detail::buffered_interface::circular_iterator & end)
         {
             bytes b(distance(start, end));
@@ -98,7 +98,7 @@ namespace sp
             for (uint pos = 0; pos < b.size() && it != end; ++it, ++pos)
                 b[pos] = *it;
             return b;
-        }
+        } */
     }
 }
 

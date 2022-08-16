@@ -41,7 +41,7 @@ namespace stack
         loopback(sp::interface_identifier::instance_type instance, sp::interface::address_type address, uint rate,
             loopback_interface::transfer_function wire = [](byte b){return b;}):
                 interface(instance, address, 255, 10, 64, 1024, wire), 
-                fragmentation(interface, fragmentation_handler::configuration(interface, rate, interface.overhead_size(), 1024))
+                fragmentation(interface, fragmentation_handler::configuration(interface, rate, 1024))
         {
             fragmentation.bind_to(interface);
         }
@@ -60,7 +60,7 @@ namespace stack
 
         virtual_full(sp::interface_identifier::instance_type instance, sp::interface::address_type address, uint rate) :
             interface(instance, address, 255, 10, 64, 1024), 
-            fragmentation(interface, fragmentation_handler::configuration(interface, rate, interface.overhead_size(), 1024))
+            fragmentation(interface, fragmentation_handler::configuration(interface, rate, 1024))
         {
             fragmentation.bind_to(interface);
         }

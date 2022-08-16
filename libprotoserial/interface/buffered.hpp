@@ -175,9 +175,15 @@ namespace sp
             volatile bool _postpone_by_one;
         };
 
+        
+        
+        
+        
         template<class Header, class Footer>
         class buffered_parser_interface : public buffered_interface
         {
+            using parent = buffered_parser_interface<Header, Footer>;
+
             public:
 
             using preamble_type = byte;
@@ -192,8 +198,9 @@ namespace sp
                 _last_byte_count = _byte_count;
             }
 
-            bytes::size_type overhead_size() const noexcept {return sizeof(Header) + sizeof(Footer) + preamble_length;}
+            bytes::size_type overhead_size() const noexcept {return sizeof(Header) + sizeof(Footer) + preamble_length;} //TODO deprecate
             bytes::size_type max_data_size() const noexcept {return _max_fragment_size - overhead_size();}
+            prealloc_size minimum_prealloc() const noexcept {return prealloc_size(sizeof(Header) + preamble_length, sizeof(Footer));}
             
             protected:
 
@@ -253,7 +260,12 @@ namespace sp
                                 if ((size_t)distance(fragment_start, write) + 1 >= fragment_size)
                                 {
                                     /* we have received the entire fragment, prepare it for parsing */
-                                    auto b = parsers::byte_copy(fragment_start, fragment_start + fragment_size);
+                                    //bytes b = parsers::byte_copy(fragment_start, fragment_start + fragment_size); //FIXME
+                                    auto fragment_end = fragment_start + fragment_size, it = fragment_start;
+                                    bytes b(distance(fragment_start, fragment_end));
+                                    for (uint pos = 0; pos < b.size() && it != fragment_end; ++it, ++pos)
+                                        b[pos] = *it;
+
                                     try
                                     {
                                         /* attempt the parsing */
@@ -331,9 +343,9 @@ namespace sp
                     p.data().begin() + parent::preamble_length, p.data().end()
                 )));
 #ifdef SP_BUFFERED_DEBUG
-                std::cout << "serialize_fragment returning: " << b << std::endl;
+                std::cout << "serialize_fragment returning: " << p.data() << std::endl;
 #endif
-                return b;
+                return p.data();
             }
 
             buffered_interface::circular_iterator _read;

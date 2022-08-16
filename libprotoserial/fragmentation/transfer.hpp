@@ -86,8 +86,7 @@ namespace sp
         /* constructor used when the fragmentation_handler receives the first piece of the transfer */
         template<class Header>
         transfer(interface_identifier iid, const Header & h) :
-            transfer_metadata(0, 0, iid, clock::now(), h.get_id(), h.get_prev_id()),
-            transfer_data(h.fragments_total()) {}
+            transfer_metadata(0, 0, iid, clock::now(), h.get_id(), h.get_prev_id()) {}
 
         transfer(interface_identifier iid, id_type prev_id = 0):
             transfer_metadata(0, 0, iid, clock::now(), global_id_factory.new_id(iid), prev_id) {}

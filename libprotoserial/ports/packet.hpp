@@ -62,19 +62,16 @@ namespace sp
         port_type _src_port, _dst_port;
     };
 
-    struct packet : public packet_metadata, public transfer_data
+    struct packet : public transfer, public packet_metadata
     {
         packet(transfer && t, port_type src_port = 0, port_type dst_port = 0) :
-            packet_metadata(t.source(), t.destination(), t.interface_id(), t.timestamp_creation(),
-            t.get_id(), t.get_prev_id(), src_port, dst_port), transfer_data(std::move(t)) {}
+            transfer(std::move(t)), packet_metadata(t.source(), t.destination(), t.interface_id(), 
+            t.timestamp_creation(), t.get_id(), t.get_prev_id(), src_port, dst_port) {}
         
         packet(transfer && t, const headers::ports_8b & h) :
             packet(std::move(t), h.source, h.destination) {}
 
-        packet(packet_metadata && metadata, transfer_data && data = transfer_data()):
-            packet_metadata(std::move(metadata)), transfer_data(std::move(data)) {}
-
-        transfer to_transfer() {return transfer(std::move(*this), std::move(*this));}
+        transfer to_transfer() {return transfer(std::move(*this));}
     };
 
 }

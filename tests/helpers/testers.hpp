@@ -29,7 +29,7 @@ uint test_interface(sp::interface & interface, uint loops, function<sp::bytes(vo
 #endif
         tmp.reset(new sp::fragment(addr_gen(), data_gen()));
         
-        interface.write(sp::fragment(*tmp));
+        interface.transmit(sp::fragment(*tmp));
 
         for (int j = 0; j < 3; j++)
             interface.main_task();
@@ -50,7 +50,7 @@ uint test_handler(sp::interface & interface, sp::fragmentation_handler & handler
 #ifdef SP_FRAGMENTATION_DEBUG
         cout << "receive_event: " << t << endl;
 #endif
-        auto b = t.data_contiguous();
+        auto b = t.data();
         tmp = get<0>(check[t.get_id()]);
         get<1>(check[t.get_id()])++;
         EXPECT_TRUE(tmp == b) << "loop: " << i << "\nORIG: " << tmp << "\nGOT:  " << t << endl;
@@ -64,7 +64,7 @@ uint test_handler(sp::interface & interface, sp::fragmentation_handler & handler
     {        
         sp::transfer t(interface.interface_id());
         check[t.get_id()] = tuple(data_gen(), 0);
-        t.push_back(sp::bytes(get<0>(check[t.get_id()])));
+        t.data().push_back(sp::bytes(get<0>(check[t.get_id()])));
         t.set_destination(addr_gen());
         handler.transmit(t);
 

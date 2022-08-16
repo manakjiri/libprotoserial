@@ -81,23 +81,23 @@ namespace sp
             {
                 /* Header */
                 p.data().push_front(to_bytes(Header(p)));
+                /* swap the dst and the src address, this obviously 
+                only works with the 8b8b Header */
+                auto tmp = p.data()[0];
+                p.data()[0] = p.data()[1];
+                p.data()[1] = tmp;
                 /* preamble */
                 auto pr = bytes(parent::preamble_length);
                 pr.set(parent::preamble);
                 p.data().push_front(pr);
                 /* Footer */
-                /* swap the dst and the src address, this obviously 
-                only works with the 8b8b Header */
-                auto tmp = b[2];
-                b[2] = b[3];
-                b[3] = tmp;
                 p.data().push_back(to_bytes(Footer(
                     p.data().begin() + parent::preamble_length, p.data().end()
                 )));
 #ifdef SP_LOOPBACK_DEBUG
                 std::cout << "serialize_fragment returning: " << b << std::endl;
 #endif
-                return b;
+                return p.data();
             }
 
             private:

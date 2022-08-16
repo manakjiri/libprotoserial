@@ -2,7 +2,7 @@
 #include <libprotoserial/interface.hpp>
 #include <libprotoserial/fragmentation.hpp>
 #include <libprotoserial/ports/packet.hpp>
-#include <libprotoserial/protostacks.hpp>
+//#include <libprotoserial/protostacks.hpp>
 
 #include "helpers/random.hpp"
 #include "helpers/testers.hpp"
@@ -16,7 +16,7 @@ using namespace std;
 using namespace std::chrono_literals;
 using namespace sp::literals;
 
-
+#define SP_LOOPBACK_DEBUG
 
 
 TEST(Bytes, Constructor) 
@@ -440,7 +440,7 @@ TEST(Interface, HeavilyCorruptedRandom)
 }
 
 
-TEST(Fragmentation, Transfer)
+/* TEST(Fragmentation, Transfer)
 {
     //sp::loopback_interface interface(0, 1, 10, 64, 256);
     const sp::bytes b1 = {10_BYTE, 11_BYTE, 12_BYTE, 13_BYTE, 14_BYTE}, b2 = {20_BYTE, 21_BYTE, 22_BYTE}, b3 = {30_BYTE, 31_BYTE}, b4 = {40_BYTE};
@@ -571,7 +571,7 @@ TEST(Ports, PacketConstructor)
     //EXPECT_EQ(t2.get_id(), 2);
     //EXPECT_EQ(t2.get_prev_id(), 1);
     EXPECT_EQ(t2.destination(), 10);
-}
+} */
 
 /* TEST(Ports, PortsPing)
 {

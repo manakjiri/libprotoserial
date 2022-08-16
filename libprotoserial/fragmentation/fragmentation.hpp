@@ -268,7 +268,7 @@ namespace sp
             
             inline data_type::iterator fragment_start(index_type pos)
             {
-                return data.begin() + ((pos - 1) * max_fragment_size);
+                return data().begin() + ((pos - 1) * max_fragment_size);
             }
         };
 
