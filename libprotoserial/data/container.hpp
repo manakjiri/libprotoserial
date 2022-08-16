@@ -19,12 +19,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/gpl.html>
  */
 
-/*
- * protocols need a byte container, which not only can reserve space in the back, but
- * also, perhaps more importantly, at the front of the data
- * 
- * 
- */
 
 #ifndef _SP_CONTAINER
 #define _SP_CONTAINER

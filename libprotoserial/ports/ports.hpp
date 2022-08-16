@@ -19,11 +19,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/gpl.html>
  */
 
-/* 
- * 
- * 
- * 
- */
 
 #ifndef _SP_PORTS_PORTS
 #define _SP_PORTS_PORTS

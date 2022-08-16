@@ -19,39 +19,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/gpl.html>
  */
 
-/* 
- * > We can build the fragment fragmentation logic on top of the interface, 
- * > this logic should have its own internal buffer for fragments received
- * > from events, because once the event fires, the fragment is forgotten on 
- * > the interface side to avoid the need for direct access to the interface's 
- * > RX queue.
- * 
- * fragmentation handler needs to implement basic congestion and flow control.
- * each handler manages only one interface, each interface can be connected to
- * multiple different interfaces with different addresses, so it would be beneficial
- * to broadcast the state information to share it with everybody, but in terms
- * of total overhead this may not be the best solution (since we are sending
- * data that aims to prevent congestion...)
- * 
- * in order for this to be useful, the information needs to be up-to-date,
- * so perhaps the most logical solution would be to embed it into the data
- * itself. Perhaps a single additional byte in the fragmentation header
- * might be sufficient to convey enough information about the receiver's state
- * 
- * handler should store the following information about peers
- * - current holdoff times and capacity estimates
- * 
- * the status value should reflect the receiver's available capacity either 
- * in absolute terms (which I do not find appealing) or using increase/decrease
- * signaling - there will be other factors that collectively influence the 
- * rate of transmition. Reason why I think absolute would not work is because 
- * these systems are not necessarily linear.
- * 
- * 
- * 
- * 
- */
-
 
 #ifndef _SP_FRAGMENTATION_HANDLER
 #define _SP_FRAGMENTATION_HANDLER
