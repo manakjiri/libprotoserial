@@ -1,5 +1,7 @@
 //#define SP_LOOPBACK_DEBUG
 //#define SP_BUFFERED_DEBUG
+#define SP_BUFFERED_CRITICAL
+//#define SP_LOOPBACK_CRITICAL
 
 #include <libprotoserial/interface.hpp>
 #include <libprotoserial/fragmentation.hpp>

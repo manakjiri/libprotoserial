@@ -32,6 +32,9 @@
 #ifdef SP_LOOPBACK_DEBUG
 #define SP_LOOPBACK_WARNING
 #endif
+#ifdef SP_LOOPBACK_WARNING
+#define SP_LOOPBACK_CRITICAL
+#endif
 
 namespace sp
 {
@@ -57,12 +60,6 @@ namespace sp
             protected:
 
             bool can_transmit() noexcept {return true;}
-            void write_failed(std::exception & e) 
-            {
-#ifdef SP_LOOPBACK_WARNING
-                std::cout << "write_failed: " << e.what() << std::endl;
-#endif
-            }
 
             bool do_transmit(bytes && buff) noexcept 
             {
@@ -79,6 +76,14 @@ namespace sp
             do_transmit function */
             bytes serialize_fragment(fragment && p) const 
             {
+                /* check if the data() has enough capacity, we should never really get here //TODO consider removing */
+                if (p.data().capacity_back() < sizeof(Footer) || p.data().capacity_front() < sizeof(Header) + parent::preamble_length)
+                {
+#ifdef SP_LOOPBACK_CRITICAL
+                    std::cout << "inadequate fragment.data().capacity() in serialize_fragment: back " << p.data().capacity_back() << ", front " << p.data().capacity_front() << std::endl;
+#endif
+                    p.data().reserve(sizeof(Header) + parent::preamble_length, sizeof(Footer));
+                }
                 /* Header */
                 p.data().push_front(to_bytes(Header(p)));
                 /* swap the dst and the src address, this obviously 

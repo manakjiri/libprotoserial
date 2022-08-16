@@ -29,12 +29,15 @@
 #ifndef SP_NO_IOSTREAM
 //#define SP_BUFFERED_DEBUG
 //#define SP_BUFFERED_WARNING
+//#define SP_BUFFERED_CRITICAL
 #endif
 
 #ifdef SP_BUFFERED_DEBUG
 #define SP_BUFFERED_WARNING
 #endif
-
+#ifdef SP_BUFFERED_WARNING
+#define SP_BUFFERED_CRITICAL
+#endif
 
 namespace sp
 {
@@ -223,7 +226,7 @@ namespace sp
                 if (loaded >= rx_buffer_size())
                 {
                     _read = read = write;
-#ifdef SP_BUFFERED_WARNING
+#ifdef SP_BUFFERED_CRITICAL
                     std::cout << "do_receive: buffer overflow" << '\n';
 #endif               
                 }
@@ -258,19 +261,19 @@ namespace sp
                                 if ((size_t)distance(fragment_start, write) + 1 >= fragment_size)
                                 {
                                     /* we have received the entire fragment, prepare it for parsing */
-                                    //bytes b = parsers::byte_copy(fragment_start, fragment_start + fragment_size); //FIXME
+                                    //bytes b = parsers::byte_copy(fragment_start, fragment_start + fragment_size); //FIXME should be a function
                                     auto fragment_end = fragment_start + fragment_size, it = fragment_start;
                                     bytes b(distance(fragment_start, fragment_end));
                                     for (uint pos = 0; pos < b.size() && it != fragment_end; ++it, ++pos)
                                         b[pos] = *it;
 
-                                    try
-                                    {
-                                        /* attempt the parsing */
 #ifdef SP_BUFFERED_DEBUG
-                                        std::cout << "do_receive parse_fragment gets: " << b << std::endl;
+                                    std::cout << "do_receive parse_fragment gets: " << b << std::endl;
 #endif
-                                        put_received(std::move(parsers::parse_fragment<Header, Footer>(std::move(b), *this)));
+                                    /* attempt the parsing */
+                                    if (auto f = parsers::parse_fragment<Header, Footer>(std::move(b), *this))
+                                    {
+                                        put_received(std::move(*f));
                                         /* parsing succeeded, finally move the read pointer, we do not include the
                                         preamble length here because we don't necessarily know how long it was originally */
                                         _read = read + fragment_size;
@@ -278,12 +281,12 @@ namespace sp
                                         std::cout << "do_receive after parse" << std::endl;
 #endif
                                     }
-                                    catch(std::exception &e)
+                                    else
                                     {
                                         /* parsing failed, move by one because there is no need to try and parse this again */
                                         _read = read + 1;
 #ifdef SP_BUFFERED_WARNING
-                                        std::cout << "do_receive parse exception: " << e.what() << '\n';
+                                        std::cout << "do_receive parse failed" << std::endl;
 #endif
                                     }
                                     goto END;
@@ -330,6 +333,14 @@ namespace sp
 
             bytes serialize_fragment(fragment && p) const 
             {
+                /* check if the data() has enough capacity, we should never really get here //TODO consider removing */
+                if (p.data().capacity_back() < sizeof(Footer) || p.data().capacity_front() < sizeof(Header) + parent::preamble_length)
+                {
+#ifdef SP_BUFFERED_CRITICAL
+                    std::cout << "inadequate fragment.data().capacity() in serialize_fragment: back " << p.data().capacity_back() << ", front " << p.data().capacity_front() << std::endl;
+#endif
+                    p.data().reserve(sizeof(Header) + parent::preamble_length, sizeof(Footer));
+                }
                 /* Header */
                 p.data().push_front(to_bytes(Header(p)));
                 /* preamble */

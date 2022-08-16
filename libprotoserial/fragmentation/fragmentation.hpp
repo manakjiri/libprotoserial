@@ -35,7 +35,7 @@
 
 #ifndef SP_NO_IOSTREAM
 #include <iostream>
-/* it is hard to debug someting that happens every 100 transfers using 
+/* it is hard to debug something that happens every 100 transfers using 
  * debugger alone, these enable different levels of debug prints */
 //#define SP_FRAGMENTATION_DEBUG
 //#define SP_FRAGMENTATION_WARNING

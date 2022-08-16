@@ -24,38 +24,35 @@
 
 #include "libprotoserial/interface/buffered.hpp"
 
-#include <stdexcept>
+#include <optional>
 
 namespace sp
 {
     namespace parsers
     {
-        struct bad_checksum : std::exception {
-            const char * what () const throw () {return "bad_checksum";}
-        };
-
-        struct bad_size : std::exception {
-            const char * what () const throw () {return "bad_size";}
-        };
-
         template<typename header, typename footer>
-        fragment parse_fragment(bytes && buff, const interface & i)
+        std::optional<fragment> parse_fragment(bytes && buff, const interface & i)
         {
-            bytes b = buff;
             /* copy the header into the header struct */
             header h;
-            std::copy(b.begin(), b.begin() + sizeof(h), reinterpret_cast<byte*>(&h));
-            if (!h.is_valid(i.max_data_size())) throw bad_size();
+            std::copy(buff.begin(), buff.begin() + sizeof(h), reinterpret_cast<byte*>(&h));
+            
+            if (!h.is_valid(i.max_data_size()))
+                return std::nullopt;
+            
             /* copy the footer, shrink the container by the footer size and compute the checksum */
             footer f_parsed;
-            std::copy(b.end() - sizeof(footer), b.end(), reinterpret_cast<byte*>(&f_parsed));
-            b.shrink(0, sizeof(footer));
-            footer f_computed(b);
-            if (f_parsed.hash != f_computed.hash) throw bad_checksum();
+            std::copy(buff.end() - sizeof(footer), buff.end(), reinterpret_cast<byte*>(&f_parsed));
+            buff.shrink(0, sizeof(footer));
+            footer f_computed(buff);
+            
+            if (f_parsed.hash != f_computed.hash)
+                return std::nullopt;
+            
             /* shrink the container by the header and return the fragment object */
-            b.shrink(sizeof(h), 0);
+            buff.shrink(sizeof(h), 0);
             return fragment(interface::address_type(h.source), interface::address_type(h.destination), 
-                std::move(b), i.interface_id());
+                std::move(buff), i.interface_id());
         }
 
         /* find the value by incrementing start, if found returns true, false otherwise */
