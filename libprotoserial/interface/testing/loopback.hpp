@@ -95,7 +95,7 @@ namespace sp
                     p.data().begin() + parent::preamble_length, p.data().end()
                 )));
 #ifdef SP_LOOPBACK_DEBUG
-                std::cout << "serialize_fragment returning: " << b << std::endl;
+                std::cout << "serialize_fragment returning: " << p.data() << std::endl;
 #endif
                 return p.data();
             }

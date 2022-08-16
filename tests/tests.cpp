@@ -1,3 +1,5 @@
+//#define SP_LOOPBACK_DEBUG
+//#define SP_BUFFERED_DEBUG
 
 #include <libprotoserial/interface.hpp>
 #include <libprotoserial/fragmentation.hpp>
@@ -16,7 +18,6 @@ using namespace std;
 using namespace std::chrono_literals;
 using namespace sp::literals;
 
-#define SP_LOOPBACK_DEBUG
 
 
 TEST(Bytes, Constructor) 

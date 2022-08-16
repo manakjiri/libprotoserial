@@ -142,11 +142,19 @@ namespace sp
         
         void main_task() noexcept
         {
+            //TODO some reflection of the load on the interface should be done here and in the put_received function
+            /* here we have complete information about the interface - we can count the outgoing and incoming
+            bytes, track the frequency and various other factors. we could probably also figure out how often and 
+            how reliably this main_task function is called and gauge the system load */
+            
+            do_receive();
+
             /* if there is something in the queue, transmit it */
             if (!_tx_queue.empty() && can_transmit())
             {
                 if (do_transmit(std::move(_tx_queue.front().data)))
                 {
+                    /* fire the transmit_began_event as a confirmation to the upper layers */
                     transmit_began_event.emit(_tx_queue.front().id);
                     _tx_queue.pop();
                 }
@@ -173,9 +181,10 @@ namespace sp
         interface_identifier interface_id() const noexcept {return _interface_id;}
         address_type get_address() const noexcept {return _address;}
         address_type get_broadcast_address() const noexcept {return _broadcast_address;}
+        
         /* returns the maximum size of the data portion in a fragment, this is interface dependent */
         virtual bytes::size_type max_data_size() const noexcept = 0;
-        /* returns the prealloc size that, if used for the provided fragments to be transmitted, will
+        /* returns the prealloc size that, is used for the provided fragments to be transmitted, will
         enable copy-free push_back, push_front of the interface's footer and header */
         virtual prealloc_size minimum_prealloc() const noexcept = 0;
 
