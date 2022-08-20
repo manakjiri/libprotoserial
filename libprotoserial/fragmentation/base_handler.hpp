@@ -72,11 +72,11 @@ namespace sp::detail
             return std::find_if(_incoming_transfers.begin(), _incoming_transfers.end(), pred);
         }
 
-        Header make_header(message_types type, index_type fragment_pos, const transfer_handler<Header> & t)
+        inline Header make_header(message_types type, index_type fragment_pos, const transfer_handler<Header> & t) const
         {
             return Header(type, fragment_pos, t.fragments_count(), t.get_id(), t.get_prev_id(), 0);
         }
-        Header make_header(message_types type, const Header & h)
+        inline Header make_header(message_types type, const Header & h) const
         {
             return Header(type, h.fragment(), h.fragments_total(), h.get_id(), h.get_prev_id(), 0);
         }
@@ -88,7 +88,7 @@ namespace sp::detail
             return _interface->max_data_size() - sizeof(Header);
         }
 
-        
+
         void transmit_began_callback(object_id_type id)
         {
             auto pt = find_outgoing([id](const transfer_handler<Header> & tr){

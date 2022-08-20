@@ -19,6 +19,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/gpl.html>
  */
 
+#ifndef _SP_OBJECTID
+#define _SP_OBJECTID
+
 #include "libprotoserial/libconfig.hpp"
 #include "libprotoserial/data/container.hpp"
 
@@ -56,4 +59,4 @@ namespace sp
     };
 }
 
-
+#endif

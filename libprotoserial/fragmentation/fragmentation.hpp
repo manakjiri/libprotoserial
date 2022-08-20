@@ -65,20 +65,13 @@ namespace sp
         using id_type = transfer::id_type;
         using size_type = transfer::data_type::size_type;
         using address_type = transfer::address_type;
-        using rate_type = uint;
-
-        static constexpr clock::duration rate2duration(rate_type rate, size_t size)
-        {
-            /*                           s             =            B       /      B/s      */
-            return std::chrono::nanoseconds{std::chrono::seconds{size}} / (std::chrono::nanoseconds{std::chrono::seconds{rate}} / std::chrono::nanoseconds{std::chrono::seconds{1}});
-        }
 
         struct configuration
         {
             /* these are ballpark estimates of the allowable tx and rx rates in bytes per second */
-            uint tx_rate, rx_rate;
+            bit_rate tx_rate, rx_rate;
             /* this is the initial peer transmit rate */
-            uint peer_rate;
+            bit_rate peer_rate;
 
             /* thresholds of the rx buffer levels (interface::status.free_receive_buffer) in bytes
             these influence our_status, frb_poor is the threshold where the status returns rx_poor() == true,
@@ -106,7 +99,7 @@ namespace sp
             clock::duration minimum_incoming_hold_time;
 
             /* this tries to set good default values */
-            constexpr configuration(const interface & i, uint rate, size_type rx_buffer_size)
+            constexpr configuration(const interface & i, bit_rate rate, size_type rx_buffer_size)
             {
                 tx_rate = rx_rate = rate;
                 peer_rate = tx_rate / 5;
@@ -115,7 +108,7 @@ namespace sp
                 //max_fragment_data_size = i.max_data_size();
                 
                 inactivity_timeout_multiplier = 5;
-                minimum_incoming_hold_time = rate2duration(peer_rate, rx_buffer_size);
+                minimum_incoming_hold_time = peer_rate.bit_period() * rx_buffer_size;
                 tr_decrease = 2;
                 //tr_increase = max_fragment_data_size / 10;
 

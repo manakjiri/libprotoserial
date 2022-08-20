@@ -3,6 +3,7 @@
 #define SP_BUFFERED_CRITICAL
 //#define SP_LOOPBACK_CRITICAL
 
+#include <libprotoserial/utils/bit_rate.hpp>
 #include <libprotoserial/interface.hpp>
 #include <libprotoserial/fragmentation.hpp>
 #include <libprotoserial/fragmentation/base_handler.hpp>
@@ -344,6 +345,20 @@ TEST(Bytes, Shrink)
 
 
 
+
+
+
+TEST(Utils, BitRate)
+{
+    sp::bit_rate rate0;
+    EXPECT_EQ(rate0, 0);
+
+    sp::bit_rate rate1000(1000);
+    EXPECT_EQ(rate1000, 1000);
+    EXPECT_EQ(rate1000.bit_period(), 1ms);
+
+    EXPECT_EQ(rate1000 + rate1000, 2000);
+}
 
 
 
