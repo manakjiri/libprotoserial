@@ -39,17 +39,28 @@
  * debugger alone, these enable different levels of debug prints */
 //#define SP_FRAGMENTATION_DEBUG
 //#define SP_FRAGMENTATION_WARNING
+
 #ifdef SP_FRAGMENTATION_DEBUG
 #define SP_FRAGMENTATION_WARNING
 #endif
 #endif
 
 
-
 namespace sp
 {
-    struct fragmentation_handler
+
+    template<typename T>
+    static constexpr void limit(const T & min, T & val, const T & max)
     {
+        if (val > max) val = max;
+        else if (val < min) val = min;
+    }
+
+
+    /* this is the base class for all fragmentation handlers */
+    class fragmentation_handler
+    {
+        public:
         using index_type = transfer::index_type;
         using id_type = transfer::id_type;
         using size_type = transfer::data_type::size_type;
@@ -60,13 +71,6 @@ namespace sp
         {
             /*                           s             =            B       /      B/s      */
             return std::chrono::nanoseconds{std::chrono::seconds{size}} / (std::chrono::nanoseconds{std::chrono::seconds{rate}} / std::chrono::nanoseconds{std::chrono::seconds{1}});
-        }
-
-        template<typename T>
-        static constexpr void limit(const T & min, T & val, const T & max)
-        {
-            if (val > max) val = max;
-            else if (val < min) val = min;
         }
 
         struct configuration
@@ -120,8 +124,6 @@ namespace sp
             }
         };
 
-        public:
-
         fragmentation_handler(interface * i, configuration config, prealloc_size prealloc) :
             _config(std::move(config)), _interface(i) {}
 
@@ -148,96 +150,6 @@ namespace sp
         protected:
 
         virtual void transmit_began_callback(object_id_type id) {}
-        template<typename Header>
-        struct transfer_handler : public transfer
-        {
-            /* receive constructor, f is the first fragment of the transfer (maximum fragment size is derived
-            from this fragment's size)
-            note that this cannot infer the actual size of the final transfer based on this fragment (unless this
-            is the last one as well), so a worst-case scenario is assumed (fragments_total * max_fragment_size) 
-            and the internal data() container will get resized in the put_fragment function when the last fragment 
-            is received */
-            transfer_handler(fragment && f, const Header & h) : 
-                transfer(transfer_metadata(f.source(), f.destination(), f.interface_id(), f.timestamp_creation(), h.get_id(), 
-                h.get_prev_id()), std::move(f.data())), max_fragment_size(f.data().size()), fragments_total(h.fragments_total())
-            {
-                /* reserve space for up to fragments_total fragments. There is no need to regard prealloc_size since this 
-                is the receive constructor. fragments_total is always >= 1, so this works for all cases, expand does nothing 
-                for arguments (0, 0) */
-                data().expand(0, (fragments_total - 1) * max_fragment_size);
-            }
-
-            /* transmit constructor, max_fragment_size is the maximum fragment data size excluding the fragmentation header */
-            transfer_handler(transfer && t, size_type max_fragment_size) : 
-                transfer(std::move(t)), max_fragment_size(max_fragment_size), fragments_total(0)
-            {
-                auto size = data().size();
-                /* calculate the fragments_total count correctly, ie. assume max = 4, then
-                for size = 2 -> total = 1, size = 4 -> total = 1 but size = 5 -> total = 2 */
-                fragments_total = size / max_fragment_size + (size % max_fragment_size == 0 ? 0 : 1);
-            }
-
-            /* returns the fragment's data size, this does not include the Header,
-            use only when constructed using the transmit constructor */
-            size_type fragment_size(index_type pos)
-            {
-                pos -= 1;
-                if (pos >= fragments_total)
-                    return 0;
-                
-                auto start = pos * max_fragment_size;
-                auto end = std::min(start + max_fragment_size, data().size());
-                return end - start;
-            }
-
-            /* returns a fragment containing the correct metadata with data copied from pos of the transfer,
-            the data does not contain handler's header! it does however have enough prealloc for it plus
-            the requested prealloc. Just use fragment.data().push_front(header_bytes) to add the header */
-            fragment get_fragment(index_type pos, const prealloc_size & alloc)
-            {
-                auto data_size = fragment_size(pos);
-                if (data_size == 0)
-                    return fragment();
-                
-                bytes data = alloc.create(sizeof(Header), data_size, 0);
-                auto start = fragment_start(pos);
-
-                std::copy(start, start + data_size, data.begin());
-                return fragment(std::move(get_fragment_metadata()), std::move(data));
-            }
-
-            /* this function assumes that this was created using the receive constructor, it only 
-            concernes itself with the fragment's data, not its metadata. */
-            bool put_fragment(index_type pos, const fragment & f)
-            {
-                auto expected_max_size = fragment_size(pos);
-                if (f.data().size() > expected_max_size)
-                    return false;
-            
-                auto start = fragment_start(pos);
-                std::copy(f.data().begin(), f.data().end(), start);
-
-                /* resize the data() so it reflects the actual size now that we have received
-                the last fragment, more on that in the receive constructor comment */
-                if (pos == fragments_total)
-                    data().shrink(0, expected_max_size - f.data().size());
-
-                return true;
-            }
-
-            /* maximum fragment data size excluding the fragmentation header,
-            max_fragment_size * fragments_total >= data().size() should always hold */
-            size_type max_fragment_size;
-            /* max_fragment_size * fragments_total >= data().size() should always hold */
-            index_type fragments_total;
-
-            protected:
-            
-            inline data_type::iterator fragment_start(index_type pos)
-            {
-                return data().begin() + ((pos - 1) * max_fragment_size);
-            }
-        };
 
         configuration _config;
         prealloc_size _prealloc;

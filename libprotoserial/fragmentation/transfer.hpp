@@ -36,6 +36,7 @@ namespace sp
         /* as with interface::address_type this is a type that can hold all used 
         fragmentation_handler::id_type types */
         using id_type = uint8_t;
+        /* index of a fragment within a transfer, starts with 1, index 0 signals invalid index */
         using index_type = uint8_t;
 
         transfer_metadata(address_type src, address_type dst, interface_identifier iid, 
