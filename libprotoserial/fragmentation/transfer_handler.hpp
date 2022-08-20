@@ -37,7 +37,6 @@ namespace sp
         class transfer_handler : public transfer
         {
             public:
-            using message_types = typename Header::message_types;
 
             enum class state
             {
@@ -69,7 +68,7 @@ namespace sp
             }
 
             /* transmit constructor, max_fragment_size is the maximum fragment data size excluding the fragmentation header */
-            transfer_handler(transfer && t, size_type max_fragment_size) : 
+            transfer_handler(transfer && t, data_type::size_type max_fragment_size) : 
                 transfer(std::move(t)), max_fragment_size(max_fragment_size), fragments_total(0),
                 current_fragment(0), sent_at(never()), transfer_state(state::NEW)
             {
@@ -83,7 +82,7 @@ namespace sp
 
             /* returns the fragment's data size, this does not include the Header,
             use only when constructed using the transmit constructor */
-            size_type fragment_size(index_type pos)
+            data_type::size_type fragment_size(index_type pos)
             {
                 pos -= 1;
                 if (pos >= fragments_total)

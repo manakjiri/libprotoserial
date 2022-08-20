@@ -67,7 +67,7 @@ namespace sp
         using address_type = transfer::address_type;
         using rate_type = uint;
 
-        static clock::duration rate2duration(rate_type rate, size_t size)
+        static constexpr clock::duration rate2duration(rate_type rate, size_t size)
         {
             /*                           s             =            B       /      B/s      */
             return std::chrono::nanoseconds{std::chrono::seconds{size}} / (std::chrono::nanoseconds{std::chrono::seconds{rate}} / std::chrono::nanoseconds{std::chrono::seconds{1}});
@@ -106,7 +106,7 @@ namespace sp
             clock::duration minimum_incoming_hold_time;
 
             /* this tries to set good default values */
-            configuration(const interface & i, uint rate, size_type rx_buffer_size)
+            constexpr configuration(const interface & i, uint rate, size_type rx_buffer_size)
             {
                 tx_rate = rx_rate = rate;
                 peer_rate = tx_rate / 5;

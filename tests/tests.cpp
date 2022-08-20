@@ -5,6 +5,7 @@
 
 #include <libprotoserial/interface.hpp>
 #include <libprotoserial/fragmentation.hpp>
+#include <libprotoserial/fragmentation/base_handler.hpp>
 #include <libprotoserial/ports/packet.hpp>
 //#include <libprotoserial/protostacks.hpp>
 
