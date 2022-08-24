@@ -36,6 +36,10 @@ namespace sp
         constexpr bit_rate(unit_type rate) noexcept :
             _rate(rate) {}
 
+        /* implicit converting constructor for simple usage */
+        constexpr bit_rate(int rate) noexcept :
+            bit_rate(static_cast<unit_type>(rate)) {}
+
         constexpr bit_rate() noexcept :
             bit_rate(0) {}
 

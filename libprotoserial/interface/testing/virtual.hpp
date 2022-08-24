@@ -25,6 +25,7 @@
 #include "libprotoserial/interface/buffered.hpp"
 
 #include <queue>
+#include <optional>
 
 namespace sp
 {
@@ -57,6 +58,15 @@ namespace sp
                 }
                 else
                     return bytes();
+            }
+
+            std::optional<sp::bytes> process_and_get_serialized()
+            {
+                this->main_task();
+                if (has_serialized())
+                    return get_serialized();
+
+                return std::nullopt;
             }
 
             void put_serialized(bytes && data)

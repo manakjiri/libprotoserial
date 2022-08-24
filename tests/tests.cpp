@@ -12,9 +12,11 @@
 
 #include "helpers/random.hpp"
 #include "helpers/testers.hpp"
+#include "helpers/simulation.hpp"
 
 #include <map>
 #include <tuple>
+#include <atomic>
 
 #include "gtest/gtest.h"
 
@@ -358,6 +360,9 @@ TEST(Utils, BitRate)
     EXPECT_EQ(rate1000.bit_period(), 1ms);
 
     EXPECT_EQ(rate1000 + rate1000, 2000);
+
+    sp::bit_rate rate25000(25000);
+    EXPECT_EQ(rate25000.bit_period(), 40us) << "sub-millisecond clock";
 }
 
 
@@ -454,6 +459,57 @@ TEST(Interface, HeavilyCorruptedRandom)
 
     EXPECT_TRUE(test_interface(interface, 10000, data, addr) > 0);
 }
+
+
+TEST(Interface, SimpleSim)
+{
+    sim::fullduplex<2> wire(9600);
+    sp::virtual_interface interface1(0, 1, 255, 10, 256, 1024), interface2(1, 2, 255, 10, 256, 1024);
+    int i1_receive = 0, i2_receive = 0;
+
+    /* interface raw byte receive */
+    wire.receive_events.at(0).subscribe([&interface1](sp::byte b){
+        interface1.put_single_serialized(b);
+    });
+    wire.receive_events.at(1).subscribe([&interface2](sp::byte b){
+        interface2.put_single_serialized(b);
+    });
+    
+    /* spinup the main task interface threads - these simulate the device context */
+    sim::loop_thread th1([&](){
+        this_thread::sleep_for(1ms);
+        if (auto b = interface1.process_and_get_serialized())
+            wire.put(interface1.interface_id().instance, std::move(*b));
+    });
+    sim::loop_thread th2([&](){
+        this_thread::sleep_for(1ms);
+        if (auto b = interface2.process_and_get_serialized())
+            wire.put(interface2.interface_id().instance, std::move(*b));
+    });
+
+    /* interface finished fragment receive event */
+    interface1.receive_event.subscribe([&](sp::fragment f){
+        cout << "i" << interface1.interface_id() << ": " << f << endl;
+        ++i1_receive;
+    });
+    interface2.receive_event.subscribe([&](sp::fragment f){
+        cout << "i" << interface2.interface_id() << ": " << f << endl;
+        ++i2_receive;
+    });
+
+    /* test transmits */
+    interface1.transmit(sp::fragment(2, random_bytes(2)));
+    interface1.transmit(sp::fragment(2, random_bytes(4)));
+    interface2.transmit(sp::fragment(1, random_bytes(3)));
+
+    this_thread::sleep_for(300ms);
+    EXPECT_EQ(i1_receive, 1);
+    EXPECT_EQ(i2_receive, 2);
+}
+
+
+
+
 
 
 /* TEST(Fragmentation, Transfer)
