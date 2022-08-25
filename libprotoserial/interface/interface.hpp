@@ -55,7 +55,7 @@ namespace sp
          * - max_queue_size sets the maximum number of fragments the transmit queue can hold
          */
         interface(interface_identifier iid, address_type address, address_type broadcast_address, uint max_queue_size) : 
-            _max_queue_size(max_queue_size), _interface_id(iid), _address(address), _broadcast_address(broadcast_address) {}
+            _bytes_txed(0), _bytes_rxed(0), _max_queue_size(max_queue_size), _interface_id(iid), _address(address), _broadcast_address(broadcast_address) {}
 
         virtual ~interface() {}
         
@@ -71,12 +71,17 @@ namespace sp
             /* if there is something in the queue, transmit it */
             if (!_tx_queue.empty() && can_transmit())
             {
-                if (do_transmit(std::move(_tx_queue.front().data)))
+                auto & serialized = _tx_queue.front();
+                /* increment the TXed counter */
+                _bytes_txed += serialized.data.size();
+                /* if the transmit fails, the data is lost, since we've moved it out
+                this should never happen since the specification states that can_transmit must be honored */
+                if (do_transmit(std::move(serialized.data)))
                 {
                     /* fire the transmit_began_event as a confirmation to the upper layers */
-                    transmit_began_event.emit(_tx_queue.front().id);
-                    _tx_queue.pop();
+                    transmit_began_event.emit(serialized.id);
                 }
+                _tx_queue.pop();
             }
         }
 
@@ -100,6 +105,11 @@ namespace sp
         interface_identifier interface_id() const noexcept {return _interface_id;}
         address_type get_address() const noexcept {return _address;}
         address_type get_broadcast_address() const noexcept {return _broadcast_address;}
+
+        /* counter of the total number of received bytes over the lifetime of the interface */
+        uint64_t get_received_count() const noexcept {return _bytes_rxed;}
+        /* counter of the total number of transmitted bytes over the lifetime of the interface */
+        uint64_t get_transmitted_count() const noexcept {return _bytes_txed;}
         
         /* returns the maximum size of the data portion in a fragment, this is interface dependent */
         virtual bytes::size_type max_data_size() const noexcept = 0;
@@ -147,9 +157,17 @@ namespace sp
                 other_receive_event.emit(std::move(p));
         }
 
+        /* call this function every time some data is received,
+        this is here for statistics and flow control */
+        void log_received_count(bytes::size_type size)
+        {
+            _bytes_rxed += size;
+        }
+
         private:
 
         std::queue<serialized> _tx_queue;
+        uint64_t _bytes_txed, _bytes_rxed;
         uint _max_queue_size;
         interface_identifier _interface_id;
         address_type _address, _broadcast_address;

@@ -221,6 +221,8 @@ namespace sp
                 uint loaded = _last_byte_count <= _byte_count ? (_byte_count - _last_byte_count) : 
                     (UINT_MAX - _last_byte_count + _byte_count >= rx_buffer_size());
                 _last_byte_count = _byte_count;
+                /* log the calculated amount */
+                log_received_count(loaded);
                 /* rx_buffer may have overflowed since the last call, so our _read does not point
                 where the rest of the parser assumes */
                 if (loaded >= rx_buffer_size())
