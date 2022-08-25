@@ -41,3 +41,17 @@ Let's think again... Some interfaces are, as we said, easier to handle, like USB
 For something like a uart it may be best to have some contiguous static buffer that we use as a ring buffer - here the isr is really simple, it just puts each byte it receives into the buffer and increments an index and handles the index wrap. 
 
 It may be best to introduce a start sequence into the fragments, something like 0x5555 or whatever, which we use to lookup the start of the fragment in this large array sort of efficiently. How to handle the wrap?
+
+## estimating the interface load
+
+- 100% load will occur when the interface spends all of its time sending/receiving bytes
+- for receive we can observe the ring buffer - every time we enter the do_receive function we can look at the amount of bytes the buffer accumulated since the last call of the function
+- for transmit we can simply count bytes we are about to transmit
+
+how do we express this load?
+- something per second is an extremely slowly updating metric
+    - what about /100ms?, /10ms slots?
+- rolling average should be quite representative
+- raw bytes received/transmitted should definitely be available
+    - perhaps a good start, you can figure out a lot from this
+    - lets say 1MB/s for a year is 1M*365*24*3600 = 31536*10^9 = 3.1536*10^13, uint32 is ~4.29*10^9, uint64 is ~1,84e19 - that should do it

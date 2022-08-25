@@ -3,7 +3,7 @@
 
 ## Initial thoughts
 
-We can build the fragment fragmentation logic on top of the interface,this logic should have its own internal buffer for fragments received from events, because once the event fires, the fragment is forgotten on the interface side to avoid the need for direct access to the interface's RX queue.
+We can build the fragment fragmentation logic on top of the interface, this logic should have its own internal buffer for fragments received from events, because once the event fires, the fragment is forgotten on the interface side to avoid the need for direct access to the interface's RX queue.
 
 fragmentation handler needs to implement basic congestion and flow control. each handler manages only one interface, each interface can be connected to multiple different interfaces with different addresses, so it would be beneficial to broadcast the state information to share it with everybody, but in terms of total overhead this may not be the best solution (since we are sending data that aims to prevent congestion...)
 
@@ -37,13 +37,13 @@ the status value should reflect the receiver's available capacity either in abso
 1. transmit_transfer zařadila transfer do fronty, jeho stav je NEW, current = 0
 2. stav NEW nebo NEXT, ale není RETRY, incrementuj current. V každém případě odešli current fragment, stav WAITING
 3. stav WAITING 
-    - přišla konfirmace odeslání, nastav stav na SENT a začni měřit čas
-    - konfirmace selhala (interface odmítnul fragment), celý transfer se zahazuje
+  - přišla konfirmace odeslání, nastav stav na SENT a začni měřit čas
+  - konfirmace selhala (interface odmítnul fragment), celý transfer se zahazuje
 4. stav SENT
-    - current je hraniční nebo retransmit_count > 0
-    - přišel ACK fragment, ulož změřený rtt a nastav stav na NEXT nebo DONE, kde generujeme ack pro odesílatele a zahazujeme transfer
-    - přišel REQ fragment, poslední je v tom případě v pořádku a chybí některý z hlavních, nastaven stav RETRY a current na požadovaný fragment, retransmit_count++
-    - timeout přijetí ACK nebo REQ, nastav stav na RETRY (zde se může stát, že máme timeout moc striktní a ACK přijde o něco později, v takovém případě musíme prudce relaxovat tento timeout)
+  - current je hraniční nebo retransmit_count > 0
+  - přišel ACK fragment, ulož změřený rtt a nastav stav na NEXT nebo DONE, kde generujeme ack pro odesílatele a zahazujeme transfer
+  - přišel REQ fragment, poslední je v tom případě v pořádku a chybí některý z hlavních, nastaven stav RETRY a current na požadovaný fragment, retransmit_count++
+  - timeout přijetí ACK nebo REQ, nastav stav na RETRY (zde se může stát, že máme timeout moc striktní a ACK přijde o něco později, v takovém případě musíme prudce relaxovat tento timeout)
   - je hlavní a uplynulo dostatek času od odeslání, stav NEXT
 
 ## kroky přijímaní transferu
@@ -53,7 +53,16 @@ the status value should reflect the receiver's available capacity either in abso
 4. stav DONE a expirace drop period, zahozen celý transfer (držíme pro případ ztráty posledního)
 
 
+## transmit priority ordering
 
+the previous implementation suffered from a load balancing problem, where it treated transfers completely independently. We need a way to order currently outgoing transfers withing the fragmentation handler in terms of "transmit priority". This should be a single metric that gives priority to certain transfers while pushing back others to prevent interface overload. 
 
-
+Metrics that should play a role
+1. how close is this transfer to completion - we need to prioritize transfers that are almost finished and hold back transfers that haven't gone out yet
+  - the handler should attempt to minimize the number of transfers in progress (states NEXT, RETRY, WAITING and SENT)
+2. transfers that fit into a single fragment
+  - these carry little overhead - just one transmit and one ACK if everything goes smoothly
+  - it is also likely that small transfers carry timely data as opposed by the long ones
+3. time since the last transmit
+  - we need a push for transfers that are otherwise low priority (ie. long ones near the beginning)
 

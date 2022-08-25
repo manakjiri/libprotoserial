@@ -130,16 +130,16 @@ namespace sp
                 return true;
             }
 
+            /* timestamp of the last transmit */
+            clock::time_point sent_at;
             /* maximum fragment data size excluding the fragmentation header,
             max_fragment_size * fragments_total >= data().size() should always hold */
             data_type::size_type max_fragment_size;
             /* max_fragment_size * fragments_total >= data().size() should always hold */
             index_type fragments_total;
-            /* timestamp of the last transmit */
+            /* index of the fragment to be transmitted, 0 is invalid, ranges from 1 to fragments_total */
             index_type current_fragment;
             /* state of the transmission/reception process */
-            clock::time_point sent_at;
-            /* index of the fragment to be transmitted, 0 is invalid, ranges from 1 to fragments_total */
             state transfer_state;
 
             protected:

@@ -33,13 +33,15 @@ namespace sp
     struct interface_identifier
     {
         using instance_type = std::uint8_t;
-        enum identifier_type : std::uint8_t
+        enum class identifier_type : std::uint8_t
         {
             NONE,
             VIRTUAL,
             LOOPBACK,
             UART,
         };
+
+        using enum identifier_type;
 
         constexpr interface_identifier(identifier_type id, instance_type inst) :
             identifier(id), instance(inst) {}

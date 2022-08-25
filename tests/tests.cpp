@@ -465,7 +465,7 @@ TEST(Interface, SimpleSim)
 {
     sim::fullduplex<2> wire(9600);
     sp::virtual_interface interface1(0, 1, 255, 10, 256, 1024), interface2(1, 2, 255, 10, 256, 1024);
-    int i1_receive = 0, i2_receive = 0;
+    std::atomic<int> i1_receive = 0, i2_receive = 0;
 
     /* interface raw byte receive */
     wire.receive_events.at(0).subscribe([&interface1](sp::byte b){
@@ -510,53 +510,21 @@ TEST(Interface, SimpleSim)
 
 
 
-
+//TODO formalize the behaviour and add tests for fragment and transfer objects
 
 /* TEST(Fragmentation, Transfer)
 {
     //sp::loopback_interface interface(0, 1, 10, 64, 256);
     const sp::bytes b1 = {10_BYTE, 11_BYTE, 12_BYTE, 13_BYTE, 14_BYTE}, b2 = {20_BYTE, 21_BYTE, 22_BYTE}, b3 = {30_BYTE, 31_BYTE}, b4 = {40_BYTE};
-    sp::stack::loopback lo(0, 1);
-    
-    // MODE 1
-    sp::headers::fragment_8b8b h(sp::headers::fragment_8b8b::message_types::FRAGMENT, 0, 4, 1, 0, 0);
-    sp::transfer p(lo.interface.interface_id(), h);
+    sp::interface_identifier iid(sp::interface_identifier::NONE, 0);
 
-    sp::bytes bc;
-    sp::bytes::size_type i;
-
-    p._assign(2, sp::fragment(2, 3, sp::bytes(b1), lo.interface.interface_id()));
-    bc = b1; i = 0;
-    for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
-        EXPECT_TRUE(bc[i] == *it) << "b1 index " << i << ": " << (int)bc[i] << " == " << (int)*it;
-    EXPECT_EQ(i, bc.size());
-
-    p._assign(4, sp::fragment(2, 3, sp::bytes(b2), lo.interface.interface_id()));
-    bc = b1 + b2; i = 0;
-    for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
-        EXPECT_TRUE(bc[i] == *it) << "b1 + b2 index " << i << ": " << (int)bc[i] << " == " << (int)*it;
-    EXPECT_EQ(i, bc.size());
-
-    p._assign(1, sp::fragment(2, 3, sp::bytes(b3), lo.interface.interface_id()));
-    bc = b3 + b1 + b2; i = 0;
-    for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
-        EXPECT_TRUE(bc[i] == *it) << "b3 + b1 + b2 index " << i << ": " << (int)bc[i] << " == " << (int)*it;
-    EXPECT_EQ(i, bc.size());
-
-    p._assign(3, sp::fragment(2, 3, sp::bytes(b4), lo.interface.interface_id()));
-    bc = b3 + b1 + b4 + b2; i = 0;
-    for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
-        EXPECT_TRUE(bc[i] == *it) << "b3 + b1 + b4 + b2 index " << i << ": " << (int)bc[i] << " == " << (int)*it;
-    EXPECT_EQ(i, bc.size());
+} */
 
 
-    //MODE2
-    //auto t = handler.new_transfer();
-    //EXPECT_EQ()
-    //TODO
-}
 
-TEST(Fragmentation, UnalteredRandom)
+
+
+/*TEST(Fragmentation, UnalteredRandom)
 {
     sp::stack::loopback lo(0, 1);
 
