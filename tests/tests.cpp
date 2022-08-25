@@ -509,16 +509,44 @@ TEST(Interface, SimpleSim)
 
 
 
-
-//TODO formalize the behaviour and add tests for fragment and transfer objects
-
-/* TEST(Fragmentation, Transfer)
+TEST(Fragmentation, Headers)
 {
+    //TODO you can create a template class that takes the header type and its limits and does the testing
+}
+
+//TODO formalize the behaviour and add better tests for fragment and transfer objects
+
+TEST(Fragmentation, TransferHandler)
+{
+    using th = sp::detail::transfer_handler<sp::headers::fragment_8b8b>;
+
     //sp::loopback_interface interface(0, 1, 10, 64, 256);
     const sp::bytes b1 = {10_BYTE, 11_BYTE, 12_BYTE, 13_BYTE, 14_BYTE}, b2 = {20_BYTE, 21_BYTE, 22_BYTE}, b3 = {30_BYTE, 31_BYTE}, b4 = {40_BYTE};
     sp::interface_identifier iid(sp::interface_identifier::NONE, 0);
 
-} */
+    th::header_type header(th::header_type::message_types::FRAGMENT, 1, 1, 0, 0, 0);
+    sp::fragment f(1, b1);
+    th tr_rx(std::move(f), header);
+
+    EXPECT_TRUE(tr_rx.data() == b1);
+    EXPECT_EQ(tr_rx.fragments_total, 1);
+    EXPECT_EQ(tr_rx.max_fragment_size, b1.size());
+    EXPECT_EQ(tr_rx.fragment_size(1), b1.size());
+
+    /* put should fail because of the tr_rx.max_fragment_size, data should be left untouched */
+    EXPECT_EQ(tr_rx.put_fragment(2, f), false);
+    EXPECT_TRUE(tr_rx.data() == b1);
+    
+    
+    /* th tr_tx(sp::transfer());
+    
+    sp::prealloc_size ps(2, 3);
+    auto f1 = *tr_tx.get_fragment(1, ps);
+    EXPECT_TRUE(f1.data() == b1);
+    EXPECT_TRUE(f1.data().capacity_front() >= 2 + sizeof(th::header_type));
+    EXPECT_TRUE(f1.data().capacity_back() >= 3); */
+
+}
 
 
 

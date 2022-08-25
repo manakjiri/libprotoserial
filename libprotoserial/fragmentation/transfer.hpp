@@ -44,6 +44,10 @@ namespace sp
                 fragment_metadata(src, dst, iid, timestamp_creation), _id(id), 
                 _prev_id(prev_id) {}
 
+        transfer_metadata(const fragment_metadata & fm, id_type id, id_type prev_id) :
+            transfer_metadata(fm.source(), fm.destination(), fm.interface_id(), 
+            fm.timestamp_creation(), id, prev_id) {}
+
         transfer_metadata(const transfer_metadata &) = default;
         transfer_metadata(transfer_metadata &&) = default;
         transfer_metadata & operator=(const transfer_metadata &) = default;
@@ -84,18 +88,11 @@ namespace sp
     {
         using data_type = fragment::data_type;
 
-        /* constructor used when the fragmentation_handler receives the first piece of the transfer */
-        template<class Header>
-        transfer(interface_identifier iid, const Header & h) :
-            transfer_metadata(0, 0, iid, clock::now(), h.get_id(), h.get_prev_id()) {}
-
-        transfer(interface_identifier iid, id_type prev_id = 0):
-            transfer_metadata(0, 0, iid, clock::now(), global_id_factory.new_id(iid), prev_id) {}
-        transfer(const interface & i, id_type prev_id = 0):
-            transfer_metadata(0, 0, i.interface_id(), clock::now(), global_id_factory.new_id(i.interface_id()), prev_id) {}
-
         transfer(transfer_metadata && metadata, data_type && data):
             transfer_metadata(std::move(metadata)), _data(std::move(data)) {}
+
+        transfer(interface_identifier iid, address_type dst, id_type prev_id = 0):
+            transfer_metadata(0, dst, iid, clock::now(), global_id_factory.new_id(iid), prev_id) {}
 
         transfer(const transfer &) = default;
         transfer(transfer &&) = default;

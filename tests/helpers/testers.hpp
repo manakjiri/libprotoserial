@@ -62,10 +62,9 @@ uint test_handler(sp::interface & interface, sp::fragmentation_handler & handler
 
     for (; i < loops; i++)
     {        
-        sp::transfer t(interface.interface_id());
+        sp::transfer t(interface.interface_id(), addr_gen());
         check[t.get_id()] = tuple(data_gen(), 0);
         t.data().push_back(sp::bytes(get<0>(check[t.get_id()])));
-        t.set_destination(addr_gen());
         handler.transmit(t);
 
         if (i == loops-1) runs *= 10;

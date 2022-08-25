@@ -32,11 +32,13 @@ namespace sp
 {
     namespace detail
     {
-        /* extends the functionality of the transfer object in order to handle transmit and receive operations */
+        /* extends the functionality of the transfer object in order to handle 
+        transmit and receive operations in fragmentation_handler */
         template<typename Header>
         class transfer_handler : public transfer
         {
             public:
+            using header_type = Header;
 
             enum class state
             {
@@ -53,10 +55,9 @@ namespace sp
             is the last one as well), so a worst-case scenario is assumed (fragments_total * max_fragment_size) 
             and the internal data() container will get resized in the put_fragment function when the last fragment 
             is received */
-            transfer_handler(fragment && f, const Header & h) : 
-                transfer(transfer_metadata(f.source(), f.destination(), f.interface_id(), f.timestamp_creation(), h.get_id(), 
-                h.get_prev_id()), std::move(f.data())), max_fragment_size(0), fragments_total(h.fragments_total()),
-                current_fragment(0), sent_at(never()), transfer_state(state::NEW)
+            transfer_handler(fragment f, const Header & h) : 
+                transfer(transfer_metadata(f, h.get_id(), h.get_prev_id()), std::move(f.data())), max_fragment_size(0), 
+                fragments_total(h.fragments_total()), current_fragment(0), sent_at(never()), transfer_state(state::NEW)
             {
                 /* reserve space for up to fragments_total fragments. There is no need to regard prealloc_size since this 
                 is the receive constructor. fragments_total is always >= 1, so this works for all cases, expand does nothing 
@@ -68,7 +69,7 @@ namespace sp
             }
 
             /* transmit constructor, max_fragment_size is the maximum fragment data size excluding the fragmentation header */
-            transfer_handler(transfer && t, data_type::size_type max_fragment_size) : 
+            transfer_handler(transfer t, data_type::size_type max_fragment_size) : 
                 transfer(std::move(t)), max_fragment_size(max_fragment_size), fragments_total(0),
                 current_fragment(0), sent_at(never()), transfer_state(state::NEW)
             {
@@ -80,15 +81,13 @@ namespace sp
                 fragments_total = size / max_fragment_size + (size % max_fragment_size == 0 ? 0 : 1);
             }
 
-            /* returns the fragment's data size, this does not include the Header,
-            use only when constructed using the transmit constructor */
+            /* returns the fragment's data size, this does not include the Header */
             data_type::size_type fragment_size(index_type pos)
             {
-                pos -= 1;
-                if (pos >= fragments_total)
+                if (pos > fragments_total)
                     return 0;
                 
-                auto start = pos * max_fragment_size;
+                auto start = (pos - 1) * max_fragment_size;
                 auto end = std::min(start + max_fragment_size, data().size());
                 return end - start;
             }
@@ -116,7 +115,7 @@ namespace sp
             bool put_fragment(index_type pos, const fragment & f)
             {
                 auto expected_max_size = fragment_size(pos);
-                if (f.data().size() > expected_max_size)
+                if (expected_max_size == 0 || f.data().size() > expected_max_size)
                     return false;
             
                 auto start = fragment_data_begin(pos);
