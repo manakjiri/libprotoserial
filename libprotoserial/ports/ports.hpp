@@ -30,9 +30,12 @@
 
 #include <list>
 #include <algorithm>
-#include <stdexcept>
 
-#ifndef SP_NO_IOSTREAM
+#ifdef SP_ENABLE_EXCEPTIONS
+#include <stdexcept>
+#endif
+
+#ifdef SP_ENABLE_IOSTREAM
 #include <iostream>
 /* it is hard to debug someting that happens every 100 transfers using 
  * debugger alone, these enable different levels of debug prints */
@@ -47,9 +50,11 @@
 
 namespace sp
 {
+#ifdef SP_ENABLE_EXCEPTIONS
     struct already_registered : std::exception {
         const char * what () const throw () {return "already_registered";}
     };
+#endif
 
     /* port handler does not make any assumptions as to what a service looks like, meaning there
      * is no base class, just the internal service_endpoint, which houses the events and callbacks */

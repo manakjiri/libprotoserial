@@ -21,7 +21,10 @@ add_executable(
     test_libprotoserial
     tests/tests.cpp
 )
-target_include_directories(test_libprotoserial PRIVATE ".")
+target_include_directories(
+    test_libprotoserial PRIVATE "."
+    test_libprotoserial PRIVATE "submodules/etl/include"
+)
 
 target_link_libraries(
     test_libprotoserial

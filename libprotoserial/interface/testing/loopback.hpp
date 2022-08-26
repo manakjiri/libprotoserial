@@ -24,7 +24,7 @@
 
 #include "libprotoserial/interface/buffered.hpp"
 
-#ifndef SP_NO_IOSTREAM
+#ifdef SP_ENABLE_IOSTREAM
 //#define SP_LOOPBACK_DEBUG
 //#define SP_LOOPBACK_WARNING
 #endif

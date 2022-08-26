@@ -28,11 +28,14 @@
 
 #include <initializer_list>
 #include <string>
-#include <stdexcept>
 #include <algorithm>
 #include <memory>
 
-#ifndef SP_NO_IOSTREAM
+#ifdef SP_ENABLE_EXCEPTIONS
+#include <stdexcept>
+#endif
+
+#ifdef SP_ENABLE_IOSTREAM
 #include <iostream>
 #endif
 
@@ -370,8 +373,10 @@ namespace sp
 
         inline void range_check(size_type i) const
         {
+#ifdef SP_ENABLE_EXCEPTIONS
             if (i >= _length || !_data)
                 throw out_of_range("bytes::range_check at index " + std::to_string(i) + " (size " + std::to_string(_length) + ")");
+#endif
         }
         void copy_from(const_pointer data, size_type length){
             if (!data || length == 0)
@@ -428,7 +433,7 @@ sp::bytes operator+(const sp::bytes & lhs, const sp::bytes & rhs)
     return b;
 }
 
-#ifndef SP_NO_IOSTREAM
+#ifdef SP_ENABLE_IOSTREAM
 std::ostream& operator<<(std::ostream& os, const sp::bytes& obj) 
 {
     os << "[ ";

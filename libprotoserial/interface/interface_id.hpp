@@ -24,7 +24,7 @@
 
 #include <cinttypes>
 
-#ifndef SP_NO_IOSTREAM
+#ifdef SP_ENABLE_IOSTREAM
 #include <iostream>
 #endif
 
@@ -68,7 +68,7 @@ namespace sp
     };   
 }
 
-#ifndef SP_NO_IOSTREAM
+#ifdef SP_ENABLE_IOSTREAM
 std::ostream& operator<<(std::ostream& os, const sp::interface_identifier & iid) 
 {
     os << (int)iid.identifier << '-' << (int)iid.instance;

@@ -33,7 +33,9 @@
 #include <termios.h> // Contains POSIX terminal control definitions
 #include <unistd.h> // write(), read(), close()
 
+#ifdef SP_ENABLE_EXCEPTIONS
 #include <stdexcept>
+#endif
 
 namespace sp
 {
@@ -48,19 +50,23 @@ class uart_interface : public buffered_parser_interface<Header, Footer>
     
     public: 
 
+#ifdef SP_ENABLE_EXCEPTIONS
     struct open_failed : std::exception {
         open_failed(std::string m = ""): _m(std::move(m)) {}
         const char* what () const throw () {return _m.c_str();}
         std::string _m;
     };
+#endif
 
     uart_interface(std::string port, speed_t baud, interface_identifier::instance_type instance, interface::address_type address, 
         interface::address_type broadcast_address, uint max_queue_size, uint max_fragment_size, uint buffer_size):
             parent(interface_identifier(interface_identifier::identifier_type::UART, instance), address, broadcast_address,
             max_queue_size, buffer_size, max_fragment_size)
     {
+#ifdef SP_ENABLE_EXCEPTIONS
         if(!uart_open(port.c_str(), baud, 0)) 
             throw open_failed();
+#endif
         
         /* // Open the serial port. Change device path as needed (currently set to an standard FTDI USB-UART cable type device)
         int _serial_port = open(port.c_str(), O_RDWR);

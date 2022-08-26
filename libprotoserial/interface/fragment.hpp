@@ -110,7 +110,7 @@ bool operator!=(const sp::fragment & lhs, const sp::fragment & rhs)
     return !(lhs == rhs);
 }
 
-#ifndef SP_NO_IOSTREAM
+#ifdef SP_ENABLE_IOSTREAM
 std::ostream& operator<<(std::ostream& os, const sp::fragment& p) 
 {
     os << "dst: " << p.destination() << ", src: " << p.source();

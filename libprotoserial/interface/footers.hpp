@@ -24,8 +24,8 @@
 
 #include "libprotoserial/interface/interface.hpp"
 
-#include "submodules/etl/include/etl/crc32.h"
-#include "submodules/etl/include/etl/crc16.h"
+#include "etl/crc32.h"
+#include "etl/crc16.h"
 
 namespace sp
 {

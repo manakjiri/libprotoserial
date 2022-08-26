@@ -196,7 +196,7 @@ namespace sp::detail
 
         void print_debug() const
         {
-#ifndef SP_NO_IOSTREAM
+#ifdef SP_ENABLE_IOSTREAM
             std::cout << "incoming_transfers: " << _incoming_transfers.size() << std::endl;
             for (const auto & t : _incoming_transfers)
                 std::cout << static_cast<transfer>(t) << std::endl;

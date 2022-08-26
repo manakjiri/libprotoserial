@@ -36,5 +36,10 @@
 #define SP_LINUX
 #endif
 
+#ifdef SP_LINUX
+#define SP_ENABLE_IOSTREAM
+#define SP_ENABLE_EXCEPTIONS
+#endif
+
 #endif
 

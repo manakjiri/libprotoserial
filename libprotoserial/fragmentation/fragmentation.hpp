@@ -33,7 +33,7 @@
 
 #include <memory>
 
-#ifndef SP_NO_IOSTREAM
+#ifdef SP_ENABLE_IOSTREAM
 #include <iostream>
 /* it is hard to debug something that happens every 100 transfers using 
  * debugger alone, these enable different levels of debug prints */

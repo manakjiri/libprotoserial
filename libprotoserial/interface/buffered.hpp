@@ -22,11 +22,13 @@
 #ifndef _SP_INTERFACE_BUFFERED
 #define _SP_INTERFACE_BUFFERED
 
+#include <limits>
+
 #include "libprotoserial/interface/interface.hpp"
 #include "libprotoserial/interface/parsers.hpp"
 
 
-#ifndef SP_NO_IOSTREAM
+#ifdef SP_ENABLE_IOSTREAM
 //#define SP_BUFFERED_DEBUG
 //#define SP_BUFFERED_WARNING
 //#define SP_BUFFERED_CRITICAL
@@ -219,7 +221,7 @@ namespace sp
 
                 /* number of loaded bytes since the last call of this function */
                 uint loaded = _last_byte_count <= _byte_count ? (_byte_count - _last_byte_count) : 
-                    (UINT_MAX - _last_byte_count + _byte_count >= rx_buffer_size());
+                    (std::numeric_limits<uint>::max() - _last_byte_count + _byte_count >= rx_buffer_size());
                 _last_byte_count = _byte_count;
                 /* log the calculated amount */
                 log_received_count(loaded);

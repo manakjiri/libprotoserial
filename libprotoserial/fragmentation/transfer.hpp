@@ -111,7 +111,7 @@ namespace sp
             return transfer_metadata(*reinterpret_cast<const transfer_metadata*>(this));
         }
 
-#ifndef SP_NO_IOSTREAM
+#ifdef SP_ENABLE_IOSTREAM
         friend std::ostream& operator<<(std::ostream& os, const transfer & t) 
         {
             os << "dst: " << (int)t.destination() << ", src: " << (int)t.source();
