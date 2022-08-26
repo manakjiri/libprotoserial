@@ -24,8 +24,18 @@
 #define _SP_FRAGMENTATION
 
 
-#include "libprotoserial/fragmentation/fragmentation.hpp"
+#include <libprotoserial/fragmentation/fragmentation.hpp>
+#include <libprotoserial/fragmentation/bypass_handler.hpp>
+#include <libprotoserial/fragmentation/base_handler.hpp>
 
+
+namespace sp
+{
+    class bypass_fragmentation_handler : public detail::bypass_fragmentation_handler
+    {
+        using detail::bypass_fragmentation_handler::bypass_fragmentation_handler;
+    };
+}
 
 
 #endif

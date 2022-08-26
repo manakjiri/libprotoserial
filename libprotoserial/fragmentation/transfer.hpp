@@ -44,7 +44,7 @@ namespace sp
                 fragment_metadata(src, dst, iid, timestamp_creation), _id(id), 
                 _prev_id(prev_id) {}
 
-        transfer_metadata(const fragment_metadata & fm, id_type id, id_type prev_id) :
+        transfer_metadata(const fragment_metadata & fm, id_type id, id_type prev_id = 0) :
             transfer_metadata(fm.source(), fm.destination(), fm.interface_id(), 
             fm.timestamp_creation(), id, prev_id) {}
 
@@ -67,6 +67,10 @@ namespace sp
         bool match_as_response(const fragment & p) const 
             {return p.source() == destination();}
 
+        //TODO match_as_response transfer formalize
+        /* bool match_as_response(const transfer & t) const 
+            {return t.source() == destination();} */
+        
         /* use only once for creating actual response, each transfer only holds one next_id */
         transfer_metadata create_response() 
         {
@@ -110,9 +114,9 @@ namespace sp
 #ifndef SP_NO_IOSTREAM
         friend std::ostream& operator<<(std::ostream& os, const transfer & t) 
         {
-            os << "dst: " << t.destination() << ", src: " << t.source();
+            os << "dst: " << (int)t.destination() << ", src: " << (int)t.source();
             os << ", int: " << t.interface_id();
-            os << ", id: " << t.get_id() << ", prev_id: " << t.get_prev_id();
+            os << ", id: " << (int)t.get_id() << ", prev_id: " << (int)t.get_prev_id();
             os << ", " << t.data();
             return os;
         }

@@ -6,7 +6,6 @@
 #include <libprotoserial/utils/bit_rate.hpp>
 #include <libprotoserial/interface.hpp>
 #include <libprotoserial/fragmentation.hpp>
-#include <libprotoserial/fragmentation/base_handler.hpp>
 #include <libprotoserial/ports/packet.hpp>
 //#include <libprotoserial/protostacks.hpp>
 
@@ -548,6 +547,39 @@ TEST(Fragmentation, TransferHandler)
 
 }
 
+
+TEST(Fragmentation, BypassSingle)
+{
+    sp::loopback_interface lo(0, 1, 255, 10, 64, 1024);
+    sp::bypass_fragmentation_handler fh(&lo, lo.minimum_prealloc());
+    fh.bind_to(lo);
+
+    sp::transfer tr(lo.interface_id(), 2);
+    tr.data().push_back(random_bytes(10));
+
+    int rxed = 0;
+    
+    fh.transfer_receive_event.subscribe([&](sp::transfer _t){
+        ++rxed;
+        cout << "rx: " << _t << endl;
+        
+        //FIXME should use match_as_response
+        EXPECT_TRUE(tr.data() == _t.data());
+        EXPECT_NE(_t.get_id(), tr.get_id());
+        EXPECT_EQ(_t.source(), tr.destination());
+    });
+
+    cout << "tx: " << tr << endl;
+    fh.transmit(tr);
+    
+    for (int i = 0; i < 100; ++i)
+    {
+        fh.main_task();
+        lo.main_task();
+    }
+
+    EXPECT_EQ(rxed, 1) << "data did not get through";
+}
 
 
 

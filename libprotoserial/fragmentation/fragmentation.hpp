@@ -82,10 +82,21 @@ namespace sp
         fragmentation_handler(interface * i, prealloc_size prealloc) :
             _prealloc(prealloc), _interface(i) {}
 
-        virtual void receive_callback(fragment p) = 0;
-        virtual void main_task() = 0;
-        virtual void transmit(transfer t) = 0;
+        void receive_callback(fragment f)
+        {
+            do_receive(std::move(f));
+        }
+        
+        void main_task()
+        {
+            do_main();
+        }
 
+        void transmit(transfer t)
+        {
+            do_transmit(std::move(t));
+        }
+        
         /* shortcut for event subscribe */
         void bind_to(interface & l)
         {
@@ -103,6 +114,9 @@ namespace sp
 
         protected:
 
+        virtual void do_receive(fragment f) = 0;
+        virtual void do_main() = 0;
+        virtual void do_transmit(transfer t) = 0;
         virtual void transmit_began_callback(object_id_type id) {}
 
         prealloc_size _prealloc;
