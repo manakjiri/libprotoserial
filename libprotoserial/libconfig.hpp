@@ -32,6 +32,11 @@
 #define SP_EMBEDDED
 #endif
 
+#ifdef ZST
+#define SP_STM32ZST
+#define SP_EMBEDDED
+#endif
+
 #ifdef __linux__
 #define SP_LINUX
 #endif
