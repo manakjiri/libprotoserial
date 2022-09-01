@@ -39,24 +39,24 @@ namespace sp
         /* index of a fragment within a transfer, starts with 1, index 0 signals invalid index */
         using index_type = uint8_t;
 
-        transfer_metadata(address_type src, address_type dst, interface_identifier iid, 
+        constexpr transfer_metadata(address_type src, address_type dst, interface_identifier iid, 
             time_point timestamp_creation, id_type id, id_type prev_id) :
                 fragment_metadata(src, dst, iid, timestamp_creation), _id(id), 
                 _prev_id(prev_id) {}
 
-        transfer_metadata(const fragment_metadata & fm, id_type id, id_type prev_id = 0) :
+        constexpr transfer_metadata(const fragment_metadata & fm, id_type id, id_type prev_id = 0) :
             transfer_metadata(fm.source(), fm.destination(), fm.interface_id(), 
             fm.timestamp_creation(), id, prev_id) {}
 
-        transfer_metadata(const transfer_metadata &) = default;
-        transfer_metadata(transfer_metadata &&) = default;
-        transfer_metadata & operator=(const transfer_metadata &) = default;
-        transfer_metadata & operator=(transfer_metadata &&) = default;
+        constexpr transfer_metadata(const transfer_metadata &) = default;
+        constexpr transfer_metadata(transfer_metadata &&) = default;
+        constexpr transfer_metadata & operator=(const transfer_metadata &) = default;
+        constexpr transfer_metadata & operator=(transfer_metadata &&) = default;
 
         /* the fragment id is used to uniquely identify a fragment transfer together with the destination and source
         addresses and the interface name. It is issued by the transmittee of the fragment */
-        id_type get_id() const {return _id;}
-        id_type get_prev_id() const {return _prev_id;}
+        constexpr id_type get_id() const {return _id;}
+        constexpr id_type get_prev_id() const {return _prev_id;}
 
         /* checks if p's addresses and interface match the transfer's, this along with id match means that p 
         should be part of this transfer */
@@ -81,7 +81,7 @@ namespace sp
 
         fragment_metadata get_fragment_metadata() const
         {
-            return fragment_metadata(*reinterpret_cast<const fragment_metadata*>(this));
+            return fragment_metadata(*static_cast<const fragment_metadata*>(this));
         }
 
         protected:

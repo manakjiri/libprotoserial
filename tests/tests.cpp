@@ -7,6 +7,7 @@
 #include <libprotoserial/interface.hpp>
 #include <libprotoserial/fragmentation.hpp>
 #include <libprotoserial/ports/packet.hpp>
+#include <libprotoserial/ports/ports.hpp>
 //#include <libprotoserial/protostacks.hpp>
 
 #include "helpers/random.hpp"
@@ -630,59 +631,52 @@ TEST(Fragmentation, CorruptedRandomLarge)
     auto addr = [&](){return random(2, 100);};
 
     EXPECT_EQ(test_handler(lo.interface, lo.fragmentation, 10, data, addr, 100), 10);
-}
+} */
 
 
-TEST(Ports, PacketConstructor)
+TEST(Ports, Packet)
 {
     const sp::bytes b1 = {10_BYTE, 11_BYTE, 12_BYTE, 13_BYTE, 14_BYTE}, b2 = {20_BYTE, 21_BYTE, 22_BYTE}, b3 = {30_BYTE, 31_BYTE};
-    sp::stack::loopback lo(0, 1);
     
-    sp::headers::ports_8b h(2, 3);
-    sp::transfer t(lo.interface.interface_id());
-    t.push_back(b1);
-    t.push_front(b2);
-    t.push_back(b3);
-    t.set_destination(10);
-    
-    sp::packet p(std::move(t), h);
 
-    sp::bytes bc;
-    sp::bytes::size_type i;
+}
 
-    bc = b2 + b1 + b3; i = 0;
-    for (auto it = p.data_begin(); it != p.data_end(); ++it, ++i)
-        EXPECT_TRUE(bc[i] == *it) << "b2 + b1 + b3 index " << i << ": " << (int)bc[i] << " == " << (int)*it;
-
-    EXPECT_TRUE(bc == p.data_contiguous());
-    //EXPECT_EQ(p.get_id(), 2); //TODO
-    //EXPECT_EQ(p.get_prev_id(), 1);
-    EXPECT_EQ(p.source_port(), 3);
-    EXPECT_EQ(p.destination_port(), 2);
-    EXPECT_EQ(p.destination(), 10);
-
-    sp::transfer t2(std::move(p.to_transfer()));
-
-    i = 0;
-    for (auto it = t2.data_begin(); it != t2.data_end(); ++it, ++i)
-        EXPECT_TRUE(bc[i] == *it) << "b2 + b1 + b3 index " << i << ": " << (int)bc[i] << " == " << (int)*it;
-
-    EXPECT_TRUE(bc == t2.data_contiguous());
-    //EXPECT_EQ(t2.get_id(), 2);
-    //EXPECT_EQ(t2.get_prev_id(), 1);
-    EXPECT_EQ(t2.destination(), 10);
-} */
-
-/* TEST(Ports, PortsPing)
+TEST(Ports, PortsBasic)
 {
-    sp::loopback_interface interface(0, 1, 10, 64, 256);
-    sp::fragmentation_handler handler(interface.max_data_size(), 100ms, 10ms, 2);
-    sp::ports_handler ports;
-    sp::
+    /* interface setup */
+    sp::loopback_interface lo(0, 1, 255, 10, 64, 1024);
+    /* fragmentation_handler setup */
+    sp::bypass_fragmentation_handler fh(&lo, lo.minimum_prealloc());
+    fh.bind_to(lo);
+    /* ports setup */
+    sp::ports_handler ph;
 
-    handler.bind_to(interface);
-    ports.register_interface(interface.interface_id(), handler);
+    sp::transfer tr(lo.interface_id(), 2);
+    tr.data().push_back(random_bytes(10));
+
+    int rxed = 0;
+    
+    fh.transfer_receive_event.subscribe([&](sp::transfer _t){
+        ++rxed;
+        cout << "rx: " << _t << endl;
+        
+        //FIXME should use match_as_response
+        EXPECT_TRUE(tr.data() == _t.data());
+        EXPECT_NE(_t.get_id(), tr.get_id());
+        EXPECT_EQ(_t.source(), tr.destination());
+    });
+
+    cout << "tx: " << tr << endl;
+    fh.transmit(tr);
+    
+    for (int i = 0; i < 100; ++i)
+    {
+        fh.main_task();
+        lo.main_task();
+    }
+
+    EXPECT_EQ(rxed, 1) << "data did not get through";
 
     
-} */
+}
 

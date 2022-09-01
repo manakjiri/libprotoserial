@@ -41,13 +41,13 @@ namespace sp
         using address_type = uint;
         using time_point = clock::time_point;
 
-        fragment_metadata(address_type src, address_type dst, interface_identifier iid, time_point timestamp_creation):
+        constexpr fragment_metadata(address_type src, address_type dst, interface_identifier iid, time_point timestamp_creation):
             _timestamp_creation(timestamp_creation), _interface_id(iid), _source(src), _destination(dst) {}
 
-        fragment_metadata(const fragment_metadata &) = default;
-        fragment_metadata(fragment_metadata &&) = default;
-        fragment_metadata & operator=(const fragment_metadata &) = default;
-        fragment_metadata & operator=(fragment_metadata &&) = default;
+        constexpr fragment_metadata(const fragment_metadata &) = default;
+        constexpr fragment_metadata(fragment_metadata &&) = default;
+        constexpr fragment_metadata & operator=(const fragment_metadata &) = default;
+        constexpr fragment_metadata & operator=(fragment_metadata &&) = default;
 
         constexpr time_point timestamp_creation() const noexcept {return _timestamp_creation;}
         constexpr interface_identifier interface_id() const noexcept {return _interface_id;}

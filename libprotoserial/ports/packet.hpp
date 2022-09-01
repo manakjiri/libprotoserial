@@ -32,17 +32,21 @@ namespace sp
         /* as with interface::address_type this is a type that can hold all used port_type types */
         using port_type = uint;
 
-        packet_metadata(address_type src, address_type dst, interface_identifier iid, time_point timestamp_creation, 
+        constexpr packet_metadata(address_type src, address_type dst, interface_identifier iid, time_point timestamp_creation, 
             id_type id, id_type prev_id, port_type src_port, port_type dst_port) :
                 transfer_metadata(src, dst, iid, timestamp_creation, id, prev_id),
                 _src_port(src_port), _dst_port(dst_port) {}
 
         //packet_metadata(address_type src, interface_identifier iid, )
 
-        port_type source_port() const {return _src_port;}
-        port_type destination_port() const {return _dst_port;}
+        constexpr packet_metadata(transfer_metadata & tm, port_type src_port, port_type dst_port) :
+            packet_metadata(tm.source(), tm.destination(), tm.interface_id(), tm.timestamp_creation(), tm.get_id(),
+            tm.get_prev_id(), src_port, dst_port) {}
 
-        void set_destination_port(port_type p) {_dst_port = p;}
+        constexpr port_type source_port() const {return _src_port;}
+        constexpr port_type destination_port() const {return _dst_port;}
+
+        constexpr void set_destination_port(port_type p) {_dst_port = p;}
 
         packet_metadata create_response()
         {
@@ -52,7 +56,7 @@ namespace sp
             );
         }
 
-        bool match_as_response(const packet_metadata & p) const 
+        constexpr bool match_as_response(const packet_metadata & p) const 
         {
             return p.source() == destination() && p.interface_id() == interface_id() && 
                 p.get_prev_id() == get_id() && p.source_port() == destination_port();
@@ -62,16 +66,27 @@ namespace sp
         port_type _src_port, _dst_port;
     };
 
-    struct packet : public transfer, public packet_metadata
+    struct packet : public packet_metadata
     {
+        using data_type = fragment::data_type;
+
         packet(transfer && t, port_type src_port = 0, port_type dst_port = 0) :
-            transfer(std::move(t)), packet_metadata(t.source(), t.destination(), t.interface_id(), 
+            _data(std::move(t.data())), packet_metadata(t.source(), t.destination(), t.interface_id(), 
             t.timestamp_creation(), t.get_id(), t.get_prev_id(), src_port, dst_port) {}
         
         packet(transfer && t, const headers::ports_8b & h) :
             packet(std::move(t), h.source, h.destination) {}
 
-        transfer to_transfer() {return transfer(std::move(*this));}
+        const data_type& data() const noexcept {return _data;}
+        data_type& data() noexcept {return _data;}
+
+        transfer_metadata get_transfer_metadata() const
+        {
+            return transfer_metadata(*static_cast<const transfer_metadata*>(this));
+        }
+
+        private:
+        data_type _data;
     };
 
 }

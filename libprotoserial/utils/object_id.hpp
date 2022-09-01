@@ -43,11 +43,11 @@ namespace sp
         /* this ID is tracked globally and should be unique on a modest
         time scale. All ID values are valid. Move preserves the ID but a Copy
         will generate a new ID for the copy of the original object */
-        const object_id_type object_id() const noexcept {return _id;}
+        constexpr object_id_type object_id() const noexcept {return _id;}
 
         private:
 
-        sp_object(object_id_type id) : _id(id) {}
+        constexpr sp_object(object_id_type id) : _id(id) {}
         
         object_id_type _new_id() 
         {

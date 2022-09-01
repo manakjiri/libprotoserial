@@ -372,7 +372,7 @@ namespace sp
         pointer _data;
         size_type _length, _capacity, _offset;
 
-        constexpr void range_check(size_type i) const
+        constexpr inline void range_check(size_type i) const
         {
 #ifdef SP_ENABLE_EXCEPTIONS
             if (i >= _length || !_data)
