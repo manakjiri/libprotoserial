@@ -83,13 +83,13 @@ namespace sp
         }; */
 
         /* default */
-        bytes()
+        constexpr bytes()
         {
             _init(); 
         }
-        bytes(size_type length) : bytes(0, length, 0) {}
+        constexpr bytes(size_type length) : bytes(0, length, 0) {}
         /* overallocation - capacity will be equal to front + length + back */
-        bytes(size_type front, size_type length, size_type back) :
+        constexpr bytes(size_type front, size_type length, size_type back) :
             bytes()
         {
             _capacity = front + length + back;
@@ -98,14 +98,14 @@ namespace sp
             alloc(_capacity);
         }
         /* use this if you want to wrap existing raw array of bytes by this class */
-        bytes(pointer data, size_type length) :
+        constexpr bytes(pointer data, size_type length) :
             bytes()
         {
             _data = data;
             _length = length;
         }
 
-        bytes(std::initializer_list<value_type> values):
+        constexpr bytes(std::initializer_list<value_type> values):
             bytes(values.size())
         {
             std::copy(values.begin(), values.end(), begin());
@@ -118,7 +118,7 @@ namespace sp
             copy_from(reinterpret_cast<bytes::pointer>(const_cast<char*>(from.c_str())), from.size());
         }
         
-        /* copy - only the currently exposed data gets coppied, overallocation is not used */
+        /* copy - only the currently exposed data gets copied, overallocation is not used */
         bytes(const bytes & other) :
             bytes(other.size())
         {
@@ -137,7 +137,7 @@ namespace sp
             return *this;
         }
         /* move */
-        bytes(bytes && other)
+        constexpr bytes(bytes && other)
         {
             _data = other.get_base();
             _length = other.size();
@@ -145,7 +145,7 @@ namespace sp
             _capacity = other.capacity();
             other._init();
         }
-        bytes & operator= (bytes && other)
+        constexpr bytes & operator= (bytes && other)
         {
             clear();
             _data = other.get_base();
@@ -156,25 +156,25 @@ namespace sp
             return *this;
         }
 
-        ~bytes()
+        constexpr ~bytes()
         {
             clear();
         }
         
         
         /* returns the current data size, if overallocation is not used than size == capacity */
-        size_type size() const {return _length;}
+        constexpr size_type size() const {return _length;}
         /* a container is empty when its size is equal to 0 */
-        bool is_empty() const {return size() == 0;}
+        constexpr bool is_empty() const {return size() == 0;}
         /* returns pointer to data */
-        pointer data()
+        constexpr pointer data()
         {
             if (_data)
                 return &_data[_offset];
             else
                 return nullptr;
         }
-        pointer data() const
+        constexpr pointer data() const
         {
             if (_data)
                 return &_data[_offset];
@@ -182,36 +182,37 @@ namespace sp
                 return nullptr;
         }
         
-        const value_type & at(size_type i) const
+        constexpr const value_type & at(size_type i) const
         {
+#ifdef SP_ENABLE_EXCEPTIONS
             range_check(i);
-            return _data[i + _offset];
+#endif
+            return data()[i];
         }
-        value_type & at(size_type i)
+        constexpr value_type & at(size_type i)
         {
+#ifdef SP_ENABLE_EXCEPTIONS
             range_check(i);
-            return _data[i + _offset];
+#endif
+            return data()[i];
         }
         const value_type & operator[] (size_type i) const {return at(i);}
         value_type & operator[] (size_type i) {return at(i);}
 
-        iterator begin() {return data();}
-        iterator end() {return data() + size();}
+        constexpr iterator begin() {return data();}
+        constexpr iterator end() {return data() + size();}
         //iterator begin() {return iterator(data());}
         //iterator end() {return iterator(data() + size());}
-        const_iterator begin() const {return data();}
-        const_iterator end() const {return data() + size();}
-        const_iterator cbegin() const {return data();}
-        const_iterator cend() const {return data() + size();}
+        constexpr const_iterator begin() const {return data();}
+        constexpr const_iterator end() const {return data() + size();}
+        constexpr const_iterator cbegin() const {return data();}
+        constexpr const_iterator cend() const {return data() + size();}
 
-        explicit operator bool() const {return !is_empty();}
-
-        /* bool operator==(const bytes & other) const {return std::equal(cbegin(), other.cend(), cbegin(), other.cend());}
-        bool operator!=(const bytes & other) const {return !((*this) == other);} */
+        constexpr explicit operator bool() const {return !is_empty();}
         
         /* expands the container by the requested amount such that [front B][size B][back B], 
         front or back can be 0, in which case nothing happens */
-        void expand(const size_type front, const size_type back)
+        constexpr void expand(const size_type front, const size_type back)
         {
             reserve(front, back);
             _offset = _offset - front;
@@ -219,7 +220,7 @@ namespace sp
         }
         /* capacity of the container will be equal or greater than size() + front + back, size() does not change,
         this function merely reserves requested capacity by reallocation if necesary, front or back can be 0 */
-        void reserve(const size_type front, const size_type back)
+        constexpr void reserve(const size_type front, const size_type back)
         {
             /* do nothing if the container has enough margin already */
             if (_offset >= front && capacity_back() >= back)
@@ -247,7 +248,7 @@ namespace sp
         }
         /* shrink the container from either side, this does not reallocate the data, just hides it
         use the shrink_to_fit function after this one to actually reduce the container size */
-        void shrink(const size_type front, const size_type back)
+        constexpr void shrink(const size_type front, const size_type back)
         {
             /* do nothing */
             if (front == 0 && back == 0)
@@ -281,28 +282,28 @@ namespace sp
             }
         }
         /* expand the container by other.size() bytes and copy other's contents into that space */
-        void push_front(const bytes & other)
+        constexpr void push_front(const bytes & other)
         {            
             expand(other.size(), 0);
             std::copy(other.begin(), other.end(), begin());
         }
-        void push_front(const value_type b)
+        constexpr void push_front(const value_type b)
         {
             expand(1, 0);
             at(0) = b;
         }
         /* expand the container by other.size() bytes and copy other's contents into that space */
-        void push_back(const bytes & other)
+        constexpr void push_back(const bytes & other)
         {
             expand(0, other.size());
             std::copy(other.begin(), other.end(), end() - other.size());
         }
-        void push_back(const bytes * other)
+        constexpr void push_back(const bytes * other)
         {
             expand(0, other->size());
             std::copy(other->begin(), other->end(), end() - other->size());
         }
-        void push_back(const value_type b)
+        constexpr void push_back(const value_type b)
         {
             expand(0, 1);
             at(size() - 1) = b;
@@ -320,12 +321,12 @@ namespace sp
         }
         
         /* set all bytes to value */
-        void set(value_type value)
+        constexpr void set(value_type value)
         {
             for (uint i = 0; i < _length; i++)
                 at(i) = value;
         }
-        void set(size_type start, size_type length, value_type value)
+        constexpr void set(size_type start, size_type length, value_type value)
         {
             length += start;
             for (size_type i = start; i < length; i++)
@@ -333,7 +334,7 @@ namespace sp
         }
         /* safe to call multiple times, frees the resources for the HEAP type and sets up the
         container as if it was just initialized using the default constructor */
-        void clear()
+        constexpr void clear()
         {
             if (_data != nullptr)
                 delete[] _data;
@@ -343,7 +344,7 @@ namespace sp
         /* releases the internally stored data buffer, use the capacity_front function before calling
         this one in case capacity != size to obtain the the offset index, which indicates the 
         length of preallocated front */
-        pointer release()
+        constexpr pointer release()
         {
             pointer ret = _data;
             _init();
@@ -351,7 +352,7 @@ namespace sp
         }
         
         /* used internally for move, do not use otherwise */
-        void _init()
+        constexpr void _init()
         {
             _data = nullptr;
             _length = 0;
@@ -359,11 +360,11 @@ namespace sp
             _capacity = 0;
         }
         /* returns the number of actually allocated bytes */
-        size_type capacity() const {return _capacity;}
-        size_type capacity_front() const {return _offset;}
-        size_type capacity_back() const {return _capacity - _offset - _length;}
+        constexpr size_type capacity() const {return _capacity;}
+        constexpr size_type capacity_front() const {return _offset;}
+        constexpr size_type capacity_back() const {return _capacity - _offset - _length;}
         /* returns pointer to the beggining of the data */
-        pointer get_base() const {return _data;}
+        constexpr pointer get_base() const {return _data;}
 
 
         
@@ -371,7 +372,7 @@ namespace sp
         pointer _data;
         size_type _length, _capacity, _offset;
 
-        inline void range_check(size_type i) const
+        constexpr void range_check(size_type i) const
         {
 #ifdef SP_ENABLE_EXCEPTIONS
             if (i >= _length || !_data)
@@ -396,7 +397,7 @@ namespace sp
                 data[i] = _data[i + _offset];
         }
         /* replaces the _data with a newly allocated and initialized array of length, does not change the _capacity nor the _length! */
-        void alloc(size_type length)
+        constexpr void alloc(size_type length)
         {
             if (length > 0)
                 _data = new value_type[length]();
@@ -415,12 +416,12 @@ namespace sp
     }
 }
 
-bool operator==(const sp::bytes & lhs, const sp::bytes & rhs)
+constexpr bool operator==(const sp::bytes & lhs, const sp::bytes & rhs)
 {
     return std::equal(lhs.cbegin(), lhs.cend(), rhs.cbegin(), rhs.cend());
 }
 
-bool operator!=(const sp::bytes & lhs, const sp::bytes & rhs)
+constexpr bool operator!=(const sp::bytes & lhs, const sp::bytes & rhs)
 {
     return !(lhs == rhs);
 }
