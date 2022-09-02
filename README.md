@@ -6,6 +6,8 @@ Library intended for rapid prototyping of embedded devices with support of stand
 
 
 ## TODOs
-- create standardized "stack" classed that encapsulate all necessary layers and create a protocol stack thats suitable for a given interface
 - unite transmit/receive functions' names
 - create interface config class
+- loopback interface does not behave as expected when it comes to addressing
+- harden upper layers against data corruption (now these mostly assume that the interface will catch all errors)
+    - adding a checksum to transfers as well?

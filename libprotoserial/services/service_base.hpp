@@ -50,9 +50,9 @@ namespace sp
 
         void bind_to(ports_handler & l, port_type port)
         {
-            auto & h = l.register_port((_port = port));
+            auto & h = l.register_service((_port = port));
             h.receive_event.subscribe(&service_base::receive, this);
-            transmit_event.subscribe(&ports_handler::service_endpoint::transmit_callback, &h);
+            transmit_event.subscribe(&ports_handler::service_endpoint::_transmit_callback, &h);
         }
 
         protected:

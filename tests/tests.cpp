@@ -642,43 +642,54 @@ TEST(Ports, Packet)
 
 }
 
-TEST(Ports, PortsBasic)
+TEST(Ports, EchoService)
 {
+    /* capture the raw serialized data */
+    sp::bytes raw_data;
+
     /* interface setup */
-    sp::loopback_interface lo(0, 1, 255, 10, 64, 1024);
+    sp::loopback_interface lo(0, 1, 255, 10, 64, 1024, [&](sp::byte b){
+        raw_data.push_back(b);
+        return b;
+    });
     /* fragmentation_handler setup */
     sp::bypass_fragmentation_handler fh(&lo, lo.minimum_prealloc());
     fh.bind_to(lo);
     /* ports setup */
     sp::ports_handler ph;
-    //sp::echo_service echo;
+    ph.register_interface(fh);
 
-    sp::transfer tr(lo.interface_id(), 2);
-    tr.data().push_back(random_bytes(10));
+    /* echo service on port 1 */
+    sp::echo_service echo(ph, 1);
 
-    int rxed = 0;
-    
-    fh.transfer_receive_event.subscribe([&](sp::transfer _t){
-        ++rxed;
-        cout << "rx: " << _t << endl;
-        
-        //FIXME should use match_as_response
-        EXPECT_TRUE(tr.data() == _t.data());
-        EXPECT_NE(_t.get_id(), tr.get_id());
-        EXPECT_EQ(_t.source(), tr.destination());
+    /* raw port 2 */
+    auto & p2 = ph.register_service(2);
+    sp::packet rxp;
+    p2.receive_event.subscribe([&rxp](sp::packet _p){
+        rxp = std::move(_p);
     });
 
-    cout << "tx: " << tr << endl;
-    fh.transmit(tr);
+    /* transmit something through the port 2 */
+    sp::packet txp;
+    txp.set_destination(2);
+    txp.set_destination_port(1);
+    txp.set_interface_id(lo.interface_id());
+    txp.data() = random_bytes(10);
+    p2._transmit_callback(txp);
     
+    /* let the main tasks run */
     for (int i = 0; i < 100; ++i)
     {
         fh.main_task();
         lo.main_task();
     }
 
-    EXPECT_EQ(rxed, 1) << "data did not get through";
+    cout << "in air: " << raw_data << endl;
 
-    
+    EXPECT_TRUE(txp.data() == rxp.data()) << "TX: " << txp.data() << ", RX: " << rxp.data();
+    EXPECT_TRUE(txp.interface_id() == rxp.interface_id());
+    EXPECT_EQ(txp.destination_port(), rxp.source_port());
+    EXPECT_EQ(txp.get_id(), rxp.get_prev_id());
+    EXPECT_NE(txp.get_id(), rxp.get_id());
 }
 

@@ -32,6 +32,8 @@ namespace sp
         /* as with interface::address_type this is a type that can hold all used port_type types */
         using port_type = uint;
 
+        static constexpr port_type invalid_port = 0;
+
         packet_metadata(address_type src, address_type dst, interface_identifier iid, time_point timestamp_creation, 
             id_type id, id_type prev_id, port_type src_port, port_type dst_port) :
                 transfer_metadata(src, dst, iid, timestamp_creation, id, prev_id),
@@ -42,6 +44,9 @@ namespace sp
         packet_metadata(transfer_metadata & tm, port_type src_port, port_type dst_port) :
             packet_metadata(tm.source(), tm.destination(), tm.interface_id(), tm.timestamp_creation(), tm.get_id(),
             tm.get_prev_id(), src_port, dst_port) {}
+
+        packet_metadata():
+            transfer_metadata(), _src_port(invalid_port), _dst_port(invalid_port) {}
 
         constexpr port_type source_port() const {return _src_port;}
         constexpr port_type destination_port() const {return _dst_port;}
@@ -74,6 +79,8 @@ namespace sp
     struct packet : public packet_metadata
     {
         using data_type = transfer::data_type;
+        
+        packet() = default;
 
         packet(packet_metadata pm, data_type d):
             packet_metadata(std::move(pm)), _data(std::move(d)) {}

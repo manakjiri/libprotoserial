@@ -41,17 +41,20 @@ namespace sp
         /* index of a fragment within a transfer, starts with 1, index 0 signals invalid index */
         using index_type = uint8_t;
 
-        const id_type invalid_id = 0; //FIXME should this be here?
-        const index_type invalid_index = 0;
+        static constexpr id_type invalid_id = 0; //FIXME should this be here?
+        static constexpr index_type invalid_index = 0;
 
         transfer_metadata(address_type src, address_type dst, interface_identifier iid, 
             time_point timestamp_creation, id_type id, id_type prev_id) :
                 fragment_metadata(src, dst, iid, timestamp_creation), _id(id), 
                 _prev_id(prev_id) {}
 
-        transfer_metadata(const fragment_metadata & fm, id_type id, id_type prev_id = 0) :
+        transfer_metadata(const fragment_metadata & fm, id_type id, id_type prev_id = invalid_id) :
             transfer_metadata(fm.source(), fm.destination(), fm.interface_id(), 
             fm.timestamp_creation(), id, prev_id) {}
+
+        transfer_metadata() :
+            fragment_metadata(), _id(invalid_id), _prev_id(invalid_id) {}
 
         transfer_metadata(const transfer_metadata &) = default;
         transfer_metadata(transfer_metadata &&) = default;
@@ -89,6 +92,8 @@ namespace sp
     struct transfer : public transfer_metadata
     {
         using data_type = fragment::data_type;
+
+        transfer() = default;
 
         transfer(transfer_metadata && metadata, data_type && data):
             transfer_metadata(std::move(metadata)), _data(std::move(data)) {}

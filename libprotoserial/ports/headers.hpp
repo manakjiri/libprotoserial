@@ -47,8 +47,7 @@ namespace sp
 
             bool is_valid() const 
             {
-                return check == (byte)(destination + source) && destination != source 
-                    && destination && source;
+                return check == (byte)(destination + source) && destination && source;
             }
         };
     }

@@ -105,6 +105,11 @@ namespace sp
             transmit_event.subscribe(&interface::transmit, &l);
         }
 
+        interface_identifier interface_id() const
+        {
+            return _interface->interface_id();
+        }
+
         /* fires when the handler wants to transmit a fragment, complemented by receive_callback */
         subject<fragment> transmit_event;
         /* fires when the handler receives and fully reconstructs a fragment, complemented by transmit */

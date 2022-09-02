@@ -23,7 +23,7 @@
 #ifndef _SP_SERVICES_ECHO
 #define _SP_SERVICES_ECHO
 
-#include "libprotoserial/services/service_base.hpp"
+#include <libprotoserial/services/service_base.hpp>
 
 namespace sp
 {
@@ -37,7 +37,9 @@ namespace sp
         /* implements service_base::receive */
         void receive(packet p)
         {
-            //p.create_response
+            auto resp = p.create_response_packet();
+            resp.data() = std::move(p.data());
+            transmit(std::move(resp));
         }
     };
 }
