@@ -41,6 +41,8 @@ namespace sp
         using address_type = uint;
         using time_point = clock::time_point;
 
+        const address_type invalid_address = 0;
+
         constexpr fragment_metadata(address_type src, address_type dst, interface_identifier iid, time_point timestamp_creation):
             _timestamp_creation(timestamp_creation), _interface_id(iid), _source(src), _destination(dst) {}
 
@@ -54,7 +56,19 @@ namespace sp
         constexpr address_type source() const noexcept {return _source;}
         constexpr address_type destination() const noexcept {return _destination;}
 
-        void set_destination(address_type dst) {_destination = dst;}
+        constexpr void set_destination(address_type dst) {_destination = dst;}
+
+        fragment_metadata create_response_fragment_metadata() const
+        {
+            return fragment_metadata(destination(), source(), interface_id(), time_point::clock::now());
+        }
+
+        //TODO match_as_response fragment formalize
+        /* check if the given fragment is a response to this fragment */
+        constexpr bool is_response_fragment(const fragment_metadata & fm) const
+        {
+            return fm.source() == destination() && interface_id() == fm.interface_id();
+        }
 
         protected:
         time_point _timestamp_creation;
@@ -66,21 +80,21 @@ namespace sp
     class fragment : public fragment_metadata, public sp_object
     {
         public:
+        using data_type = bytes;
 
-        typedef bytes   data_type;
-
-        fragment(address_type src, address_type dst, data_type && d, interface_identifier iid) :
-            fragment_metadata(src, dst, iid, clock::now()), _data(std::move(d)) {}
+        fragment(address_type src, address_type dst, data_type && d, interface_identifier iid, 
+            time_point t = clock::now()) :
+                fragment_metadata(src, dst, iid, t), _data(std::move(d)) {}
 
         fragment(fragment_metadata && metadata, data_type && d):
             fragment_metadata(std::move(metadata)), _data(std::move(d)) {}
 
         /* this object can be passed to the interface::transmit() function */
         fragment(address_type dst, data_type d) :
-            fragment((address_type)0, dst, std::move(d), interface_identifier()) {}
+            fragment(invalid_address, dst, std::move(d), interface_identifier()) {}
 
         fragment():
-            fragment(0, data_type()) {}
+            fragment(invalid_address, data_type()) {}
 
         fragment(const fragment &) = default;
         fragment(fragment &&) = default;
@@ -89,10 +103,17 @@ namespace sp
         
         constexpr const data_type& data() const noexcept {return _data;}
         constexpr data_type& data() noexcept {return _data;}
+        
+        //TODO remove
         constexpr void complete(address_type src, interface_identifier iid) {_source = src; _interface_id = iid;}
         
-        bool carries_information() const {return _data && _destination;}
-        explicit operator bool() const {return carries_information();}
+        constexpr bool carries_information() const {return _data && _destination != invalid_address;}
+        explicit constexpr operator bool() const {return carries_information();}
+
+        fragment create_response_fragment() const
+        {
+            return fragment(create_response_fragment_metadata(), data_type());
+        }
 
         protected:
         data_type _data;

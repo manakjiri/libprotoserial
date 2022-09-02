@@ -57,13 +57,12 @@ namespace sp
             );
         }
 
-        constexpr bool match_as_response(const packet_metadata & p) const 
+        constexpr bool is_response_packet(const packet_metadata & pm) const 
         {
-            return p.source() == destination() && p.interface_id() == interface_id() && 
-                p.get_prev_id() == get_id() && p.source_port() == destination_port();
+            return is_response_transfer(pm) && pm.source_port() == destination_port();
         }
 
-        transfer_metadata get_transfer_metadata() const
+        constexpr transfer_metadata get_transfer_metadata() const
         {
             return transfer_metadata(*static_cast<const transfer_metadata*>(this));
         }
@@ -86,8 +85,8 @@ namespace sp
         packet(transfer && t, const headers::ports_8b & h) :
             packet(std::move(t), h.source, h.destination) {}
 
-        const data_type& data() const noexcept {return _data;}
-        data_type& data() noexcept {return _data;}
+        constexpr const data_type& data() const noexcept {return _data;}
+        constexpr data_type& data() noexcept {return _data;}
 
         packet create_response_packet() const
         {

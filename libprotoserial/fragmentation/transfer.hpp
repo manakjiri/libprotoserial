@@ -34,10 +34,15 @@ namespace sp
     struct transfer_metadata : public fragment_metadata
     {
         /* as with interface::address_type this is a type that can hold all used 
-        fragmentation_handler::id_type types */
+        fragmentation_handler::id_type types
+        the fragment id is used to uniquely identify a fragment transfer together with the destination and source
+        addresses and the interface name. It is issued by the transmitting side of the fragment */
         using id_type = uint8_t;
         /* index of a fragment within a transfer, starts with 1, index 0 signals invalid index */
         using index_type = uint8_t;
+
+        const id_type invalid_id = 0; //FIXME should this be here?
+        const index_type invalid_index = 0;
 
         constexpr transfer_metadata(address_type src, address_type dst, interface_identifier iid, 
             time_point timestamp_creation, id_type id, id_type prev_id) :
@@ -53,35 +58,28 @@ namespace sp
         constexpr transfer_metadata & operator=(const transfer_metadata &) = default;
         constexpr transfer_metadata & operator=(transfer_metadata &&) = default;
 
-        /* the fragment id is used to uniquely identify a fragment transfer together with the destination and source
-        addresses and the interface name. It is issued by the transmittee of the fragment */
         constexpr id_type get_id() const {return _id;}
         constexpr id_type get_prev_id() const {return _prev_id;}
-
-        /* checks if p's addresses and interface match the transfer's, this along with id match means that p 
-        should be part of this transfer */
-        bool match(const fragment & p) const 
-            {return p.destination() == destination() && p.source() == source();}
-
-        /* checks p's addresses as a response to this transfer and interface match the transfer's */
-        bool match_as_response(const fragment & p) const 
-            {return p.source() == destination();}
-
-        //TODO match_as_response transfer formalize
-        /* bool match_as_response(const transfer & t) const 
-            {return t.source() == destination();} */
         
         /* use only once for creating actual response, each transfer only holds one next_id */
-        transfer_metadata create_response() 
+        transfer_metadata create_response_transfer_metadata() const
         {
+            //TODO should this populate the interface and so forth?
             return transfer_metadata(destination(), source(), interface_id(), 
                 clock::now(), global_id_factory.new_id(interface_id()), get_id()
             );
         }
 
+        /* returns the fragment portion of the metadata */
         fragment_metadata get_fragment_metadata() const
         {
             return fragment_metadata(*static_cast<const fragment_metadata*>(this));
+        }
+
+        /* check if the given fragment is a response to this fragment */
+        constexpr bool is_response_transfer(const transfer_metadata& tm) const
+        {
+            return is_response_fragment(tm) && get_id() == tm.get_prev_id();
         }
 
         protected:
@@ -103,12 +101,13 @@ namespace sp
         transfer & operator=(const transfer &) = default;
         transfer & operator=(transfer &&) = default;
 
-        const data_type& data() const noexcept {return _data;}
-        data_type& data() noexcept {return _data;}
+        constexpr const data_type& data() const noexcept {return _data;}
+        constexpr data_type& data() noexcept {return _data;}
 
-        transfer_metadata get_metadata() const 
+        /* use only once for creating actual response, each transfer only holds one next_id */
+        transfer create_response_transfer() const
         {
-            return transfer_metadata(*reinterpret_cast<const transfer_metadata*>(this));
+            return transfer(create_response_transfer_metadata(), data_type());
         }
 
 #ifdef SP_ENABLE_IOSTREAM
@@ -129,7 +128,6 @@ namespace sp
 #endif
 
         protected:
-
         data_type _data;
     };
 }
