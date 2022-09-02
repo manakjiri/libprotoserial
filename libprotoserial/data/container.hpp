@@ -23,7 +23,7 @@
 #ifndef _SP_CONTAINER
 #define _SP_CONTAINER
 
-
+#include <libprotoserial/libconfig.hpp>
 #include <libprotoserial/data/byte.hpp>
 
 #include <initializer_list>
