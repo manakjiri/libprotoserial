@@ -29,7 +29,7 @@
 namespace sp
 {
     /* this base class is not required for a service, it is just a "template" for built-in services */
-    class port_service_base
+    class service_base
     {
         public:
         using port_type = ports_handler::port_type;
@@ -38,16 +38,37 @@ namespace sp
         port_type _port;
 
         public:
+        /* default construct the service, you need to assign a port number to later */
+        service_base() :
+            _port(0) {}
 
-        /*  */
-        subject<packet> transmit_event;
-        virtual void receive_callback(packet) = 0;
+        /* registers the service with the ports_handler and binds to it */
+        service_base(ports_handler & l, port_type port)
+        {
+            bind_to(l, port);
+        }
 
         void bind_to(ports_handler & l, port_type port)
         {
             auto & h = l.register_port((_port = port));
-            h.receive_event.subscribe(&port_service_base::receive_callback, this);
+            h.receive_event.subscribe(&service_base::receive, this);
             transmit_event.subscribe(&ports_handler::service_endpoint::transmit_callback, &h);
+        }
+
+        protected:
+
+        subject<packet> transmit_event;
+        /* the service receives a finished packet here */
+        virtual void receive(packet) = 0;
+
+        /* the service sends a packet through this */
+        void transmit(packet p)
+        {
+            /* set the port if not set */
+            if (!p.source_port())
+                p.set_source_port(get_port());
+            
+            transmit_event.emit(std::move(p));
         }
 
         port_type get_port() const {return _port;}

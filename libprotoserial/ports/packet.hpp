@@ -46,9 +46,10 @@ namespace sp
         constexpr port_type source_port() const {return _src_port;}
         constexpr port_type destination_port() const {return _dst_port;}
 
+        constexpr void set_source_port(port_type p) {_src_port = p;}
         constexpr void set_destination_port(port_type p) {_dst_port = p;}
 
-        packet_metadata create_response()
+        packet_metadata create_response_packet_metadata() const
         {
             return packet_metadata(destination(), source(), interface_id(), 
                 clock::now(), global_id_factory.new_id(interface_id()), get_id(), 
@@ -62,13 +63,21 @@ namespace sp
                 p.get_prev_id() == get_id() && p.source_port() == destination_port();
         }
 
+        transfer_metadata get_transfer_metadata() const
+        {
+            return transfer_metadata(*static_cast<const transfer_metadata*>(this));
+        }
+
         protected:
         port_type _src_port, _dst_port;
     };
 
     struct packet : public packet_metadata
     {
-        using data_type = fragment::data_type;
+        using data_type = transfer::data_type;
+
+        packet(packet_metadata pm, data_type d):
+            packet_metadata(std::move(pm)), _data(std::move(d)) {}
 
         packet(transfer && t, port_type src_port = 0, port_type dst_port = 0) :
             _data(std::move(t.data())), packet_metadata(t.source(), t.destination(), t.interface_id(), 
@@ -80,9 +89,9 @@ namespace sp
         const data_type& data() const noexcept {return _data;}
         data_type& data() noexcept {return _data;}
 
-        transfer_metadata get_transfer_metadata() const
+        packet create_response_packet() const
         {
-            return transfer_metadata(*static_cast<const transfer_metadata*>(this));
+            return packet(create_response_packet_metadata(), data_type());
         }
 
         private:

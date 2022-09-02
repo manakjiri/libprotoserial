@@ -27,15 +27,19 @@
 
 namespace sp
 {
-namespace services
-{
-    class echo : public port_service_base
+    /* test service */
+    class echo_service : public service_base
     {
-        
+        public:
+        echo_service(ports_handler & l, port_type port) :
+            service_base(l, port) {}
 
-
+        /* implements service_base::receive */
+        void receive(packet p)
+        {
+            //p.create_response
+        }
     };
-}
 }
 
 

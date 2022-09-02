@@ -8,6 +8,7 @@
 #include <libprotoserial/fragmentation.hpp>
 #include <libprotoserial/ports/packet.hpp>
 #include <libprotoserial/ports/ports.hpp>
+#include <libprotoserial/services/echo.hpp>
 //#include <libprotoserial/protostacks.hpp>
 
 #include "helpers/random.hpp"
@@ -650,6 +651,7 @@ TEST(Ports, PortsBasic)
     fh.bind_to(lo);
     /* ports setup */
     sp::ports_handler ph;
+    //sp::echo_service echo;
 
     sp::transfer tr(lo.interface_id(), 2);
     tr.data().push_back(random_bytes(10));
