@@ -44,19 +44,19 @@ namespace sp
         const id_type invalid_id = 0; //FIXME should this be here?
         const index_type invalid_index = 0;
 
-        constexpr transfer_metadata(address_type src, address_type dst, interface_identifier iid, 
+        transfer_metadata(address_type src, address_type dst, interface_identifier iid, 
             time_point timestamp_creation, id_type id, id_type prev_id) :
                 fragment_metadata(src, dst, iid, timestamp_creation), _id(id), 
                 _prev_id(prev_id) {}
 
-        constexpr transfer_metadata(const fragment_metadata & fm, id_type id, id_type prev_id = 0) :
+        transfer_metadata(const fragment_metadata & fm, id_type id, id_type prev_id = 0) :
             transfer_metadata(fm.source(), fm.destination(), fm.interface_id(), 
             fm.timestamp_creation(), id, prev_id) {}
 
-        constexpr transfer_metadata(const transfer_metadata &) = default;
-        constexpr transfer_metadata(transfer_metadata &&) = default;
-        constexpr transfer_metadata & operator=(const transfer_metadata &) = default;
-        constexpr transfer_metadata & operator=(transfer_metadata &&) = default;
+        transfer_metadata(const transfer_metadata &) = default;
+        transfer_metadata(transfer_metadata &&) = default;
+        transfer_metadata & operator=(const transfer_metadata &) = default;
+        transfer_metadata & operator=(transfer_metadata &&) = default;
 
         constexpr id_type get_id() const {return _id;}
         constexpr id_type get_prev_id() const {return _prev_id;}
@@ -86,7 +86,7 @@ namespace sp
         id_type _id, _prev_id;
     };
 
-    struct transfer : public transfer_metadata, public sp_object
+    struct transfer : public transfer_metadata
     {
         using data_type = fragment::data_type;
 

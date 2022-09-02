@@ -32,7 +32,7 @@ namespace sp
 {
     class interface;
 
-    class fragment_metadata
+    class fragment_metadata : public sp_object
     {
         public:
         /* an integer that can hold any used device address, the actual address format 
@@ -43,13 +43,13 @@ namespace sp
 
         const address_type invalid_address = 0;
 
-        constexpr fragment_metadata(address_type src, address_type dst, interface_identifier iid, time_point timestamp_creation):
+        fragment_metadata(address_type src, address_type dst, interface_identifier iid, time_point timestamp_creation):
             _timestamp_creation(timestamp_creation), _interface_id(iid), _source(src), _destination(dst) {}
 
-        constexpr fragment_metadata(const fragment_metadata &) = default;
-        constexpr fragment_metadata(fragment_metadata &&) = default;
-        constexpr fragment_metadata & operator=(const fragment_metadata &) = default;
-        constexpr fragment_metadata & operator=(fragment_metadata &&) = default;
+        fragment_metadata(const fragment_metadata &) = default;
+        fragment_metadata(fragment_metadata &&) = default;
+        fragment_metadata & operator=(const fragment_metadata &) = default;
+        fragment_metadata & operator=(fragment_metadata &&) = default;
 
         constexpr time_point timestamp_creation() const noexcept {return _timestamp_creation;}
         constexpr interface_identifier interface_id() const noexcept {return _interface_id;}
@@ -77,7 +77,7 @@ namespace sp
     };
 
     /* interface fragment representation */
-    class fragment : public fragment_metadata, public sp_object
+    class fragment : public fragment_metadata
     {
         public:
         using data_type = bytes;

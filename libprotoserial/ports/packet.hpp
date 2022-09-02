@@ -32,14 +32,14 @@ namespace sp
         /* as with interface::address_type this is a type that can hold all used port_type types */
         using port_type = uint;
 
-        constexpr packet_metadata(address_type src, address_type dst, interface_identifier iid, time_point timestamp_creation, 
+        packet_metadata(address_type src, address_type dst, interface_identifier iid, time_point timestamp_creation, 
             id_type id, id_type prev_id, port_type src_port, port_type dst_port) :
                 transfer_metadata(src, dst, iid, timestamp_creation, id, prev_id),
                 _src_port(src_port), _dst_port(dst_port) {}
 
         //packet_metadata(address_type src, interface_identifier iid, )
 
-        constexpr packet_metadata(transfer_metadata & tm, port_type src_port, port_type dst_port) :
+        packet_metadata(transfer_metadata & tm, port_type src_port, port_type dst_port) :
             packet_metadata(tm.source(), tm.destination(), tm.interface_id(), tm.timestamp_creation(), tm.get_id(),
             tm.get_prev_id(), src_port, dst_port) {}
 
@@ -62,7 +62,7 @@ namespace sp
             return is_response_transfer(pm) && pm.source_port() == destination_port();
         }
 
-        constexpr transfer_metadata get_transfer_metadata() const
+        transfer_metadata get_transfer_metadata() const
         {
             return transfer_metadata(*static_cast<const transfer_metadata*>(this));
         }
@@ -85,6 +85,11 @@ namespace sp
         packet(transfer && t, const headers::ports_8b & h) :
             packet(std::move(t), h.source, h.destination) {}
 
+        packet(const packet &) = default;
+        packet(packet &&) = default;
+        packet & operator=(const packet &) = default;
+        packet & operator=(packet &&) = default;
+        
         constexpr const data_type& data() const noexcept {return _data;}
         constexpr data_type& data() noexcept {return _data;}
 
