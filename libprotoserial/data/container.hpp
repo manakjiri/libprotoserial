@@ -30,6 +30,7 @@
 #include <string>
 #include <algorithm>
 #include <memory>
+#include <iterator>
 
 #ifdef SP_ENABLE_EXCEPTIONS
 #include <stdexcept>
@@ -49,29 +50,36 @@ namespace sp
     {
         public:
 
-        typedef byte                value_type;
-        typedef uint                size_type;
-        typedef int                 difference_type;
-        typedef value_type&         reference;
-        typedef const value_type&   const_reference;
-        typedef value_type*         pointer;
-        typedef const value_type*   const_pointer;
-        typedef pointer             iterator;
-        typedef const_pointer       const_iterator;
+        using value_type        = sp::byte;
+        using size_type         = uint;
+        using difference_type   = int;
+        using pointer           = value_type *;
+        using const_pointer     = const value_type *;
+        using reference         = value_type &;
+        using const_reference   = const value_type &;
+        using iterator          = pointer;
+        using const_iterator    = const_pointer;
+        //using iterator          = __gnu_cxx::__normal_iterator<pointer, bytes>;
+        //using const_iterator    = __gnu_cxx::__normal_iterator<const_pointer, bytes>;
 
         /* struct iterator 
         {
-            // iterator tags here...
+            using iterator_category = std::forward_iterator_tag;
+            using difference_type   = difference_type;
+            using value_type        = value_type;
+            using pointer           = pointer; 
+            using reference         = reference;
 
             iterator(pointer ptr) : _ptr(ptr) {}
 
             reference operator*() const { return *_ptr; }
             pointer operator->() { return _ptr; }
 
-            // Prefix increment
-            iterator& operator++() { _ptr++; return *this; }  
+            // Prefix
+            iterator& operator++() { ++_ptr; return *this; } 
+            iterator& operator--() { --_ptr; return *this; } 
 
-            // Postfix increment
+            // Postfix
             iterator operator++(int) { iterator tmp = *this; ++(*this); return tmp; }
 
             friend bool operator== (const iterator& a, const iterator& b) { return a._ptr == b._ptr; };
@@ -199,14 +207,12 @@ namespace sp
         const value_type & operator[] (size_type i) const {return at(i);}
         value_type & operator[] (size_type i) {return at(i);}
 
-        constexpr iterator begin() {return data();}
-        constexpr iterator end() {return data() + size();}
-        //iterator begin() {return iterator(data());}
-        //iterator end() {return iterator(data() + size());}
-        constexpr const_iterator begin() const {return data();}
-        constexpr const_iterator end() const {return data() + size();}
-        constexpr const_iterator cbegin() const {return data();}
-        constexpr const_iterator cend() const {return data() + size();}
+        constexpr iterator begin() {return iterator(data());}
+        constexpr iterator end() {return iterator(data() + size());}
+        constexpr const_iterator begin() const {return const_iterator(data());}
+        constexpr const_iterator end() const {return const_iterator(data() + size());}
+        constexpr const_iterator cbegin() const {return const_iterator(data());}
+        constexpr const_iterator cend() const {return const_iterator(data() + size());}
 
         constexpr explicit operator bool() const {return !is_empty();}
         
@@ -298,12 +304,12 @@ namespace sp
             expand(0, other.size());
             std::copy(other.begin(), other.end(), end() - other.size());
         }
-        constexpr void push_back(const bytes * other)
+        constexpr void push_back(const value_type & b)
         {
-            expand(0, other->size());
-            std::copy(other->begin(), other->end(), end() - other->size());
+            expand(0, 1);
+            at(size() - 1) = b;
         }
-        constexpr void push_back(const value_type b)
+        constexpr void push_back(const value_type && b)
         {
             expand(0, 1);
             at(size() - 1) = b;
@@ -416,12 +422,12 @@ namespace sp
     }
 }
 
-constexpr bool operator==(const sp::bytes & lhs, const sp::bytes & rhs)
+bool operator==(const sp::bytes & lhs, const sp::bytes & rhs)
 {
     return std::equal(lhs.cbegin(), lhs.cend(), rhs.cbegin(), rhs.cend());
 }
 
-constexpr bool operator!=(const sp::bytes & lhs, const sp::bytes & rhs)
+bool operator!=(const sp::bytes & lhs, const sp::bytes & rhs)
 {
     return !(lhs == rhs);
 }

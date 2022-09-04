@@ -32,7 +32,8 @@
 
 namespace sp
 {
-    using byte = std::byte;
+    /* the library was written with byte being std::byte until jsoncons was added as a dependency */
+    using byte = std::uint8_t;
 
     namespace literals
     {

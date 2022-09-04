@@ -175,7 +175,7 @@ namespace sp
             }
 
             bytes _rx_buffer;
-            volatile bytes::pointer _write_it;
+            volatile bytes::iterator _write_it;
             volatile uint _byte_count;
             volatile bool _postpone_by_one;
         };
