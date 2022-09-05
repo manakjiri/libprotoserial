@@ -9,6 +9,7 @@
 #include <libprotoserial/ports/packet.hpp>
 #include <libprotoserial/ports/ports.hpp>
 #include <libprotoserial/services/echo.hpp>
+#include <libprotoserial/services/command.hpp>
 //#include <libprotoserial/protostacks.hpp>
 
 #include "helpers/random.hpp"
@@ -691,5 +692,49 @@ TEST(Ports, EchoService)
     EXPECT_EQ(txp.destination_port(), rxp.source_port());
     EXPECT_EQ(txp.get_id(), rxp.get_prev_id());
     EXPECT_NE(txp.get_id(), rxp.get_id());
+}
+
+
+class test_command : public sp::command_service::command_base
+{
+    public:
+    test_command(sp::command_service & service) :
+        sp::command_service::command_base(service) {}
+
+    int irrelevant(int n)
+    {
+        return n + 2;
+    }
+    sp::command_service::exit_status run(const sp::command_service::command_args & args) 
+    {
+        return DONE;
+    }
+};
+
+TEST(Ports, CommandService)
+{
+    /* interface setup */
+    sp::loopback_interface lo(0, 1, 255, 10, 64, 1024);
+    /* fragmentation_handler setup */
+    sp::bypass_fragmentation_handler fh(&lo, lo.minimum_prealloc());
+    fh.bind_to(lo);
+    /* ports setup */
+    sp::ports_handler ph;
+    ph.register_interface(fh);
+
+    /* commands service on port 1 */
+    sp::command_service cs(ph, 1);
+    /* test command setup */
+    auto tc = cs.new_command<test_command>("test");
+    EXPECT_EQ(tc->irrelevant(2), 4);
+    
+
+    /* raw port 2 */
+    auto & p2 = ph.register_service(2);
+    sp::packet rxp;
+    p2.receive_event.subscribe([&rxp](sp::packet _p){
+        rxp = std::move(_p);
+    });
+
 }
 

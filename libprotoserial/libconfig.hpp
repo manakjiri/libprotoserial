@@ -46,5 +46,21 @@
 #define SP_ENABLE_EXCEPTIONS
 #endif
 
+#ifdef SP_ENABLE_IOSTREAM
+#if __has_include(<format>)
+#include <format>
+#define SP_ENABLE_FORMAT
+#else
+#include <iomanip>
+#endif
+#endif
+
+namespace sp
+{
+#ifdef SP_ENABLE_FORMAT
+    using std::format;
+#endif
+}
+
 #endif
 

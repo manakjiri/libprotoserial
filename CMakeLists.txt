@@ -24,6 +24,7 @@ add_executable(
 target_include_directories(
     test_libprotoserial PRIVATE "."
     test_libprotoserial PRIVATE "submodules/etl/include"
+    test_libprotoserial PRIVATE "submodules/jsoncons/include"
 )
 
 target_link_libraries(

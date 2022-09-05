@@ -6,11 +6,9 @@ Command service occupies one port of the port_handler. It is meant for short liv
 
 {
     "cmd": "command name",
-    "args": {
-        1: 42,
-        2: "arg2",
-        3: true
-    }
+    "args": ["arg0", 1.0, "AwQF"],
+    "port": 42,
+    "id": 512
 }
 
 ## Command result

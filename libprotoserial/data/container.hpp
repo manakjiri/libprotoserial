@@ -182,7 +182,7 @@ namespace sp
             else
                 return nullptr;
         }
-        constexpr pointer data() const
+        constexpr const_pointer data() const
         {
             if (_data)
                 return &_data[_offset];
@@ -445,13 +445,17 @@ std::ostream& operator<<(std::ostream& os, const sp::bytes& obj)
 {
     os << "[ ";
     for (sp::bytes::size_type i = 0; i < obj.size(); i++)
-        os << (int)obj[i] << ' ';
+    {
+#ifdef SP_ENABLE_FORMAT
+        os << format("{:#04x}\n", (int)obj[i]) << ' ';
+#else
+        os << std::setfill('0') << std::setw(2) << std::right << std::hex << (int)obj[i] << ' ';
+#endif
+    }
     return os << ']';
 }
 #endif
 
-
-//sp::dynamic_bytes & operator+ (const sp::dynamic_bytes & lhs, const sp::dynamic_bytes rhs);
 
 #endif
 

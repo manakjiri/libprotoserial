@@ -4,6 +4,8 @@
 
 #include <iomanip>
 #include <iostream>
+#include <vector>
+
 #include <jsoncons/json.hpp>
 #include <jsoncons_ext/cbor/cbor.hpp>
 #include <jsoncons_ext/jsonpath/jsonpath.hpp>
@@ -66,19 +68,30 @@ int main()
     cbor::encode_cbor(j, buffer);
     std::cout << "(4)\n" << byte_string_view(buffer) << "\n\n"; */
 
+    static_assert(type_traits::has_data_exact<const sp::bytes::value_type*, const sp::bytes>::value);
+    static_assert(type_traits::has_size<sp::bytes>::value);
+    static_assert(type_traits::is_byte<sp::bytes::value_type>::value);
+    static_assert(type_traits::is_byte_sequence<sp::bytes>::value);
+
+
     json j;
     std::cout << pretty_print(j) << "\n\n";
 
 
-    //j.insert_or_assign("cmd", "name");
     j["cmd"] = "name";
+    j["args"] = json::make_array(3);
+    j["args"][0] = "arg0";
+    j["args"][1] = 1.0;
+    sp::bytes b = {3, 4, 5};
+    j["args"][2] = json(byte_string_arg, b); //std::vector<uint8_t>{{3, 4, 5}});
     
     std::cout << pretty_print(j) << "\n\n";
 
     //std::vector<uint8_t> buffer;
-    sp::bytes buffer;
 
-
+    std::cout << j["cmd"].as<std::string>() << std::endl;
+    std::cout << j["cmd"].is_number() << std::endl;
+    std::cout << j["cmd"].is_string() << std::endl;
 
     //auto ins = std::back_insert_iterator<sp::bytes>(buffer);
     /* auto sink = jsoncons::bytes_sink<sp::bytes>(buffer);
@@ -86,6 +99,7 @@ int main()
     *ins++ = (sp::byte)0;
     *ins++ = (sp::byte)1; */
 
+    sp::bytes buffer;
     cbor::encode_cbor(j, buffer);
     //std::cout << "(4)\n" << byte_string_view(buffer) << "\n\n";
     std::cout << buffer << std::endl;
