@@ -25,6 +25,7 @@
 
 #include "libprotoserial/fragmentation/fragmentation.hpp"
 #include "libprotoserial/fragmentation/transfer_handler.hpp"
+#include "libprotoserial/utils/bit_rate.hpp"
 
 namespace sp::detail
 {

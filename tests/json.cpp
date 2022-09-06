@@ -112,4 +112,6 @@ int main()
     cbor::encode_cbor(j, buffer);
     //std::cout << "(4)\n" << byte_string_view(buffer) << "\n\n";
     std::cout << buffer << std::endl;
+
+    json jp = cbor::decode_cbor<json>(buffer);
 }

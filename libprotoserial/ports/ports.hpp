@@ -72,7 +72,7 @@ namespace sp
 
             public:
             service_endpoint(port_type p, ports_handler & handler):
-                _port(p), _handler(handler) {}
+                _handler(handler), _port(p) {}
 
             /* service should subscribe to this in order to receive transfers */
             subject<packet> receive_event;

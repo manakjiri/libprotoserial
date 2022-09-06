@@ -58,12 +58,8 @@ namespace sp
                 /* presence of the "args" key is checked in the service already */
                 const auto & args = _args["args"];
 
-                /* "args" should be an array */
-                if (!args.is_array())
-                    return std::nullopt;
-
-                /* it should contain the index the user is asking for */
-                if (n >= args.size())
+                /* "args" should be an array and it should contain the index the user is asking for */
+                if (!args.is_array() || n >= args.size())
                     return std::nullopt;
                 
                 const auto & arg = args[n];
@@ -135,7 +131,7 @@ namespace sp
         /* implements service_base::receive */
         void receive(packet p)
         {
-            //jsoncons::json j = cbor::decode_cbor<json>(data);
+            jsoncons::json j = jsoncons::cbor::decode_cbor<jsoncons::json>(p.data());
         }
     };
 }

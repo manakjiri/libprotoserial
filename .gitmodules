@@ -7,4 +7,4 @@
 	branch = stable
 [submodule "submodules/jsoncons"]
 	path = submodules/jsoncons
-	url = git@github.com:danielaparker/jsoncons.git
+	url = git@github.com:georges-circuits/jsoncons.git

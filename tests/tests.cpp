@@ -3,6 +3,8 @@
 #define SP_BUFFERED_CRITICAL
 //#define SP_LOOPBACK_CRITICAL
 
+#define JSONCONS_NO_DEPRECATED
+
 #include <libprotoserial/utils/bit_rate.hpp>
 #include <libprotoserial/interface.hpp>
 #include <libprotoserial/fragmentation.hpp>
@@ -11,6 +13,10 @@
 #include <libprotoserial/services/echo.hpp>
 #include <libprotoserial/services/command.hpp>
 //#include <libprotoserial/protostacks.hpp>
+
+#include <jsoncons/json.hpp>
+#include <jsoncons_ext/cbor/cbor.hpp>
+#include <jsoncons_ext/jsonpath/jsonpath.hpp>
 
 #include "helpers/random.hpp"
 #include "helpers/testers.hpp"
@@ -649,6 +655,79 @@ TEST(Fragmentation, CorruptedRandomLarge)
 } */
 
 
+TEST(JsonCons, Interpret)
+{
+    jsoncons::json j_orig;
+    const sp::bytes b = {1_BYTE, 2_BYTE, 3_BYTE};
+
+    j_orig["str"] = "string";
+    j_orig["int"] = -42;
+    j_orig["dbl"] = 3.1415926;
+    j_orig["bytes"] = jsoncons::json(jsoncons::byte_string_arg, std::move(sp::bytes(b)));
+
+    sp::bytes buffer;
+    jsoncons::cbor::encode_cbor(j_orig, buffer);
+    std::cout << buffer << std::endl;
+
+    jsoncons::json j = jsoncons::cbor::decode_cbor<jsoncons::json>(buffer);
+    std::cout << jsoncons::pretty_print(j) << std::endl;
+
+    EXPECT_FALSE(j["str"].is_number());
+    EXPECT_FALSE(j["str"].is_array());
+    EXPECT_TRUE(j["str"].is_string());
+    EXPECT_TRUE(j["str"].is_string_view());
+
+    EXPECT_TRUE(j["int"].is_number());
+    EXPECT_TRUE(j["int"].is_int64());
+    EXPECT_TRUE(j["int"].is_integer<int>());
+    EXPECT_FALSE(j["int"].is_double());
+    EXPECT_TRUE(j["int"].is<int>());
+    EXPECT_FALSE(j["int"].is<unsigned int>());
+
+    EXPECT_TRUE(j["dbl"].is_number());
+    EXPECT_FALSE(j["dbl"].is_int64());
+    EXPECT_FALSE(j["dbl"].is_integer<int>());
+    EXPECT_TRUE(j["dbl"].is_double());
+    EXPECT_TRUE(j["dbl"].is<double>());
+    EXPECT_TRUE(j["dbl"].is<float>());
+    EXPECT_FALSE(j["dbl"].is<unsigned int>());
+
+    EXPECT_FALSE(j["bytes"].is_number());
+    EXPECT_FALSE(j["bytes"].is_array());
+    EXPECT_FALSE(j["bytes"].is_string());
+    EXPECT_TRUE(j["bytes"].is_byte_string());
+    auto b1 = j["bytes"].as<sp::bytes>(jsoncons::byte_string_arg, jsoncons::semantic_tag::none);
+    EXPECT_TRUE(b1 == b) << b1 << " == " << b;
+}
+
+TEST(JsonCons, AsArgArray)
+{
+    jsoncons::json j_orig;
+    sp::bytes b = {1_BYTE, 2_BYTE, 3_BYTE};
+
+    j_orig["args"] = jsoncons::json::make_array(3);
+    j_orig["args"][0] = "arg0";
+    j_orig["args"][1] = 1.0;
+    j_orig["args"][2] = jsoncons::json(jsoncons::byte_string_arg, b); 
+
+    sp::bytes buffer;
+    jsoncons::cbor::encode_cbor(j_orig, buffer);
+    std::cout << buffer << std::endl;
+
+    jsoncons::json j = jsoncons::cbor::decode_cbor<jsoncons::json>(buffer);
+    std::cout << jsoncons::pretty_print(j) << std::endl;
+
+    EXPECT_TRUE(j.contains("args"));
+    
+    const auto & args = j["args"];
+
+    EXPECT_TRUE(args.is_array());
+    EXPECT_EQ(args.size(), 3);
+}
+
+
+
+
 TEST(Ports, Packet)
 {
     const sp::bytes b1 = {10_BYTE, 11_BYTE, 12_BYTE, 13_BYTE, 14_BYTE}, b2 = {20_BYTE, 21_BYTE, 22_BYTE}, b3 = {30_BYTE, 31_BYTE};
@@ -714,10 +793,6 @@ class test_command : public sp::command_service::command_base
     test_command(sp::command_service & service) :
         sp::command_service::command_base(service) {}
 
-    int irrelevant(int n)
-    {
-        return n + 2;
-    }
     sp::command_service::exit_status run(const sp::command_service::command_args & args) 
     {
         return DONE;
@@ -739,7 +814,6 @@ TEST(Ports, CommandService)
     sp::command_service cs(ph, 1);
     /* test command setup */
     auto tc = cs.new_command<test_command>("test");
-    EXPECT_EQ(tc->irrelevant(2), 4);
     
 
     /* raw port 2 */
