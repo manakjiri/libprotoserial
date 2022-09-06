@@ -72,6 +72,8 @@ int main()
     static_assert(type_traits::has_size<sp::bytes>::value);
     static_assert(type_traits::is_byte<sp::bytes::value_type>::value);
     static_assert(type_traits::is_byte_sequence<sp::bytes>::value);
+    static_assert(!type_traits::is_basic_string<sp::bytes>::value && 
+        type_traits::is_back_insertable_byte_container<sp::bytes>::value);
 
 
     json j;
@@ -84,14 +86,21 @@ int main()
     j["args"][1] = 1.0;
     sp::bytes b = {3, 4, 5};
     j["args"][2] = json(byte_string_arg, b); //std::vector<uint8_t>{{3, 4, 5}});
-    
+
     std::cout << pretty_print(j) << "\n\n";
+    
+    
+    const auto & args = j["args"];
+    std::cout << args.is_array() << std::endl;
+    std::cout << args.size() << std::endl;
+    std::cout << args[2].is_byte_string() << std::endl;
+    std::cout << args[2].as<sp::bytes>(byte_string_arg, semantic_tag::none) << std::endl; //std::vector<sp::bytes::value_type>
 
-    //std::vector<uint8_t> buffer;
 
-    std::cout << j["cmd"].as<std::string>() << std::endl;
-    std::cout << j["cmd"].is_number() << std::endl;
-    std::cout << j["cmd"].is_string() << std::endl;
+    const auto & cmd = j["cmd"];
+    std::cout << cmd.as<std::string>() << std::endl;
+    std::cout << cmd.is_number() << std::endl;
+    std::cout << cmd.is_string() << std::endl;
 
     //auto ins = std::back_insert_iterator<sp::bytes>(buffer);
     /* auto sink = jsoncons::bytes_sink<sp::bytes>(buffer);

@@ -15,7 +15,7 @@ namespace sim
     {
         std::function<void(void)> _fn;
         std::jthread _thread;
-        std::atomic<bool> _run;
+        std::atomic<bool> _run = true;
 
         void callback()
         {
@@ -29,7 +29,7 @@ namespace sim
 
     public:
         // TODO args
-        loop_thread(std::function<void(void)> fn) : _fn(fn), _thread(std::bind(&loop_thread::callback, this)), _run(true) {}
+        loop_thread(std::function<void(void)> fn) : _fn(fn), _thread(std::bind(&loop_thread::callback, this)) {}
         ~loop_thread() { join(); }
 
         void join()

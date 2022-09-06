@@ -30,7 +30,7 @@
 #include <string>
 #include <algorithm>
 #include <memory>
-#include <iterator>
+#include <cstring>
 
 #ifdef SP_ENABLE_EXCEPTIONS
 #include <stdexcept>
@@ -51,44 +51,16 @@ namespace sp
         public:
 
         using value_type        = sp::byte;
-        using size_type         = uint;
-        using difference_type   = int;
+        using size_type         = std::size_t;
+        using difference_type   = std::ptrdiff_t;
         using pointer           = value_type *;
         using const_pointer     = const value_type *;
         using reference         = value_type &;
         using const_reference   = const value_type &;
         using iterator          = pointer;
         using const_iterator    = const_pointer;
-        //using iterator          = __gnu_cxx::__normal_iterator<pointer, bytes>;
-        //using const_iterator    = __gnu_cxx::__normal_iterator<const_pointer, bytes>;
 
-        /* struct iterator 
-        {
-            using iterator_category = std::forward_iterator_tag;
-            using difference_type   = difference_type;
-            using value_type        = value_type;
-            using pointer           = pointer; 
-            using reference         = reference;
-
-            iterator(pointer ptr) : _ptr(ptr) {}
-
-            reference operator*() const { return *_ptr; }
-            pointer operator->() { return _ptr; }
-
-            // Prefix
-            iterator& operator++() { ++_ptr; return *this; } 
-            iterator& operator--() { --_ptr; return *this; } 
-
-            // Postfix
-            iterator operator++(int) { iterator tmp = *this; ++(*this); return tmp; }
-
-            friend bool operator== (const iterator& a, const iterator& b) { return a._ptr == b._ptr; };
-            friend bool operator!= (const iterator& a, const iterator& b) { return a._ptr != b._ptr; };     
-
-            private:
-
-            pointer _ptr;
-        }; */
+        using allocator_type = std::allocator<value_type>;
 
         /* default */
         constexpr bytes()
@@ -105,7 +77,8 @@ namespace sp
             _length = length;
             alloc(_capacity);
         }
-        /* use this if you want to wrap existing raw array of bytes by this class */
+        /* use this if you want to wrap existing raw array of bytes by this class,
+        the container takes ownership and will free the provided pointer using allocator deallocate */
         constexpr bytes(pointer data, size_type length) :
             bytes()
         {
@@ -119,12 +92,18 @@ namespace sp
             std::copy(values.begin(), values.end(), begin());
         }
 
-        //operator std::string() const {return };
+        template<typename OutputIt>
+        constexpr bytes(const OutputIt & begin, const OutputIt & end):
+            bytes()
+        {
+            std::copy(begin, end, std::back_inserter(*this));
+        }
+
         bytes(const std::string & from) :
             bytes(from.size())
         {
             copy_from(reinterpret_cast<bytes::pointer>(const_cast<char*>(from.c_str())), from.size());
-        }
+        }        
         
         /* copy - only the currently exposed data gets copied, overallocation is not used */
         bytes(const bytes & other) :
@@ -192,16 +171,12 @@ namespace sp
         
         constexpr const value_type & at(size_type i) const
         {
-#ifdef SP_ENABLE_EXCEPTIONS
             range_check(i);
-#endif
             return data()[i];
         }
         constexpr value_type & at(size_type i)
         {
-#ifdef SP_ENABLE_EXCEPTIONS
             range_check(i);
-#endif
             return data()[i];
         }
         const value_type & operator[] (size_type i) const {return at(i);}
@@ -228,25 +203,27 @@ namespace sp
         this function merely reserves requested capacity by reallocation if necesary, front or back can be 0 */
         constexpr void reserve(const size_type front, const size_type back)
         {
+            using traits_t = std::allocator_traits<allocator_type>;
+
             /* do nothing if the container has enough margin already */
             if (_offset >= front && capacity_back() >= back)
                 return;
 
-            /* keep reference to the old buffer since we need to reallocate it */
-            //std::unique_ptr<value_type> oldget_base(_data);
-            pointer oldget_base = _data;
+            /* keep pointer to the old buffer since we need to reallocate it */
+            pointer old_data = _data;
+            size_type old_capacity = _capacity;
             
-            /* allocate the new data buffer and update the capacity so it refelects this */
+            /* allocate the new data buffer and update the capacity so it reflects this */
             _capacity = front + _length + back;
             alloc(_capacity);
 
-            if (oldget_base)
+            if (old_data)
             {
                 /* copy the original data */
                 for (size_type i = 0; i < _length; i++)
-                    _data[i + front] = oldget_base[i + _offset];
+                    _data[i + front] = old_data[i + _offset];
 
-                delete[] oldget_base;
+                traits_t::deallocate(_alloc, old_data, old_capacity);
             }
 
             /* finally update the offset because we no longer need the old value */
@@ -342,8 +319,10 @@ namespace sp
         container as if it was just initialized using the default constructor */
         constexpr void clear()
         {
-            if (_data != nullptr)
-                delete[] _data;
+            using traits_t = std::allocator_traits<allocator_type>;
+
+            if (_data && _capacity != 0)
+                traits_t::deallocate(_alloc, _data, _capacity);
             
             _init();
         }
@@ -360,7 +339,7 @@ namespace sp
         /* used internally for move, do not use otherwise */
         constexpr void _init()
         {
-            _data = nullptr;
+            _data = pointer();
             _length = 0;
             _offset = 0;
             _capacity = 0;
@@ -377,38 +356,46 @@ namespace sp
         protected:
         pointer _data;
         size_type _length, _capacity, _offset;
+        allocator_type _alloc;
 
         constexpr inline void range_check(size_type i) const
         {
-#ifdef SP_ENABLE_EXCEPTIONS
             if (i >= _length || !_data)
+            {
+#ifdef SP_ENABLE_EXCEPTIONS
                 throw out_of_range("bytes::range_check at index " + std::to_string(i) + " (size " + std::to_string(_length) + ")");
+#else
+                std::terminate();
 #endif
+            }
         }
-        void copy_from(const_pointer data, size_type length){
+        void copy_from(const_pointer data, const size_type length)
+        {
             if (!data || length == 0)
                 return;
         
             range_check(length - 1);
-            for (uint i = 0; i < length; i++)
-                _data[i + _offset] = data[i];
+            std::memcpy(&_data[_offset], data, length);
         }
-        void copy_to(pointer data, size_type length) const
+        void copy_to(pointer data, const size_type length) const
         {
             if (!data || length == 0)
                 return;
             
             range_check(length - 1);
-            for (uint i = 0; i < length; i++)
-                data[i] = _data[i + _offset];
+            std::memcpy(data, &_data[_offset], length);
         }
         /* replaces the _data with a newly allocated and initialized array of length, does not change the _capacity nor the _length! */
         constexpr void alloc(size_type length)
         {
             if (length > 0)
-                _data = new value_type[length]();
+            {
+                using traits_t = std::allocator_traits<allocator_type>;
+                _data = traits_t::allocate(_alloc, length);
+                std::memset(_data, 0, length);
+            }
             else 
-                _data = nullptr;
+                _data = pointer();
         }
     };
 

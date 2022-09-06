@@ -142,32 +142,32 @@ TEST(Bytes, Set)
     sp::bytes bc;
 
     bc = {0_BYTE, 0_BYTE, 0_BYTE, 0_BYTE, 0_BYTE};
-    EXPECT_TRUE(b1 == bc) << bc;
-    EXPECT_TRUE(b2 == bc) << bc;
+    EXPECT_TRUE(b1 == bc) << b1 << " == " << bc;
+    EXPECT_TRUE(b2 == bc) << b2 << " == " << bc;
 
     bc = {255_BYTE, 255_BYTE, 255_BYTE, 255_BYTE, 255_BYTE};
     b1.set(255_BYTE);
     b2.set(255_BYTE);
-    EXPECT_TRUE(b1 == bc) << bc;
-    EXPECT_TRUE(b2 == bc) << bc;
+    EXPECT_TRUE(b1 == bc) << b1 << " == " << bc;
+    EXPECT_TRUE(b2 == bc) << b2 << " == " << bc;
 
     bc = {2_BYTE, 2_BYTE, 255_BYTE, 255_BYTE, 255_BYTE};
     b1.set(0, 2, 2_BYTE);
     b2.set(0, 2, 2_BYTE);
-    EXPECT_TRUE(b1 == bc) << bc;
-    EXPECT_TRUE(b2 == bc) << bc;
+    EXPECT_TRUE(b1 == bc) << b1 << " == " << bc;
+    EXPECT_TRUE(b2 == bc) << b2 << " == " << bc;
 
     bc = {2_BYTE, 2_BYTE, 3_BYTE, 3_BYTE, 3_BYTE};
     b1.set(2, 3, 3_BYTE);
     b2.set(2, 3, 3_BYTE);
-    EXPECT_TRUE(b1 == bc) << bc;
-    EXPECT_TRUE(b2 == bc) << bc;
+    EXPECT_TRUE(b1 == bc) << b1 << " == " << bc;
+    EXPECT_TRUE(b2 == bc) << b2 << " == " << bc;
 
     bc = {2_BYTE, 4_BYTE, 4_BYTE, 4_BYTE, 3_BYTE};
     b1.set(1, 3, 4_BYTE);
     b2.set(1, 3, 4_BYTE);
-    EXPECT_TRUE(b1 == bc) << bc;
-    EXPECT_TRUE(b2 == bc) << bc;
+    EXPECT_TRUE(b1 == bc) << b1 << " == " << bc;
+    EXPECT_TRUE(b2 == bc) << b2 << " == " << bc;
 
     EXPECT_THROW(b1.set(0, 6, 10_BYTE), sp::out_of_range);
     EXPECT_THROW(b2.set(0, 6, 10_BYTE), sp::out_of_range);
@@ -175,8 +175,8 @@ TEST(Bytes, Set)
     EXPECT_THROW(b2.set(3, 6, 11_BYTE), sp::out_of_range);
 
     bc = {10_BYTE, 10_BYTE, 10_BYTE, 11_BYTE, 11_BYTE};
-    EXPECT_TRUE(b1 == bc) << bc;
-    EXPECT_TRUE(b2 == bc) << bc;
+    EXPECT_TRUE(b1 == bc) << b1 << " == " << bc;
+    EXPECT_TRUE(b2 == bc) << b2 << " == " << bc;
 }
 
 TEST(Bytes, Expand)
@@ -269,6 +269,19 @@ TEST(Bytes, Push)
     bc = {1_BYTE, 2_BYTE, 0_BYTE, 3_BYTE, 4_BYTE};
     EXPECT_TRUE(b7 == bc) << "should be: " << bc << " is: " << b7;
 }
+
+
+TEST(Bytes, IteratorConstructor)
+{
+    const std::vector<sp::byte> input = {1_BYTE, 2_BYTE, 3_BYTE, 4_BYTE};
+
+    sp::bytes b(input.begin(), input.end());
+
+    EXPECT_EQ(b.size(), input.size());
+    for (int i = 0; i < input.size(); ++i)
+        EXPECT_EQ(b.at(i), input.at(i));
+}
+
 
 TEST(Bytes, Sub)
 {

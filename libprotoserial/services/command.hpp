@@ -33,9 +33,6 @@
 #include <unordered_map>
 
 
-template<class>
-inline constexpr bool dependent_false_v = false;
-
 namespace sp
 {
     class command_service : public service_base
@@ -56,39 +53,31 @@ namespace sp
             allowed types are int, double, bool, std::string, sp::bytes
             you will get a build error if these types are not used */
             template<typename ArgType> 
-            std::optional<ArgType> get(std::size_t n) const
+            std::optional<ArgType> get(const std::size_t n) const
             {
                 /* presence of the "args" key is checked in the service already */
-                auto & args = _args["args"];
-                auto key = std::to_string(n);
+                const auto & args = _args["args"];
 
-                if (!args.contains(key))
+                /* "args" should be an array */
+                if (!args.is_array())
+                    return std::nullopt;
+
+                /* it should contain the index the user is asking for */
+                if (n >= args.size())
                     return std::nullopt;
                 
-                auto arg = args[key];
-                if constexpr(std::is_same<ArgType, int>::value || std::is_same<ArgType, double>::value)
-                {
-                    if (arg.is_number())
-                        return arg.as<ArgType>();
-                }
-                else if constexpr(std::is_same<ArgType, bool>::value)
-                {
-                    if (arg.is_bool())
-                        return arg.as<ArgType>();
-                }
-                else if constexpr(std::is_same<ArgType, std::string>::value)
-                {
-                    if (arg.is_string())
-                        return arg.as<ArgType>();
-                }
-                else if constexpr(std::is_same<ArgType, bytes>::value)
+                const auto & arg = args[n];
+                /* do a runtime type check before we try to interpret the value 
+                using the as<> function, which throws when it fails, which we do not want */
+                if constexpr(std::is_same<ArgType, bytes>::value)
                 {
                     if (arg.is_byte_string())
                         return arg.as<ArgType>();
                 }
                 else
                 {
-                    static_assert(dependent_false_v<ArgType>, "unsupported type");
+                    if (arg.is<ArgType>())
+                        return arg.as<ArgType>();
                 }
 
                 return std::nullopt;
