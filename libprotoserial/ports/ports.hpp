@@ -54,6 +54,9 @@ namespace sp
     struct already_registered : std::exception {
         const char * what () const throw () {return "already_registered";}
     };
+    struct invalid_port : std::exception {
+        const char * what () const throw () {return "invalid_port";}
+    };
 #endif
 
     /* port handler does not make any assumptions as to what a service looks like, meaning there
@@ -116,22 +119,23 @@ namespace sp
 
         std::list<service_endpoint> _services;
         std::list<interface_endpoint> _interfaces;
+        prealloc_size _prealloc;
 
-        auto _find_service(port_type port)
+        auto _find_service(const port_type port) const
         {
             return std::find_if(_services.begin(), _services.end(), [&](const auto & pw){
                 return pw.get_port() == port;
             });
         }
 
-        auto _find_interface(interface_identifier iid)
+        auto _find_interface(const interface_identifier iid) const
         {
             return std::find_if(_interfaces.begin(), _interfaces.end(), [&](const auto & pw){
                 return pw.get_interface_id() == iid;
             });
         }
 
-        void transfer_receive_callback(interface_identifier iid, transfer t)
+        void transfer_receive_callback(const interface_identifier iid, transfer t)
         {
             if (t.data().size() >= sizeof(Header))
             {
@@ -152,6 +156,9 @@ namespace sp
         
         public:
 
+        ports_handler(const prealloc_size prealloc = prealloc_size()):
+            _prealloc(std::move(prealloc)) {}
+
         /* this should subscribe to transfer_ack_event of the layer below this */
         void transfer_ack_callback(object_id_type id)
         {
@@ -160,9 +167,10 @@ namespace sp
 
         void transmit(port_type source, packet p)
         {
-            if (p.destination_port() != packet::invalid_port)
+            p.set_source_port(source);
+            if (p.is_transmit_ready())
             {
-                Header h(p.destination_port(), source);
+                Header h(p.destination_port(), p.source_port());
                 p.data().push_front(to_bytes(h));
 
                 auto i = _find_interface(p.interface_id());
@@ -179,10 +187,9 @@ namespace sp
         returned interface_endpoint object to a fragmentation layer */
         [[nodiscard]] interface_endpoint & register_interface(interface_identifier iid)
         {
-#ifdef SP_ENABLE_EXCEPTIONS
             if (_find_interface(iid) != _interfaces.end())
-                throw already_registered();
-#endif
+                SP_THROW_OR_TERMINATE(already_registered());
+            
             return _interfaces.emplace_back(iid, *this);
         }
 
@@ -196,13 +203,44 @@ namespace sp
 
         /* use this to register a new service, you must subscribe to events of interest
         within the returned service_endpoint reference */
-        [[nodiscard]] service_endpoint & register_service(port_type p)
+        [[nodiscard]] service_endpoint & register_service(const port_type p)
         {
-#ifdef SP_ENABLE_EXCEPTIONS
+            if (p == packet::invalid_port)
+                SP_THROW_OR_TERMINATE(invalid_port());
+
             if (_find_service(p) != _services.end())
-                throw already_registered();
-#endif
+                SP_THROW_OR_TERMINATE(already_registered());
+            
             return _services.emplace_back(p, *this);
+        }
+
+        /* note: make sure that callback functions will not get called after unregistering */
+        void unregister_service(const port_type p)
+        {
+            auto endpoint = _find_service(p);
+            if (endpoint != _services.end())
+            {
+                _services.erase(endpoint);
+            }
+        }
+
+        /* use this to properly over-allocate the data (bytes) containers that you pass into 
+        this ports_handler, this will enable copy-free prepend of header for this layer */
+        prealloc_size get_minimum_prealloc() const noexcept
+        {
+            return _prealloc + prealloc_size(sizeof(Header), 0);
+        }
+
+        /* returns a port number, from the free to use range, which is unoccupied */
+        port_type get_free_port() const noexcept
+        {
+            port_type ret = 100; //TODO formalize
+
+            //FIXME optimize
+            while (_find_service(ret) == _services.end())
+                ++ret;
+
+            return ret;
         }
     };
 }

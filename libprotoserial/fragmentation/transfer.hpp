@@ -63,6 +63,14 @@ namespace sp
 
         constexpr id_type get_id() const {return _id;}
         constexpr id_type get_prev_id() const {return _prev_id;}
+
+        void set_interface_id(interface_identifier iid)
+        {
+            fragment_metadata::set_interface_id(iid);
+            /* assign an id if not already set */
+            if (get_id() == invalid_id)
+                _id = global_id_factory.new_id(iid);
+        }
         
         /* use only once for creating actual response, each transfer only holds one next_id */
         transfer_metadata create_response_transfer_metadata() const

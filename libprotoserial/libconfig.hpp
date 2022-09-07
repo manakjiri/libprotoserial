@@ -55,6 +55,13 @@
 #endif
 #endif
 
+#ifdef SP_ENABLE_EXCEPTIONS
+#define SP_THROW_OR_TERMINATE(e) throw e
+#else
+#define SP_THROW_OR_TERMINATE(e) std::terminate()
+#endif
+
+
 namespace sp
 {
 #ifdef SP_ENABLE_FORMAT

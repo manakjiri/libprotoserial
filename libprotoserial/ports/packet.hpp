@@ -89,7 +89,8 @@ namespace sp
             _data(std::move(t.data())), packet_metadata(t.source(), t.destination(), t.interface_id(), 
             t.timestamp_creation(), t.get_id(), t.get_prev_id(), src_port, dst_port) {}
         
-        packet(transfer && t, const headers::ports_8b & h) :
+        template<typename Header>
+        packet(transfer && t, const Header & h) :
             packet(std::move(t), h.source, h.destination) {}
 
         packet(const packet &) = default;
@@ -103,6 +104,16 @@ namespace sp
         packet create_response_packet() const
         {
             return packet(create_response_packet_metadata(), data_type());
+        }
+
+        /* checks that the packet contains all the required address, port and id numbers
+        as well as non-empty data field */
+        bool is_transmit_ready() const noexcept
+        {
+            /* source address is filled in by the interface, source port is filled 
+            in by the ports_handler */
+            return !data().is_empty() && destination() != invalid_address && 
+                get_id() != invalid_id && destination_port() != invalid_port;
         }
 
         private:
