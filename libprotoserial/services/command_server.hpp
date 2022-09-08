@@ -241,14 +241,7 @@ namespace sp
             /* need to null-check again in case we did not even construct the instance, 
             the above check works for that case naturally */
             else if (cmd_inst)
-            {
-                cmd_inst->get_port();
-
-            }
-            else
-            {
-                /* nothing to do, we did not even construct the command instance */
-            }
+                _ports.unregister_service(cmd_inst->get_port());
 
             jsoncons::cbor::encode_cbor(jr, resp.data());
             transmit(std::move(resp));

@@ -11,7 +11,7 @@
 #include <libprotoserial/ports/packet.hpp>
 #include <libprotoserial/ports/ports.hpp>
 #include <libprotoserial/services/echo.hpp>
-#include <libprotoserial/services/command.hpp>
+#include <libprotoserial/services/command_server.hpp>
 //#include <libprotoserial/protostacks.hpp>
 
 #include <jsoncons/json.hpp>
@@ -797,7 +797,7 @@ class test_command : public sp::command_server::command_base
     }
 };
 
-TEST(Ports, CommandService)
+TEST(Services, CommandServer)
 {
     /* interface setup */
     sp::loopback_interface lo(0, 1, 255, 10, 64, 1024);
@@ -810,8 +810,7 @@ TEST(Ports, CommandService)
 
     /* commands service on port 1 */
     sp::command_server cs(ph, 1);
-    /* test command setup */
-    //auto tc = cs.new_command<test_command>("test");
+    /* register the test command */
     cs.new_command("test", [](){return std::make_unique<test_command>();});
 
     /* raw port 2 */
