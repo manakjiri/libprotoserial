@@ -11,3 +11,7 @@ Library intended for rapid prototyping of embedded devices with support of stand
 - loopback interface does not behave as expected when it comes to addressing
 - harden upper layers against data corruption (now these mostly assume that the interface will catch all errors)
     - adding a checksum to transfers as well?
+- some "endpoint" object that holds all necessary information describing another device on the ports later
+- simplify the observer implementation
+    - get rid of "watch"
+    - consider creating observer_single variant where only one is available?

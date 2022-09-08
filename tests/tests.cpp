@@ -791,7 +791,7 @@ TEST(Ports, EchoService)
 class test_command : public sp::command_server::command_base
 {
     public:
-    sp::command_server::exit_status setup(const sp::command_server::command_args & args) 
+    exit_status setup(const command_args & args) 
     {
         return DONE;
     }

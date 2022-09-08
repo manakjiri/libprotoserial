@@ -35,8 +35,8 @@ namespace sp
         public:
         using command_args = detail::command_io_encoder;
         using command_output = detail::command_io_parser;
-        using status_code = uint; //TODO status_code
-        using callback_type = std::function<void(status_code, std::optional<command_output>)>;
+        using request_status = command_server::request_status;
+        using callback_type = std::function<void(request_status, std::optional<command_output>)>;
 
         private:
         class command_connection : public service_base

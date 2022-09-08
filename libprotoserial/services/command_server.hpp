@@ -99,12 +99,35 @@ namespace detail
     {
         public:
 
-        /* TODO add err_arg0, err_arg1, ...? the service could return this in a code 
-        with offset, ie. 100 + static_cast<int>(exit_code) */
-        enum class exit_status { DONE, CONTINUE, ERR_ARGS, ERR_RUNTIME };
-
         using command_args = detail::command_io_parser;
         using command_output = detail::command_io_encoder;
+
+        enum class request_status //TODO
+        {
+            OK = 0,
+            
+            /* did not get past parsing group */
+            /* request decode failed */
+            REQUEST_FORMAT = 10,
+            NAME_MISSING,
+            ARGS_MISSING,
+            PORT_MISSING,
+
+            /* lookup failed group */
+            NAME_INVALID = 20,
+            ARGS_INVALID,
+
+            /* runtime failed group */
+            /* the factory function failed to produce the instance */
+            NULL_INSTANCE = 30,
+            /* command failed for some other reason than the arguments */
+            COMMAND_RUNTIME,
+
+            /* arguments group - this is the base code for argument errors
+            40 means that there was a problem with the first argument
+            42 means a problem with the third argument and so on */
+            ARGUMENT_ERROR = 40,
+        };
 
         class command_base : public service_base
         {
@@ -112,6 +135,12 @@ namespace detail
             bool _is_running = false;
 
             public:
+            using command_args = command_server::command_args;
+            using command_output = command_server::command_output;
+
+            /* TODO add err_arg0, err_arg1, ...? the service could return this in a code 
+            with offset, ie. 100 + static_cast<int>(exit_code) */
+            enum class exit_status { DONE, CONTINUE, ERR_ARGS, ERR_RUNTIME };
             using enum exit_status;
 
             /* the base class needs to be default constructible for ease of use
@@ -215,7 +244,7 @@ namespace detail
             
             /* invoke the registered factory, it will produce a new instance corresponding to this command name */
             auto cmd_inst = _cmd_map.at(cmd)();
-            exit_status status;
+            command_base::exit_status status;
 
             if (cmd_inst)
             {
@@ -225,7 +254,7 @@ namespace detail
                 status = cmd_inst->start(this, std::move(j));
             }
             else
-                status = exit_status::ERR_RUNTIME; //FIXME?
+                status = command_base::exit_status::ERR_RUNTIME; //FIXME?
             
             /* create a response informing of the command status */
             auto resp = p.create_response_packet();
@@ -234,16 +263,16 @@ namespace detail
 
             switch (status)
             {
-            case exit_status::DONE:
-            case exit_status::CONTINUE:
+            case command_base::exit_status::DONE:
+            case command_base::exit_status::CONTINUE:
                 jr["port"] = (int)cmd_inst->get_port();
                 break;
             
-            case exit_status::ERR_ARGS:
+            case command_base::exit_status::ERR_ARGS:
                 jr["err"] = "args invalid";
                 break;
 
-            case exit_status::ERR_RUNTIME:
+            case command_base::exit_status::ERR_RUNTIME:
                 jr["err"] = "command runtime error";
                 break;
             
@@ -255,7 +284,7 @@ namespace detail
             /* move the command instance into the active list if it returned CONTINUE
             //TODO such command will get checked on periodically in the main_task
             and eventually destroyed, just like the ones that ended straight away */
-            if (status == exit_status::CONTINUE)
+            if (status == command_base::exit_status::CONTINUE)
                 _active_cmd.emplace_back(std::move(cmd_inst));
             /* need to null-check again in case we did not even construct the instance, 
             the above check works for that case naturally */
