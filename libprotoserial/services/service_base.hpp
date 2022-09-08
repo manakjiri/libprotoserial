@@ -108,6 +108,22 @@ namespace sp
         {
             return packet(packet_metadata(), _prealloc.create(max_data_size));
         }
+
+        /* use this function to create a new packet to be transmitted
+        input the maximum expected data size to make downstream operations
+        as efficient as possible
+        the returned packet will satisfy packet.data().size() == max_data_size
+        note that getting this wrong will not result in a failure, but it will
+        produce unnecessary slowdowns */
+        packet create_packet(packet::data_type::size_type max_data_size, packet::address_type addr, 
+            interface_identifier iid, packet::port_type port) const
+        {
+            auto p = create_packet(max_data_size);
+            p.set_destination(addr);
+            p.set_interface_id(iid);
+            p.set_destination_port(port);
+            return p;
+        }
     };
 }
 

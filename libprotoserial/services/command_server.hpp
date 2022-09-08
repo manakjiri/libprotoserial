@@ -20,8 +20,8 @@
  */
 
 
-#ifndef _SP_SERVICES_COMMAND
-#define _SP_SERVICES_COMMAND
+#ifndef _SP_SERVICES_COMMANDSERVER
+#define _SP_SERVICES_COMMANDSERVER
 
 #include <libprotoserial/services/service_base.hpp>
 
@@ -35,6 +35,66 @@
 
 namespace sp
 {
+namespace detail
+{
+    class command_io_parser
+    {
+        jsoncons::json _query;
+
+        public:
+        command_io_parser(jsoncons::json query) :
+            _query(std::move(query)) {}
+
+        /* get the n'th argument of specified type, starting from index 0, 
+        allowed types are int, double, bool, std::string, sp::bytes
+        you will get a build error if these types are not used */
+        template<typename ArgType> 
+        std::optional<ArgType> at(const std::size_t n) const
+        {
+            /* "args" should be an array and it should contain the index the user is asking for */
+            if (!_query.is_array() || n >= _query.size())
+                return std::nullopt;
+            
+            const auto & arg = _query[n];
+            /* do a runtime type check before we try to interpret the value 
+            using the as<> function, which throws when it fails, which we do not want */
+            if constexpr(std::is_same<ArgType, bytes>::value)
+            {
+                if (arg.is_byte_string())
+                    return arg.as<ArgType>();
+            }
+            else
+            {
+                if (arg.is<ArgType>())
+                    return arg.as<ArgType>();
+            }
+
+            return std::nullopt;
+        }
+    };
+
+    class command_io_encoder
+    {
+        jsoncons::json _query;
+        
+        public:
+        command_io_encoder() :
+            _query(jsoncons::json_array_arg) {}
+
+        template<typename T>
+        void push_back(T val)
+        {
+            _query.push_back(std::move(val));
+        }
+
+        jsoncons::json to_json() const
+        {
+            return _query;
+        }
+    };
+}
+
+
     class command_server : public service_base
     {
         public:
@@ -43,49 +103,8 @@ namespace sp
         with offset, ie. 100 + static_cast<int>(exit_code) */
         enum class exit_status { DONE, CONTINUE, ERR_ARGS, ERR_RUNTIME };
 
-        class command_args
-        {
-            jsoncons::json & _query;
-
-            public:
-            command_args(jsoncons::json & query) :
-                _query(query) {}
-
-            /* get the n'th argument of specified type, starting from arg0, 
-            allowed types are int, double, bool, std::string, sp::bytes
-            you will get a build error if these types are not used */
-            template<typename ArgType> 
-            std::optional<ArgType> get(const std::size_t n) const
-            {
-                /* presence of the "args" key is checked in the service already */
-                const auto & args = _query["args"];
-
-                /* "args" should be an array and it should contain the index the user is asking for */
-                if (!args.is_array() || n >= args.size())
-                    return std::nullopt;
-                
-                const auto & arg = args[n];
-                /* do a runtime type check before we try to interpret the value 
-                using the as<> function, which throws when it fails, which we do not want */
-                if constexpr(std::is_same<ArgType, bytes>::value)
-                {
-                    if (arg.is_byte_string())
-                        return arg.as<ArgType>();
-                }
-                else
-                {
-                    if (arg.is<ArgType>())
-                        return arg.as<ArgType>();
-                }
-
-                return std::nullopt;
-            }
-        };
-
-        class command_output
-        {
-            jsoncons::json _output;
-        };
+        using command_args = detail::command_io_parser;
+        using command_output = detail::command_io_encoder;
 
         class command_base : public service_base
         {
@@ -108,7 +127,7 @@ namespace sp
             {
                 _service = service;
 
-                exit_status ret = setup(command_args(query));
+                exit_status ret = setup(command_args(std::move(query["args"])));
 
                 if (ret == CONTINUE)
                     _is_running = true;
