@@ -127,8 +127,11 @@ namespace sp
         /* implements service_base::receive */
         void receive(packet p)
         {
+            std::cout << "command_server: " << p << std::endl;
+
             //FIXME this will call terminate if the data is corrupted or incorrect
             const jsoncons::json j = jsoncons::cbor::decode_cbor<jsoncons::json>(p.data());
+            std::cout << jsoncons::pretty_print(j) << std::endl;
             
             /* if the parsing fails, we do not reply */
             /* now we definitely will not reply since the thing will crash */
