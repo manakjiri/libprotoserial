@@ -97,7 +97,11 @@ namespace sp
         std::ostream& print(std::ostream& os) const
         {
             fragment_metadata::print(os);
-            os << ", id: " << (int)get_id() << ", prev: " << (int)get_prev_id();
+            os << ", id: " << (int)get_id();
+            
+            if (get_prev_id() != invalid_id)
+                os << ", prev: " << (int)get_prev_id();
+            
             return os;
         }
 #endif

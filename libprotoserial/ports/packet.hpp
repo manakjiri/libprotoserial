@@ -76,7 +76,7 @@ namespace sp
         std::ostream& print(std::ostream& os) const
         {
             transfer_metadata::print(os);
-            os << ", spt: " << (int)source_port() << ", dpt: " << (int)destination_port();
+            os << ", dpt: " << (int)destination_port() << ", spt: " << (int)source_port();
             return os;
         }
 #endif

@@ -431,14 +431,25 @@ sp::bytes operator+(const sp::bytes & lhs, const sp::bytes & rhs)
 std::ostream& operator<<(std::ostream& os, const sp::bytes& obj) 
 {
     os << "[ ";
+
+#ifndef SP_ENABLE_FORMAT
+    std::ios_base::fmtflags f(os.flags());
+    os << std::hex;
+#endif
+
     for (sp::bytes::size_type i = 0; i < obj.size(); i++)
     {
 #ifdef SP_ENABLE_FORMAT
         os << format("{:#04x}\n", (int)obj[i]) << ' ';
 #else
-        os << std::setfill('0') << std::setw(2) << std::right << std::hex << (int)obj[i] << ' ';
+        os << std::setfill('0') << std::setw(2) << std::right << (int)obj[i] << ' ';
 #endif
     }
+
+#ifndef SP_ENABLE_FORMAT
+    os.flags(f);
+#endif
+
     return os << ']';
 }
 #endif

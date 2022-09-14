@@ -77,7 +77,7 @@ namespace sp
 #ifdef SP_ENABLE_IOSTREAM
         std::ostream& print(std::ostream& os) const
         {
-            os << "dst: " << destination() << ", src: " << source();
+            os << "dst: " << (int)destination() << ", src: " << (int)source();
             os << ", int: " << interface_id();
             return os;
         }
