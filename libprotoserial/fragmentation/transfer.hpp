@@ -93,6 +93,15 @@ namespace sp
             return is_response_fragment(tm) && get_id() == tm.get_prev_id();
         }
 
+#ifdef SP_ENABLE_IOSTREAM
+        std::ostream& print(std::ostream& os) const
+        {
+            fragment_metadata::print(os);
+            os << ", id: " << (int)get_id() << ", prev: " << (int)get_prev_id();
+            return os;
+        }
+#endif
+
         protected:
         id_type _id, _prev_id;
     };
@@ -123,26 +132,18 @@ namespace sp
             return transfer(create_response_transfer_metadata(), data_type());
         }
 
-#ifdef SP_ENABLE_IOSTREAM
-        friend std::ostream& operator<<(std::ostream& os, const transfer & t) 
-        {
-            os << "dst: " << (int)t.destination() << ", src: " << (int)t.source();
-            os << ", int: " << t.interface_id();
-            os << ", id: " << (int)t.get_id() << ", prev_id: " << (int)t.get_prev_id();
-            os << ", " << t.data();
-            return os;
-        }
-
-        friend std::ostream& operator<<(std::ostream& os, const transfer * t) 
-        {
-            if (t) os << *t; else os << "null transfer";
-            return os;
-        }
-#endif
-
         protected:
         data_type _data;
     };
 }
+
+#ifdef SP_ENABLE_IOSTREAM
+std::ostream& operator<<(std::ostream& os, const sp::transfer& p) 
+{
+    p.print(os);
+    os << ", " << p.data();
+    return os;
+}
+#endif
 
 #endif

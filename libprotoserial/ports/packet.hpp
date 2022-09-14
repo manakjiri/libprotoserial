@@ -72,6 +72,15 @@ namespace sp
             return transfer_metadata(*static_cast<const transfer_metadata*>(this));
         }
 
+#ifdef SP_ENABLE_IOSTREAM
+        std::ostream& print(std::ostream& os) const
+        {
+            transfer_metadata::print(os);
+            os << ", spt: " << (int)source_port() << ", dpt: " << (int)destination_port();
+            return os;
+        }
+#endif
+
         protected:
         port_type _src_port, _dst_port;
     };
@@ -119,7 +128,15 @@ namespace sp
         private:
         data_type _data;
     };
-
 }
+
+#ifdef SP_ENABLE_IOSTREAM
+std::ostream& operator<<(std::ostream& os, const sp::packet& p) 
+{
+    p.print(os);
+    os << ", " << p.data();
+    return os;
+}
+#endif
 
 #endif

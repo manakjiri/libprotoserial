@@ -74,6 +74,15 @@ namespace sp
             return fm.source() == destination() && interface_id() == fm.interface_id();
         }
 
+#ifdef SP_ENABLE_IOSTREAM
+        std::ostream& print(std::ostream& os) const
+        {
+            os << "dst: " << destination() << ", src: " << source();
+            os << ", int: " << interface_id();
+            return os;
+        }
+#endif
+
         protected:
         time_point _timestamp_creation;
         interface_identifier _interface_id;
@@ -137,8 +146,7 @@ bool operator!=(const sp::fragment & lhs, const sp::fragment & rhs)
 #ifdef SP_ENABLE_IOSTREAM
 std::ostream& operator<<(std::ostream& os, const sp::fragment& p) 
 {
-    os << "dst: " << p.destination() << ", src: " << p.source();
-    os << ", int: " << p.interface_id();
+    p.print(os);
     os << ", " << p.data();
     return os;
 }
