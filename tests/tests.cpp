@@ -510,11 +510,14 @@ TEST(Interface, SimpleSim)
     });
 
     /* interface finished fragment receive event */
+    std::mutex rx_mutex;
     interface1.receive_event.subscribe([&](sp::fragment f){
+        const std::lock_guard<std::mutex> lock(rx_mutex);
         cout << "i" << interface1.interface_id() << ": " << f << endl;
         ++i1_receive;
     });
     interface2.receive_event.subscribe([&](sp::fragment f){
+        const std::lock_guard<std::mutex> lock(rx_mutex);
         cout << "i" << interface2.interface_id() << ": " << f << endl;
         ++i2_receive;
     });
@@ -582,7 +585,9 @@ TEST(Fragmentation, BypassSingle)
 
     int rxed = 0;
     
+    std::mutex rx_mutex;
     fh.transfer_receive_event.subscribe([&](sp::transfer _t){
+        const std::lock_guard<std::mutex> lock(rx_mutex);
         ++rxed;
         cout << "rx: " << _t << endl;
         
