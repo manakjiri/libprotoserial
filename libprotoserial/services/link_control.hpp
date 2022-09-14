@@ -23,7 +23,7 @@
 #ifndef _SP_SERVICES_LINKCONTROL
 #define _SP_SERVICES_LINKCONTROL
 
-#include "libprotoserial/services/service_base.hpp"
+#include <libprotoserial/services/common/service_base.hpp>
 
 namespace sp
 {

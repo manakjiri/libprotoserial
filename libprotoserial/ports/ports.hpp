@@ -237,7 +237,7 @@ namespace sp
             port_type ret = 100; //TODO formalize
 
             //FIXME optimize
-            while (_find_service(ret) == _services.end())
+            while (_find_service(ret) != _services.end())
                 ++ret;
 
             return ret;

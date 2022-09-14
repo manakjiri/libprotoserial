@@ -12,6 +12,7 @@
 #include <libprotoserial/ports/ports.hpp>
 #include <libprotoserial/services/echo.hpp>
 #include <libprotoserial/services/command_server.hpp>
+#include <libprotoserial/services/command_client.hpp>
 //#include <libprotoserial/protostacks.hpp>
 
 #include <jsoncons/json.hpp>
@@ -793,6 +794,7 @@ class test_command : public sp::command_server::command_base
     public:
     exit_status setup(const command_args & args) 
     {
+        cout << "test_command setup" << endl;
         return DONE;
     }
 };
@@ -800,7 +802,7 @@ class test_command : public sp::command_server::command_base
 TEST(Services, CommandServer)
 {
     /* interface setup */
-    sp::loopback_interface lo(0, 1, 255, 10, 64, 1024);
+    sp::loopback_interface lo(0, 1, 255, 10, 256, 1024);
     /* fragmentation_handler setup */
     sp::bypass_fragmentation_handler fh(&lo, lo.minimum_prealloc());
     fh.bind_to(lo);
@@ -808,17 +810,21 @@ TEST(Services, CommandServer)
     sp::ports_handler ph;
     ph.register_interface(fh);
 
-    /* commands service on port 1 */
+    /* commands server on port 1 */
     sp::command_server cs(ph, 1);
     /* register the test command */
     cs.new_command("test", [](){return std::make_unique<test_command>();});
 
-    /* raw port 2 */
-    auto & p2 = ph.register_service(2);
-    sp::packet rxp;
-    p2.receive_event.subscribe([&rxp](sp::packet _p){
-        rxp = std::move(_p);
-    });
+    /* commands client on port 2 */
+    sp::command_client cc(ph, 2);
+    cc.send_command(2, lo.interface_id(), 1, "test");
+
+    /* let the main tasks run */
+    for (int i = 0; i < 100; ++i)
+    {
+        fh.main_task();
+        lo.main_task();
+    }
 
 }
 

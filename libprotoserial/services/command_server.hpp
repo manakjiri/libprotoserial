@@ -23,7 +23,8 @@
 #ifndef _SP_SERVICES_COMMANDSERVER
 #define _SP_SERVICES_COMMANDSERVER
 
-#include <libprotoserial/services/service_base.hpp>
+#include <libprotoserial/services/common/service_base.hpp>
+#include <libprotoserial/services/common/command_io.hpp>
 
 #include <jsoncons/json.hpp>
 #include <jsoncons_ext/cbor/cbor.hpp>
@@ -35,99 +36,12 @@
 
 namespace sp
 {
-namespace detail
-{
-    class command_io_parser
-    {
-        jsoncons::json _query;
-
-        public:
-        command_io_parser(jsoncons::json query) :
-            _query(std::move(query)) {}
-
-        /* get the n'th argument of specified type, starting from index 0, 
-        allowed types are int, double, bool, std::string, sp::bytes
-        you will get a build error if these types are not used */
-        template<typename ArgType> 
-        std::optional<ArgType> at(const std::size_t n) const
-        {
-            /* "args" should be an array and it should contain the index the user is asking for */
-            if (!_query.is_array() || n >= _query.size())
-                return std::nullopt;
-            
-            const auto & arg = _query[n];
-            /* do a runtime type check before we try to interpret the value 
-            using the as<> function, which throws when it fails, which we do not want */
-            if constexpr(std::is_same<ArgType, bytes>::value)
-            {
-                if (arg.is_byte_string())
-                    return arg.as<ArgType>();
-            }
-            else
-            {
-                if (arg.is<ArgType>())
-                    return arg.as<ArgType>();
-            }
-
-            return std::nullopt;
-        }
-    };
-
-    class command_io_encoder
-    {
-        jsoncons::json _query;
-        
-        public:
-        command_io_encoder() :
-            _query(jsoncons::json_array_arg) {}
-
-        template<typename T>
-        void push_back(T val)
-        {
-            _query.push_back(std::move(val));
-        }
-
-        jsoncons::json to_json() const
-        {
-            return _query;
-        }
-    };
-}
-
-
     class command_server : public service_base
     {
         public:
 
-        using command_args = detail::command_io_parser;
-        using command_output = detail::command_io_encoder;
-
-        enum class request_status //TODO
-        {
-            OK = 0,
-            
-            /* did not get past parsing group */
-            /* request decode failed */
-            REQUEST_FORMAT = 10,
-            NAME_MISSING,
-            ARGS_MISSING,
-            PORT_MISSING,
-
-            /* lookup failed group */
-            NAME_INVALID = 20,
-            ARGS_INVALID,
-
-            /* runtime failed group */
-            /* the factory function failed to produce the instance */
-            NULL_INSTANCE = 30,
-            /* command failed for some other reason than the arguments */
-            COMMAND_RUNTIME,
-
-            /* arguments group - this is the base code for argument errors
-            40 means that there was a problem with the first argument
-            42 means a problem with the third argument and so on */
-            ARGUMENT_ERROR = 40,
-        };
+        using command_args = command_io_parser;
+        using command_output = command_io_encoder;
 
         class command_base : public service_base
         {
@@ -220,6 +134,7 @@ namespace detail
             /* now we definitely will not reply since the thing will crash */
 
             /* check that the query contains the required keys */
+            //TODO make this into a function
             if (!j.is_object() || !j.contains("cmd") || !j["cmd"].is_string())
             {
                 transmit_error(p, "object format");

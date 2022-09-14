@@ -23,7 +23,14 @@
 #ifndef _SP_SERVICES_COMMANDCLIENT
 #define _SP_SERVICES_COMMANDCLIENT
 
-#include <libprotoserial/services/command_server.hpp>
+#include <libprotoserial/services/common/service_base.hpp>
+#include <libprotoserial/services/common/command_io.hpp>
+#include <libprotoserial/services/common/command_status.hpp>
+
+#include <jsoncons/json.hpp>
+#include <jsoncons_ext/cbor/cbor.hpp>
+#include <jsoncons_ext/jsonpath/jsonpath.hpp>
+
 
 #include <list>
 #include <functional>
@@ -33,10 +40,9 @@ namespace sp
     class command_client : public service_base
     {
         public:
-        using command_args = detail::command_io_encoder;
-        using command_output = detail::command_io_parser;
-        using request_status = command_server::request_status;
-        using callback_type = std::function<void(request_status, std::optional<command_output>)>;
+        using command_args = command_io_encoder;
+        using command_output = command_io_parser;
+        using callback_type = std::function<void(command_status, std::optional<command_output>)>;
 
         private:
         class command_connection : public service_base
@@ -75,6 +81,21 @@ namespace sp
             jsoncons::cbor::encode_cbor(query, req.data());
 
             transmit(std::move(req));
+        }
+
+        void send_command(packet::address_type addr, interface_identifier iid, packet::port_type port, 
+            std::string cmd)
+        {
+            send_command(addr, iid, port, cmd, command_args(), 
+                [](command_status s, std::optional<command_output> o){});
+        }
+
+        void receive(packet p)
+        {
+            //FIXME this will call terminate if the data is corrupted or incorrect
+            const jsoncons::json j = jsoncons::cbor::decode_cbor<jsoncons::json>(p.data());
+
+
         }
     };
 }

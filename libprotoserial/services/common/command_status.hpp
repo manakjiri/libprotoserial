@@ -20,32 +20,39 @@
  */
 
 
-#ifndef _SP_SERVICES_ECHO
-#define _SP_SERVICES_ECHO
+#ifndef _SP_SERVICES_COMMON_COMMANDSTATUS
+#define _SP_SERVICES_COMMON_COMMANDSTATUS
 
-#include <libprotoserial/services/common/service_base.hpp>
 
 namespace sp
 {
-    /* test service */
-    class echo_service : public service_base
+    enum class command_status //TODO
     {
-        public:
-        echo_service(ports_handler & l, port_type port) :
-            service_base(l, port) {}
+        OK = 0,
+        
+        /* did not get past parsing group */
+        /* request decode failed */
+        REQUEST_FORMAT = 10,
+        NAME_MISSING,
+        ARGS_MISSING,
+        PORT_MISSING,
 
-        /* implements service_base::receive */
-        void receive(packet p)
-        {
-            auto resp = p.create_response_packet();
-            resp.data() = std::move(p.data());
-            transmit(std::move(resp));
-        }
+        /* lookup failed group */
+        NAME_INVALID = 20,
+        ARGS_INVALID,
+
+        /* runtime failed group */
+        /* the factory function failed to produce the instance */
+        NULL_INSTANCE = 30,
+        /* command failed for some other reason than the arguments */
+        COMMAND_RUNTIME,
+
+        /* arguments group - this is the base code for argument errors
+        40 means that there was a problem with the first argument
+        42 means a problem with the third argument and so on */
+        ARGUMENT_ERROR = 40,
     };
-}
-
+    
+} // namespace sp
 
 #endif
-
-
-
