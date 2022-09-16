@@ -1,10 +1,6 @@
 [submodule "submodules/etl"]
 	path = submodules/etl
 	url = git@github.com:ETLCPP/etl.git
-[submodule "submodules/pybind11"]
-	path = submodules/pybind11
-	url = https://github.com/pybind/pybind11
-	branch = stable
 [submodule "submodules/jsoncons"]
 	path = submodules/jsoncons
 	url = git@github.com:georges-circuits/jsoncons.git
