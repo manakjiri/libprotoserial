@@ -22,7 +22,7 @@
 #ifndef _SP_INTERFACE_PARSERS
 #define _SP_INTERFACE_PARSERS
 
-#include "libprotoserial/interface/buffered.hpp"
+#include "libprotoserial/interface/interface.hpp"
 
 #include <optional>
 
@@ -87,15 +87,6 @@ namespace sp
                 reinterpret_cast<byte*>(&t)[pos] = *it;
             return t;
         }
-        /* bytes byte_copy(const detail::buffered_interface::circular_iterator & start, 
-            const detail::buffered_interface::circular_iterator & end)
-        {
-            bytes b(distance(start, end));
-            auto it = start;
-            for (uint pos = 0; pos < b.size() && it != end; ++it, ++pos)
-                b[pos] = *it;
-            return b;
-        } */
     }
 }
 

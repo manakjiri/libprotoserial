@@ -22,10 +22,10 @@
 #ifndef _SP_INTERFACE_BUFFERED
 #define _SP_INTERFACE_BUFFERED
 
-#include <limits>
-
-#include "libprotoserial/interface/interface.hpp"
 #include "libprotoserial/interface/parsers.hpp"
+#include "libprotoserial/interface/interface.hpp"
+
+#include <limits>
 
 
 #ifdef SP_ENABLE_IOSTREAM

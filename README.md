@@ -19,3 +19,27 @@ Library intended for rapid prototyping of embedded devices with support of stand
     - even at the cost of overly specific functions
     - this makes these functions testable, we need unit test code coverage for things like uart and usb interfaces 
     - ideally all do_receive functions should be just a collections of parsers:: components without any additional logic
+
+
+# Development
+
+## Setup for VS Code
+
+```
+{
+    "name": "Linux",
+    "includePath": [
+        "${default}",
+        "${workspaceFolder}",
+        "${workspaceFolder}/submodules/etl/include",
+        "${workspaceFolder}/submodules/jsoncons/include",
+        "${workspaceFolder}/submodules/pybind11/include",
+        "/usr/include/python3.10"
+    ],
+    "defines": [],
+    "compilerPath": "/usr/bin/clang",
+    "cStandard": "c17",
+    "cppStandard": "c++20",
+    "intelliSenseMode": "linux-clang-x64",
+}
+```

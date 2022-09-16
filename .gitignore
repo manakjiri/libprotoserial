@@ -3,9 +3,11 @@ build
 
 *.out*
 *.vg*
+*.so
 
 .vscode
 
+__pycache__
 
 #OTHER
 

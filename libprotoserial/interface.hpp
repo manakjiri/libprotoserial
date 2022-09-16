@@ -23,7 +23,6 @@
 #define _SP_INTERFACE
 
 #include "libprotoserial/libconfig.hpp"
-
 #include "libprotoserial/interface/testing/loopback.hpp"
 #include "libprotoserial/interface/testing/virtual.hpp"
 #include "libprotoserial/interface/headers.hpp"
@@ -73,7 +72,9 @@ namespace sp
     {
     	using env::uart_interface<sp::headers::interface_8b8b, sp::footers::crc32>::uart_interface;
     };
+#endif
 
+#if defined(SP_STM32ZST)
 #define SP_USBCDC_AVAILABLE
     class usbcdc_interface:
         public env::usbcdc_interface<sp::headers::interface_8b8b, sp::footers::crc32>

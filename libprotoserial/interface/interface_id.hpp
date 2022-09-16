@@ -19,8 +19,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/gpl.html>
  */
 
-#ifndef _SP_INTERFACE_INTERFACE_ID
-#define _SP_INTERFACE_INTERFACE_ID
+#ifndef _SP_INTERFACE_INTERFACEID
+#define _SP_INTERFACE_INTERFACEID
 
 #include <cinttypes>
 
