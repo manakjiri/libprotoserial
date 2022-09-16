@@ -55,7 +55,8 @@ namespace sp
          * - max_queue_size sets the maximum number of fragments the transmit queue can hold
          */
         interface(interface_identifier iid, address_type address, address_type broadcast_address, uint max_queue_size) : 
-            _bytes_txed(0), _bytes_rxed(0), _max_queue_size(max_queue_size), _interface_id(iid), _address(address), _broadcast_address(broadcast_address) {}
+            _bytes_txed(0), _bytes_rxed(0), _max_queue_size(max_queue_size), _interface_id(iid), _address(address), 
+            _broadcast_address(broadcast_address) {}
 
         virtual ~interface() {}
         
@@ -132,7 +133,7 @@ namespace sp
         protected:
 
         /* TX (serialize_fragment => can_transmit => do_transmit) */
-        /* fragment serialization is implemented here, exceptions can be thrown 
+        /* fragment serialization is implemented here, exceptions can be thrown //FIXME no exceptions, move to optional
         the serialized fragment well be passed to transmit after can_transmit() returns true */
         virtual bytes serialize_fragment(fragment && p) const = 0;
         /* return true when the interface is ready to transmit */

@@ -59,7 +59,7 @@ namespace sp
             //FIXME for now we assume that any data we receive here is meant for us */
             void receive(packet p)
             {
-                std::cout << "command_connection: " << p << std::endl; 
+                //std::cout << "command_connection: " << p << std::endl; 
                 //TODO
                 /* _packet = std::move(p); */
             }
@@ -117,7 +117,7 @@ namespace sp
         on the other end, to which a request was sent using the send_command function */
         void receive(packet p)
         {
-            std::cout << "command_client: " << p << std::endl;
+            //std::cout << "command_client: " << p << std::endl;
 
             //FIXME this will call terminate if the data is corrupted or incorrect
             const jsoncons::json j = jsoncons::cbor::decode_cbor<jsoncons::json>(p.data());

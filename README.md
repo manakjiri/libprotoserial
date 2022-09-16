@@ -13,5 +13,9 @@ Library intended for rapid prototyping of embedded devices with support of stand
     - adding a checksum to transfers as well?
 - some "endpoint" object that holds all necessary information describing another device on the ports later
 - simplify the observer implementation
-    - get rid of "watch"
-    - consider creating observer_single variant where only one is available?
+    - get rid of "watch" capability
+    - consider creating observer_single variant where only one slot is available?
+- isolate more of the parser functionality from various interface implementations into the parsers namespace
+    - even at the cost of overly specific functions
+    - this makes these functions testable, we need unit test code coverage for things like uart and usb interfaces 
+    - ideally all do_receive functions should be just a collections of parsers:: components without any additional logic

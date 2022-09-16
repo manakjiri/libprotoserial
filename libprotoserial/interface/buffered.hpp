@@ -358,7 +358,9 @@ namespace sp
 #ifdef SP_BUFFERED_DEBUG
                 std::cout << "serialize_fragment returning: " << p.data() << std::endl;
 #endif
-                return p.data();
+                /* move the data out of the packet and return it as an r-value,
+                so it is obvious that we want to move it out of the function */
+                return bytes(std::move(p.data()));
             }
 
             buffered_interface::circular_iterator _read;

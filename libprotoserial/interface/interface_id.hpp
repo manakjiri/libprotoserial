@@ -39,6 +39,7 @@ namespace sp
             VIRTUAL,
             LOOPBACK,
             UART,
+            USBCDC,
         };
 
         using enum identifier_type;

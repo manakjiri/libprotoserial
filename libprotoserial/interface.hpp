@@ -36,6 +36,7 @@
 
 #ifdef SP_STM32ZST
 #include "libprotoserial/interface/stm32_zst/uart.hpp"
+#include "libprotoserial/interface/stm32_zst/usbcdc.hpp"
 #endif
 
 #ifdef SP_LINUX
@@ -57,7 +58,7 @@ namespace sp
     };
 
 
-#if defined(SP_STM32ZST) && defined(ZST_UART_ENABLED)
+#if defined(SP_STM32ZST)
     namespace env = detail::stm32_zst;
 #elif defined(SP_STM32)
     namespace env = detail::stm32;
@@ -66,11 +67,18 @@ namespace sp
 #endif
 
 #if defined(SP_EMBEDDED) || defined(SP_LINUX)
-    #define SP_UART
+#define SP_UART_AVAILABLE
     class uart_interface:
     	public env::uart_interface<sp::headers::interface_8b8b, sp::footers::crc32>
     {
     	using env::uart_interface<sp::headers::interface_8b8b, sp::footers::crc32>::uart_interface;
+    };
+
+#define SP_USBCDC_AVAILABLE
+    class usbcdc_interface:
+        public env::usbcdc_interface<sp::headers::interface_8b8b, sp::footers::crc32>
+    {
+        using env::usbcdc_interface<sp::headers::interface_8b8b, sp::footers::crc32>::usbcdc_interface;
     };
 #endif
 
