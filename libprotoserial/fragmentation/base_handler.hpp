@@ -140,7 +140,7 @@ namespace sp::detail
         inline size_type max_fragment_data_size() const
         {
             /* _interface->max_data_size() is the maximum size of a fragment's data */
-            return _interface->max_data_size() - sizeof(Header);
+            return _interface.max_data_size() - sizeof(Header);
         }
 
         /* implementation of fragmentation_handler::receive_callback */

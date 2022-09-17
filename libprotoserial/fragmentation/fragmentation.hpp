@@ -79,7 +79,7 @@ namespace sp
             DROPPED
         };
 
-        fragmentation_handler(interface * i, prealloc_size prealloc) :
+        fragmentation_handler(interface & i, prealloc_size prealloc) :
             _prealloc(prealloc), _interface(i) {}
 
         void receive_callback(fragment f)
@@ -107,7 +107,7 @@ namespace sp
 
         interface_identifier interface_id() const
         {
-            return _interface->interface_id();
+            return _interface.interface_id();
         }
 
         /* fires when the handler wants to transmit a fragment, complemented by receive_callback */
@@ -125,7 +125,7 @@ namespace sp
         virtual void transmit_began_callback(object_id_type id) {}
 
         prealloc_size _prealloc;
-        interface * _interface;
+        interface & _interface;
     };
 }
 

@@ -61,8 +61,8 @@ namespace stm32_zst
             _usb.receive_done.register_callback(&usbcdc_interface::isr_rx_done, this);
         }
 
-        bytes::size_type max_data_size() const noexcept {return _max_fragment_size - (sizeof(Header) + sizeof(Footer));}
-        prealloc_size minimum_prealloc() const noexcept {return prealloc_size(sizeof(Header), sizeof(Footer));}
+        bytes::size_type max_data_size() const noexcept {return _max_fragment_size - (sizeof(Header) + sizeof(Footer) + 1);}
+        prealloc_size minimum_prealloc() const noexcept {return prealloc_size(sizeof(Header) + 1, sizeof(Footer));}
 
         bool can_transmit() noexcept
 		{

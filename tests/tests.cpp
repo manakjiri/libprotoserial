@@ -577,7 +577,7 @@ TEST(Fragmentation, TransferHandler)
 TEST(Fragmentation, BypassSingle)
 {
     sp::loopback_interface lo(0, 1, 255, 10, 64, 1024);
-    sp::bypass_fragmentation_handler fh(&lo, lo.minimum_prealloc());
+    sp::bypass_fragmentation_handler fh(lo);
     fh.bind_to(lo);
 
     sp::transfer tr(lo.interface_id(), 2);
@@ -752,7 +752,7 @@ TEST(Ports, EchoService)
         return b;
     });
     /* fragmentation_handler setup */
-    sp::bypass_fragmentation_handler fh(&lo, lo.minimum_prealloc());
+    sp::bypass_fragmentation_handler fh(lo);
     fh.bind_to(lo);
     /* ports setup */
     sp::ports_handler ph;
@@ -809,7 +809,7 @@ TEST(Services, CommandServer)
     /* interface setup */
     sp::loopback_interface lo(0, 1, 255, 10, 256, 1024);
     /* fragmentation_handler setup */
-    sp::bypass_fragmentation_handler fh(&lo, lo.minimum_prealloc());
+    sp::bypass_fragmentation_handler fh(lo);
     fh.bind_to(lo);
     /* ports setup */
     sp::ports_handler ph;

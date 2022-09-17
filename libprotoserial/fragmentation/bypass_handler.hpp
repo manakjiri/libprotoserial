@@ -31,8 +31,11 @@ namespace sp::detail
     {
         public:
         
-        bypass_fragmentation_handler(interface * i, prealloc_size prealloc) :
+        bypass_fragmentation_handler(interface & i, prealloc_size prealloc) :
             fragmentation_handler(i, prealloc) {}
+
+        bypass_fragmentation_handler(interface & i) :
+            fragmentation_handler(i, i.minimum_prealloc()) {}
 
         protected:
 
@@ -52,7 +55,7 @@ namespace sp::detail
         
         void do_transmit(transfer t)
         {
-            if (t.data().size() > _interface->max_data_size())
+            if (t.data().size() > _interface.max_data_size())
                 transmit_complete_event.emit(t.object_id(), transmit_status::DROPPED);
             else
             {
