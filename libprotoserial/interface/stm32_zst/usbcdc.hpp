@@ -75,16 +75,23 @@ namespace stm32_zst
 			bytes data = std::move(_rx_buffer);
 			_rx_buffer_lock = false;
 
-			log_received_count(data.size());
-
-			/* here we have the privilege of knowing the fragment size in advance, so
-			all we need is a simple size check and then we simply copy everything out */
-			if (data.size() > sizeof(Header) + sizeof(Footer))
+			if (data)
 			{
-			    if (auto f = parsers::parse_fragment<Header, Footer>(std::move(data), *this))
-			    {
-			        put_received(std::move(*f));
-			    }
+                log_received_count(data.size());
+
+                //TODO write linux interface that does not use the preamble
+                for (int i = 0; data && data[0] == 0x55 && i < 3; i++)
+                    data.shrink(1, 0);
+
+                /* here we have the privilege of knowing the fragment size in advance, so
+                all we need is a simple size check and then we simply copy everything out */
+                if (data.size() > sizeof(Header) + sizeof(Footer))
+                {
+                    if (auto f = parsers::parse_fragment<Header, Footer>(std::move(data), *this))
+                    {
+                        put_received(std::move(*f));
+                    }
+                }
 			}
 
 			return 0;
@@ -93,14 +100,15 @@ namespace stm32_zst
 		bytes serialize_fragment(fragment && p) const
 		{
 			/* check if the data() has enough capacity */
-			if (p.data().capacity_back() < sizeof(Footer) || p.data().capacity_front() < sizeof(Header))
-				p.data().reserve(sizeof(Header), sizeof(Footer));
+			if (p.data().capacity_back() < sizeof(Footer) || p.data().capacity_front() < sizeof(Header) + 1)
+				p.data().reserve(sizeof(Header) + 1, sizeof(Footer));
 			
 			/* Header */
 			p.data().push_front(to_bytes(Header(p)));
+			p.data().push_front(0x55);
 			/* Footer */
 			p.data().push_back(to_bytes(Footer(
-				p.data().begin(), p.data().end()
+				p.data().begin() + 1, p.data().end()
 			)));
 
 			/* move the data out of the packet and return it as an r-value,
@@ -115,7 +123,7 @@ namespace stm32_zst
 
 		void isr_rx_done(uint8_t* data, uint32_t len)
 		{
-			if (!_rx_buffer_lock)
+			if (!_rx_buffer_lock )
 			{
 				_rx_buffer = bytes(len);
 				std::memcpy(_rx_buffer.data(), static_cast<byte*>(data), len);
