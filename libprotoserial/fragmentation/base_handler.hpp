@@ -33,24 +33,34 @@ namespace sp::detail
     {
         public:
         using message_types = typename Header::message_types;
+        using fragmentation_handler::fragmentation_handler;
 
         protected:
 
-        /* find first transfer in the internal transfer buffer that satisfies pred, nullptr if not found
-        returns a pointer instead of an interator because of usage ergonomics and lack of defined
-        increment/decrement to avoid misuse */
-        transfer_handler<Header> * find_transfer(std::function<bool(const transfer_handler<Header> &)> pred)
+        using transfer_handler_type = transfer_handler<Header>;
+        using transfer_list_type = std::list<transfer_handler_type>;
+
+        void iterate_transfers(std::function<void(transfer_handler_type &)> fn)
+        {
+            for (auto & tr : _transfers)
+                fn(tr);
+        }
+        /* find first transfer in the internal transfer buffer that satisfies pred,  if not found */
+        std::optional<typename transfer_list_type::iterator> find_transfer(std::function<bool(const transfer_handler_type &)> pred)
         {
             auto it = std::find_if(_transfers.begin(), _transfers.end(), pred);
-            return (it != _transfers.end()) ? &(*it) : nullptr;
+            if (it != _transfers.end())
+                return it;
+            else
+                return std::nullopt;
         }
         /* can only accept pointers returned by the find_transfer() function */
-        void erase_transfer(transfer_handler<Header> * t)
+        void erase_transfer(transfer_list_type::iterator it)
         {
-            _transfers.erase(decltype(_transfers)::const_iterator(t));
+            _transfers.erase(it);
         }
 
-        inline Header create_header(message_types type, index_type fragment_pos, const transfer_handler<Header> & t) const
+        inline Header create_header(message_types type, index_type fragment_pos, const transfer_handler_type & t) const
         {
             return Header(type, fragment_pos, t.fragments_count(), t.get_id(), t.get_prev_id(), 0);
         }
@@ -66,13 +76,13 @@ namespace sp::detail
             return _interface.max_data_size() - sizeof(Header);
         }
 
-        /* implementation of fragmentation_handler::receive_callback */
+        /* implementation of fragmentation_handler::do_receive */
         /* the callback handles the incoming fragments, it does not handle any timeouts, sending requests, 
-        or anything that assumes periodicity, the main_task is for that */
-        void receive_callback(fragment f)
+        sending responses in general or anything that assumes periodicity, the main_task is for that */
+        void do_receive(fragment f)
         {
 #ifdef SP_FRAGMENTATION_DEBUG
-            std::cout << "receive_callback got: " << f << std::endl;
+            std::cout << "receive got: " << f << std::endl;
 #endif
             if (f && f.data().size() >= sizeof(Header))
             {
@@ -84,23 +94,26 @@ namespace sp::detail
                     f.data().shrink(sizeof(Header), 0);
 
                     /* handle the reception of user fragments and their ordering */
+                    //TODO break up using a switch and separate into functions 
                     if (h.type() == message_types::FRAGMENT)
                     {
-                        /* branch for handling incoming transfers */
-                        /* check if we already know that incoming transfer ID */
-                        if (auto ptr = find_transfer([&f, &h](const auto & tr){
-                            return tr.is_incoming() && tr.is_part_of(f, h);}))
+                        if (f.data().size() > 0)
                         {
-                            /* we know this ID, now we need to check if we have already received this transfer and
-                            is therefor duplicate, or whether we are in the process of receiving it */
-                            //TODO we need a way to remember already completed incoming transfers for some time to cover this
+                            /* branch for handling incoming transfers */
+                            /* check if we already know that incoming transfer ID */
+                            if (auto ptr = find_transfer([&f, &h](const auto & tr){
+                                return tr.is_incoming() && tr.is_part_of(f, h);}))
+                            {
+                                /* we know this ID, now we need to check if we have already received this transfer and
+                                is therefor duplicate, or whether we are in the process of receiving it */
+                                //TODO we need a way to remember already completed incoming transfers for some time to cover this
 //                            if (it->has_data())
 //                            {
 #ifdef SP_FRAGMENTATION_DEBUG
-                                std::cout << "assigning to existing incoming transfer id " << (int)h.get_id() << " at " << (int)h.fragment() << " of " << (int)h.fragments_total() << std::endl;
+                                    std::cout << "assigning to existing incoming transfer id " << (int)h.get_id() << " at " << (int)h.fragment() << " of " << (int)h.fragments_total() << std::endl;
 #endif
-                                /* the ID is in known transfers, we need to add the incoming fragment to it */
-                                ptr->put_fragment(h.fragment(), f);
+                                    /* the ID is in known transfers, we need to add the incoming fragment to it */
+                                    (*ptr)->put_fragment(h.fragment(), f);
 //                            }
 //                            else
 //                            {
@@ -113,81 +126,88 @@ namespace sp::detail
 //                                    std::move(to_bytes(make_header(types::FRAGMENT_ACK, h)))
 //                                )));
 //                            }
-                        }
-                        else
-                        {
-#ifdef SP_FRAGMENTATION_DEBUG
-                            std::cout << "creating new incoming transfer id " << (int)h.get_id() << std::endl;
-#endif
-                            /* we don't know this transfer ID, create new incoming transfer */
-                            _transfers.emplace_back(std::move(f), h);
-                            //TODO limit the number of stored transfers
-                        }
-                    }
-                    else
-                    { 
-                        /* branch for handling outgoing transfers */
-                        if (h.type() == message_types::FRAGMENT_REQ)
-                        {
-#ifdef SP_FRAGMENTATION_WARNING
-                            std::cout << "handling retransmit request of id " << (int)h.get_id() << " fragment " << (int)h.fragment() << " of " << (int)h.fragments_total() << std::endl;
-#endif
-                            if (auto ptr = find_transfer([&f, &h](const auto & tr){
-                                return tr.is_outgoing() && tr.is_request_of(f, h);}))
-                            {
-                                /* when we get a retransmit request, we should queue it and actually handle it in 
-                                the main task, where we also decide what has the highest priority,
-                                this information can be stored in the transfer_handler using existing variables, 
-                                since we only need one fragment of the transfer to be retransmitted */
-                                if (ptr->set_retransmit_request(h.fragment()))
-                                {
-                                    //TODO retransmit set
-                                }
-                                else
-                                {
-                                    //TODO retransmit set failed 
-                                }
                             }
                             else
                             {
-                                //TODO got retransmit request for a transfer we no longer have
+    #ifdef SP_FRAGMENTATION_DEBUG
+                                std::cout << "creating new incoming transfer id " << (int)h.get_id() << std::endl;
+    #endif
+                                /* we don't know this transfer ID, create new incoming transfer */
+                                _transfers.emplace_back(std::move(f), h);
+                                //TODO limit the number of stored transfers
                             }
                         }
-                        else if (h.type() == message_types::FRAGMENT_ACK)
-                        {
-#ifdef SP_FRAGMENTATION_DEBUG
-                            std::cout << "got fragment ACK for id " << (int)h.get_id() << std::endl;
+                    }
+                    else if (h.type() == message_types::FRAGMENT_REQ)
+                    {
+#ifdef SP_FRAGMENTATION_WARNING
+                        std::cout << "handling retransmit request of id " << (int)h.get_id() << " fragment " << (int)h.fragment() << " of " << (int)h.fragments_total() << std::endl;
 #endif
-                            if (auto ptr = find_transfer([&f, &h](const auto & tr){
-                                return tr.is_outgoing() && tr.is_ack_of(f, h);}))
+                        if (auto ptr = find_transfer([&f, &h](const auto & tr){
+                            return tr.is_outgoing() && tr.is_request_of(f, h);}))
+                        {
+                            /* when we get a retransmit request, we should queue it and actually handle it in 
+                            the main task, where we also decide what has the highest priority,
+                            this information can be stored in the transfer_handler using existing variables, 
+                            since we only need one fragment of the transfer to be retransmitted */
+                            if ((*ptr)->set_retransmit_request(h.fragment()))
                             {
-                                /* emit the ACK event for the sender and destroy this outgoing transfer
-                                since we've done our job and don't need it anymore - in contrast to the 
-                                incoming transfer where the transmitted ACK may not be received, here we
-                                can be sure */
-                                transmit_complete_event.emit(ptr->object_id(), transmit_status::DONE);
-                                erase_transfer(ptr);
+                                //TODO retransmit set
+                            }
+                            else
+                            {
+                                //TODO retransmit set failed, request does not make sense
                             }
                         }
+                        else
+                        {
+                            //TODO got retransmit request for a transfer we no longer have
+                        }
+                    }
+                    else if (h.type() == message_types::FRAGMENT_ACK)
+                    {
+#ifdef SP_FRAGMENTATION_DEBUG
+                        std::cout << "got fragment ACK for id " << (int)h.get_id() << std::endl;
+#endif
+                        if (auto ptr = find_transfer([&f, &h](const auto & tr){
+                            return tr.is_outgoing() && tr.is_ack_of(f, h);}))
+                        {
+                            /* emit the ACK event for the sender and destroy this outgoing transfer
+                            since we've done our job and don't need it anymore - in contrast to the 
+                            incoming transfer where the transmitted ACK may not be received, here we
+                            can be sure because if we receive another ACK for some reason, we'll 
+                            just ignore it since we no longer store that transfer */
+                            transmit_complete_event.emit((*ptr)->object_id(), transmit_status::DONE);
+                            erase_transfer(*ptr);
+                        }
+                        else
+                        {
+                            //TODO ACK came for for a transfer we no longer have (ignore most likely)
+                        }
+                    }
+                    else
+                    {
+                        //TODO unknown header message_type (ignore most likely)
                     }
                 }
             }
         }
         
-        /* implementation of fragmentation_handler::main_task */
-        void main_task()
+        /* implementation of fragmentation_handler::do_main */
+        void do_main()
         {
 
         }
         
-        /* implementation of fragmentation_handler::transmit */
-        void transmit(transfer t)
+        /* implementation of fragmentation_handler::do_transmit */
+        void do_transmit(transfer t)
         {
 #ifdef SP_FRAGMENTATION_DEBUG
             std::cout << "transmit got: " << t << std::endl;
 #elif defined(SP_FRAGMENTATION_WARNING)
             std::cout << "transmit got id " << (int)t.get_id() << std::endl;
 #endif
+            //TODO limit the number of stored transfers
             _transfers.emplace_back(std::move(t), max_fragment_data_size());
         }
 
@@ -214,7 +234,7 @@ namespace sp::detail
 
         private:
 
-        std::list<transfer_handler<Header>> _transfers;
+        transfer_list_type _transfers;
     };
 }
 

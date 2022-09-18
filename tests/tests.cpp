@@ -815,6 +815,8 @@ TEST(Services, CommandServer)
     sp::ports_handler ph;
     ph.register_interface(fh);
 
+    //sp::detail::base_fragmentation_handler<sp::headers::fragment_8b8b> bhf(lo, lo.minimum_prealloc());
+
     /* commands server on port 1 */
     sp::command_server cs(ph, 1);
     /* register the test command */

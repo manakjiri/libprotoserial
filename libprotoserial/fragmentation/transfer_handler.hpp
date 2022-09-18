@@ -62,8 +62,8 @@ namespace sp
             is received */
             transfer_handler(fragment f, const Header & h) : 
                 transfer(transfer_metadata(f, h.get_id(), h.get_prev_id()), std::move(f.data())), max_fragment_size(0), 
-                fragments_total(h.fragments_total()), current_fragment(0), sent_at(never()), transfer_state(state::NEW),
-                transfer_purpose(purpose::INCOMING)
+                fragments_total(h.fragments_total()), current_fragment(0), last_tx_time(never()), last_rx_time(never()), 
+                transfer_state(state::NEXT), transfer_purpose(purpose::INCOMING)
             {
                 /* reserve space for up to fragments_total fragments. There is no need to regard prealloc_size since this 
                 is the receive constructor. fragments_total is always >= 1, so this works for all cases, expand does nothing 
@@ -72,12 +72,16 @@ namespace sp
                 data().expand(0, (fragments_total - 1) * max_fragment_size);
                 /* note that after the receive is done, the transfer's data will get resized using the bytes::shrink function,
                 this operation only decreases the size, but does not change capacity, so there is no copy overhead */
+                
+                fragment_status.reserve(fragments_total);
+                std::fill(fragment_status.begin(), fragment_status.end(), 0);
             }
 
             /* transmit constructor, max_fragment_size is the maximum fragment data size excluding the fragmentation header */
-            transfer_handler(transfer t, data_type::size_type max_fragment_size) : 
-                transfer(std::move(t)), max_fragment_size(max_fragment_size), fragments_total(0),
-                current_fragment(0), sent_at(never()), transfer_state(state::NEW), transfer_purpose(purpose::OUTGOING)
+            transfer_handler(transfer t, data_type::size_type max_fragment_data_size) : 
+                transfer(std::move(t)), max_fragment_size(max_fragment_data_size), fragments_total(0),
+                current_fragment(0), last_tx_time(never()), last_rx_time(never()), 
+                transfer_state(state::NEW), transfer_purpose(purpose::OUTGOING)
             {
                 auto size = data().size();
                 /* calculate the fragments_total count correctly, ie. assume max = 4, then
@@ -85,6 +89,9 @@ namespace sp
                 for size = 4 -> total = 1 
                 but for size = 5 -> total = 2 */
                 fragments_total = size / max_fragment_size + (size % max_fragment_size == 0 ? 0 : 1);
+
+                fragment_status.reserve(fragments_total);
+                std::fill(fragment_status.begin(), fragment_status.end(), 0);
             }
 
             /* returns the fragment's data size, this does not include the Header */
@@ -109,10 +116,13 @@ namespace sp
                 auto data_size = fragment_size(pos);
                 if (data_size == 0)
                     return std::nullopt;
+
+                /* we are getting a fragment which is to be transmitted, increments its counter */
+                increment_fragment_status(pos);
                 
                 /* allocate the container using the prealloc_size class, add additional space for 
                 the fragmentation Header */
-                bytes data = alloc.create(sizeof(Header), data_size, 0);
+                auto data = alloc.create(sizeof(Header), data_size, 0);
                 auto start = fragment_data_begin(pos);
 
                 std::copy(start, start + data_size, data.begin());
@@ -132,6 +142,9 @@ namespace sp
             
                 auto start = fragment_data_begin(pos);
                 std::copy(f.data().begin(), f.data().end(), start);
+                
+                /* we have inserted fragment at pos, increment its counter */
+                increment_fragment_status(pos);
 
                 /* resize the data() so it reflects the actual size now that we have received
                 the last fragment, more on that in the receive constructor comment */
@@ -179,7 +192,7 @@ namespace sp
 
             /* check if the fragment f is requesting certain fragment be retransmitted
             this is used to find an outgoing transfer (transmit constructor) */
-            bool is_request_of(const fragment & f, const header_type & h)
+            bool is_request_of(const fragment & f, const header_type & h) const
             {
                 return destination() == f.source() && interface_id() == f.interface_id() &&
                     get_id() == h.get_id() && fragments_total == h.fragments_total() && 
@@ -188,14 +201,38 @@ namespace sp
 
             /* check if the fragment f is an ACK fragment of this transfer
             this is used to find an outgoing transfer (transmit constructor) */
-            bool is_ack_of(const fragment & f, const header_type & h)
+            bool is_ack_of(const fragment & f, const header_type & h) const
             {
                 /* the conditions are identical */
                 return is_request_of(f, h);
             }
 
-            /* timestamp of the last transmit */
-            clock::time_point sent_at;
+            bool is_current_first() const
+            {
+                return current_fragment == 1;
+            }
+
+            bool is_current_last() const
+            {
+                return current_fragment == fragments_total;
+            }
+
+            bool is_current_bordering() const
+            {
+                return is_current_first() || is_current_last();
+            }
+
+            bool is_current_main() const
+            {
+                return current_fragment > 1 && current_fragment < fragments_total;
+            }
+
+            /* this vector holds some status information about the fragments this transfer is made out of
+            - INCOMING: counts how many times a certain fragment was received
+            - OUTGOING: counts how many times a certain fragment was transmitted */
+            std::vector<uint> fragment_status;
+            /* timestamp of the last transmit/receive */
+            clock::time_point last_tx_time, last_rx_time;
             /* maximum fragment data size excluding the fragmentation header,
             max_fragment_size * fragments_total >= data().size() should always hold */
             data_type::size_type max_fragment_size;
@@ -212,6 +249,10 @@ namespace sp
             inline data_type::iterator fragment_data_begin(index_type pos)
             {
                 return data().begin() + ((pos - 1) * max_fragment_size);
+            }
+            inline void increment_fragment_status(index_type pos)
+            {
+                fragment_status.at(pos - 1) += 1;
             }
         };
     }
