@@ -27,7 +27,6 @@
 
 #include <optional>
 
-
 namespace sp
 {
     namespace detail
@@ -49,6 +48,12 @@ namespace sp
                 RETRY
             };
 
+            enum class purpose
+            {
+                OUTGOING,
+                INCOMING
+            };
+
             /* receive constructor, f is the first fragment of the transfer (maximum fragment size is derived
             from this fragment's size)
             note that this cannot infer the actual size of the final transfer based on this fragment (unless this
@@ -57,7 +62,8 @@ namespace sp
             is received */
             transfer_handler(fragment f, const Header & h) : 
                 transfer(transfer_metadata(f, h.get_id(), h.get_prev_id()), std::move(f.data())), max_fragment_size(0), 
-                fragments_total(h.fragments_total()), current_fragment(0), sent_at(never()), transfer_state(state::NEW)
+                fragments_total(h.fragments_total()), current_fragment(0), sent_at(never()), transfer_state(state::NEW),
+                transfer_purpose(purpose::INCOMING)
             {
                 /* reserve space for up to fragments_total fragments. There is no need to regard prealloc_size since this 
                 is the receive constructor. fragments_total is always >= 1, so this works for all cases, expand does nothing 
@@ -71,7 +77,7 @@ namespace sp
             /* transmit constructor, max_fragment_size is the maximum fragment data size excluding the fragmentation header */
             transfer_handler(transfer t, data_type::size_type max_fragment_size) : 
                 transfer(std::move(t)), max_fragment_size(max_fragment_size), fragments_total(0),
-                current_fragment(0), sent_at(never()), transfer_state(state::NEW)
+                current_fragment(0), sent_at(never()), transfer_state(state::NEW), transfer_purpose(purpose::OUTGOING)
             {
                 auto size = data().size();
                 /* calculate the fragments_total count correctly, ie. assume max = 4, then
@@ -97,6 +103,9 @@ namespace sp
             the requested prealloc. Just use fragment.data().push_front(header_bytes) to add the header */
             std::optional<fragment> get_fragment(index_type pos, const prealloc_size & alloc)
             {
+                if (!is_outgoing())
+                    return std::nullopt;
+
                 auto data_size = fragment_size(pos);
                 if (data_size == 0)
                     return std::nullopt;
@@ -114,6 +123,9 @@ namespace sp
             concerns itself with the fragment's data, not its metadata. */
             bool put_fragment(index_type pos, const fragment & f)
             {
+                if (!is_incoming())
+                    return false;
+
                 auto expected_max_size = fragment_size(pos);
                 if (expected_max_size == 0 || f.data().size() > expected_max_size)
                     return false;
@@ -129,6 +141,59 @@ namespace sp
                 return true;
             }
 
+            bool set_retransmit_request(index_type pos)
+            {
+                /* the retransmit request can only come after we have transmitted the final
+                fragment of the transfer. Something is wrong if it comes sooner */
+                if (transfer_state != state::SENT || current_fragment != fragments_total)
+                    return false;
+
+                if (pos > fragments_total)
+                    return false;
+
+                /* set the internal state according to docs */
+                transfer_state = state::RETRY;
+                current_fragment = pos;
+                
+                return true;
+            }
+
+            bool is_incoming() const
+            {
+                return transfer_purpose == purpose::INCOMING;
+            }
+
+            bool is_outgoing() const
+            {
+                return transfer_purpose == purpose::OUTGOING;
+            }
+
+            /* check if the fragment f should be inserted into this transfer
+            this is used to find an incoming transfer (receive constructor) to which a given 
+            fragment belongs to */
+            bool is_part_of(const fragment & f, const header_type & h) const
+            {
+                return source() == f.source() && interface_id() == f.interface_id() && 
+                    get_id() == h.get_id() && fragments_total == h.fragments_total();
+            }
+
+            /* check if the fragment f is requesting certain fragment be retransmitted
+            this is used to find an outgoing transfer (transmit constructor) */
+            bool is_request_of(const fragment & f, const header_type & h)
+            {
+                return destination() == f.source() && interface_id() == f.interface_id() &&
+                    get_id() == h.get_id() && fragments_total == h.fragments_total() && 
+                    fragments_total >= h.fragment();
+            }
+
+            /* check if the fragment f is an ACK fragment of this transfer
+            this is used to find an outgoing transfer (transmit constructor) */
+            bool is_ack_of(const fragment & f, const header_type & h)
+            {
+                /* the conditions are identical */
+                return is_request_of(f, h);
+            }
+
             /* timestamp of the last transmit */
             clock::time_point sent_at;
             /* maximum fragment data size excluding the fragmentation header,
@@ -140,6 +205,7 @@ namespace sp
             index_type current_fragment;
             /* state of the transmission/reception process */
             state transfer_state;
+            purpose transfer_purpose;
 
             protected:
             
