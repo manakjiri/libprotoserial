@@ -61,8 +61,8 @@ namespace sp
             and the internal data() container will get resized in the put_fragment function when the last fragment 
             is received */
             transfer_handler(fragment f, const Header & h) : 
-                transfer(transfer_metadata(f, h.get_id(), h.get_prev_id()), std::move(f.data())), max_fragment_size(0), 
-                fragments_total(h.fragments_total()), current_fragment(0), last_tx_time(never()), last_rx_time(never()), 
+                transfer(transfer_metadata(f, h.get_id(), h.get_prev_id()), std::move(f.data())), last_tx_time(never()), 
+                last_rx_time(never()), max_fragment_size(0), fragments_total(h.fragments_total()), current_fragment(0),
                 transfer_state(state::NEXT), transfer_purpose(purpose::INCOMING)
             {
                 /* reserve space for up to fragments_total fragments. There is no need to regard prealloc_size since this 
@@ -79,9 +79,8 @@ namespace sp
 
             /* transmit constructor, max_fragment_size is the maximum fragment data size excluding the fragmentation header */
             transfer_handler(transfer t, data_type::size_type max_fragment_data_size) : 
-                transfer(std::move(t)), max_fragment_size(max_fragment_data_size), fragments_total(0),
-                current_fragment(0), last_tx_time(never()), last_rx_time(never()), 
-                transfer_state(state::NEW), transfer_purpose(purpose::OUTGOING)
+                transfer(std::move(t)), last_tx_time(never()), last_rx_time(never()), max_fragment_size(max_fragment_data_size), 
+                fragments_total(0), current_fragment(0), transfer_state(state::NEW), transfer_purpose(purpose::OUTGOING)
             {
                 auto size = data().size();
                 /* calculate the fragments_total count correctly, ie. assume max = 4, then
@@ -225,6 +224,11 @@ namespace sp
             bool is_current_main() const
             {
                 return current_fragment > 1 && current_fragment < fragments_total;
+            }
+
+            uint get_priority_score() const
+            {
+                
             }
 
             /* this vector holds some status information about the fragments this transfer is made out of

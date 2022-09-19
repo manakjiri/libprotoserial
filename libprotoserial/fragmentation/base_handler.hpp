@@ -40,42 +40,6 @@ namespace sp::detail
         using transfer_handler_type = transfer_handler<Header>;
         using transfer_list_type = std::list<transfer_handler_type>;
 
-        void iterate_transfers(std::function<void(transfer_handler_type &)> fn)
-        {
-            for (auto & tr : _transfers)
-                fn(tr);
-        }
-        /* find first transfer in the internal transfer buffer that satisfies pred,  if not found */
-        std::optional<typename transfer_list_type::iterator> find_transfer(std::function<bool(const transfer_handler_type &)> pred)
-        {
-            auto it = std::find_if(_transfers.begin(), _transfers.end(), pred);
-            if (it != _transfers.end())
-                return it;
-            else
-                return std::nullopt;
-        }
-        /* can only accept pointers returned by the find_transfer() function */
-        void erase_transfer(transfer_list_type::iterator it)
-        {
-            _transfers.erase(it);
-        }
-
-        inline Header create_header(message_types type, index_type fragment_pos, const transfer_handler_type & t) const
-        {
-            return Header(type, fragment_pos, t.fragments_count(), t.get_id(), t.get_prev_id(), 0);
-        }
-        inline Header create_header(message_types type, const Header & h) const
-        {
-            return Header(type, h.fragment(), h.fragments_total(), h.get_id(), h.get_prev_id(), 0);
-        }
-
-        /* data size before the header is added */
-        inline size_type max_fragment_data_size() const
-        {
-            /* _interface.max_data_size() is the maximum size of a fragment's data */
-            return _interface.max_data_size() - sizeof(Header);
-        }
-
         /* implementation of fragmentation_handler::do_receive */
         /* the callback handles the incoming fragments, it does not handle any timeouts, sending requests, 
         sending responses in general or anything that assumes periodicity, the main_task is for that */
@@ -196,7 +160,14 @@ namespace sp::detail
         /* implementation of fragmentation_handler::do_main */
         void do_main()
         {
-
+            /* go through all active transfers and perform housekeeping
+            - purge old/inactive/finished transfers
+            - send ACKs and REQUESTs */
+            auto ptr = _transfers.begin();
+            while (ptr != _transfers.end())
+            {
+                //if (ptr->)
+            }
         }
         
         /* implementation of fragmentation_handler::do_transmit */
@@ -214,7 +185,42 @@ namespace sp::detail
         /* implementation of fragmentation_handler::transmit_began_callback */
         void transmit_began_callback(object_id_type id)
         {
+
+
             
+        }
+
+
+
+        /* find first transfer in the internal transfer buffer that satisfies pred,  if not found */
+        std::optional<typename transfer_list_type::iterator> find_transfer(std::function<bool(const transfer_handler_type &)> pred)
+        {
+            auto it = std::find_if(_transfers.begin(), _transfers.end(), pred);
+            if (it != _transfers.end())
+                return it;
+            else
+                return std::nullopt;
+        }
+        /* can only accept pointers returned by the find_transfer() function */
+        void erase_transfer(transfer_list_type::iterator it)
+        {
+            _transfers.erase(it);
+        }
+
+        inline Header create_header(message_types type, index_type fragment_pos, const transfer_handler_type & t) const
+        {
+            return Header(type, fragment_pos, t.fragments_count(), t.get_id(), t.get_prev_id(), 0);
+        }
+        inline Header create_header(message_types type, const Header & h) const
+        {
+            return Header(type, h.fragment(), h.fragments_total(), h.get_id(), h.get_prev_id(), 0);
+        }
+
+        /* data size before the header is added */
+        inline size_type max_fragment_data_size() const
+        {
+            /* _interface.max_data_size() is the maximum size of a fragment's data */
+            return _interface.max_data_size() - sizeof(Header);
         }
 
         public:

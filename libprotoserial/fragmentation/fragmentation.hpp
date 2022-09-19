@@ -122,7 +122,10 @@ namespace sp
         virtual void do_receive(fragment f) = 0;
         virtual void do_main() = 0;
         virtual void do_transmit(transfer t) = 0;
-        virtual void transmit_began_callback(object_id_type id) {}
+        virtual void transmit_began_callback(object_id_type id) 
+        {
+            (void)id; //TODO
+        }
 
         prealloc_size _prealloc;
         interface & _interface;

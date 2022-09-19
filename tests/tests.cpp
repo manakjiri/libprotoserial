@@ -285,7 +285,7 @@ TEST(Bytes, IteratorConstructor)
     sp::bytes b(input.begin(), input.end());
 
     EXPECT_EQ(b.size(), input.size());
-    for (int i = 0; i < input.size(); ++i)
+    for (sp::bytes::size_type i = 0; i < input.size(); ++i)
         EXPECT_EQ(b.at(i), input.at(i));
 }
 
@@ -395,21 +395,21 @@ TEST(Utils, BitRate)
 TEST(Interface, CircularIterator)
 {
     sp::bytes b(10);
-    for (int i = 0; i < b.size(); i++)
+    for (sp::bytes::size_type i = 0; i < b.size(); i++)
         b[i] = (sp::bytes::value_type)(i);
     
     sp::detail::buffered_interface::circular_iterator it(b.begin(), b.end(), b.begin());
 
-    for (int i = 0; i < b.size(); i++, ++it)
+    for (sp::bytes::size_type i = 0; i < b.size(); i++, ++it)
         EXPECT_EQ((sp::bytes::value_type)(i), *it) << "first +=1 loop: " << i;
 
-    for (int i = 0; i < b.size(); i++, ++it)
+    for (sp::bytes::size_type i = 0; i < b.size(); i++, ++it)
         EXPECT_EQ((sp::bytes::value_type)(i), *it) << "second +=1 loop: " << i;
 
-    for (int i = 0; i < b.size(); i += 2, it += 2)
+    for (sp::bytes::size_type i = 0; i < b.size(); i += 2, it += 2)
         EXPECT_EQ((sp::bytes::value_type)(i), *it) << "first +=2 loop: " << i;
 
-    for (int i = 0; i < b.size(); i += 2, it += 2)
+    for (sp::bytes::size_type i = 0; i < b.size(); i += 2, it += 2)
         EXPECT_EQ((sp::bytes::value_type)(i), *it) << "second +=2 loop: " << i;
     
 }

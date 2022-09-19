@@ -69,7 +69,7 @@ uint test_handler(sp::interface & interface, sp::fragmentation_handler & handler
 
         if (i == loops-1) runs *= 10;
         
-        for (int j = 0; j < runs; j++)
+        for (uint j = 0; j < runs; j++)
         {
             auto s = sp::clock::now();
 #ifdef SP_FRAGMENTATION_DEBUG

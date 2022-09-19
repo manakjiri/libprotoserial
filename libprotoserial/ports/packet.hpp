@@ -95,8 +95,8 @@ namespace sp
             packet_metadata(std::move(pm)), _data(std::move(d)) {}
 
         packet(transfer && t, port_type src_port = 0, port_type dst_port = 0) :
-            _data(std::move(t.data())), packet_metadata(t.source(), t.destination(), t.interface_id(), 
-            t.timestamp_creation(), t.get_id(), t.get_prev_id(), src_port, dst_port) {}
+            packet_metadata(t.source(), t.destination(), t.interface_id(), t.timestamp_creation(), 
+            t.get_id(), t.get_prev_id(), src_port, dst_port), _data(std::move(t.data())) {}
         
         template<typename Header>
         packet(transfer && t, const Header & h) :
