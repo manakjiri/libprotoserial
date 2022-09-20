@@ -64,6 +64,8 @@ namespace sp
             bind_to(l, port);
         }
 
+        virtual ~service_base() {}
+
         /* registers the service with the ports_handler and binds to it */
         void bind_to(ports_handler & l, port_type port)
         {

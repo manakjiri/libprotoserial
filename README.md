@@ -13,7 +13,6 @@ Library intended for rapid prototyping of embedded devices with support of stand
     - adding a checksum to transfers as well?
 - some "endpoint" object that holds all necessary information describing another device on the ports later
 - simplify the observer implementation
-    - get rid of "watch" capability
     - consider creating observer_single variant where only one slot is available?
 - isolate more of the parser functionality from various interface implementations into the parsers namespace
     - even at the cost of overly specific functions
@@ -32,14 +31,11 @@ Library intended for rapid prototyping of embedded devices with support of stand
         "${default}",
         "${workspaceFolder}",
         "${workspaceFolder}/submodules/etl/include",
-        "${workspaceFolder}/submodules/jsoncons/include",
-        "${workspaceFolder}/submodules/pybind11/include",
-        "/usr/include/python3.10"
+        "${workspaceFolder}/submodules/jsoncons/include"
     ],
     "defines": [],
-    "compilerPath": "/usr/bin/clang",
+    "compilerPath": "/usr/bin/g++",
     "cStandard": "c17",
     "cppStandard": "c++20",
-    "intelliSenseMode": "linux-clang-x64",
 }
 ```

@@ -29,64 +29,31 @@
 
 namespace sp
 {
-    class subscription
-    {
-        public:
-        using id = unsigned int;
-        
-        static const id invalid_id = 0;
-
-        subscription() : _id((++_id_count == invalid_id) ? ++_id_count : _id_count) {}
-        id get_id() const {return _id;}
-        
-        private:
-        id _id = invalid_id;
-        static id _id_count;
-    };
-
-    bool operator==(const subscription &lhs, const subscription &rhs)
-    {
-        return lhs.get_id() == rhs.get_id();
-    }
-
-    subscription::id subscription::_id_count = 0;
-
-
     template<typename... Args>
-    struct subject
-    {
-        using fn_type = std::function<void(Args...)>;
-        
-        private:
-        struct fn_base 
-        {
-            virtual ~fn_base() {}
-            virtual void exec(Args... arg) {}
-            virtual void exec() {}
-            virtual bool is_subs() const = 0;
-        };
-        struct fn_subs : public fn_base
-        {
-            fn_type fn;
-            fn_subs(fn_type f) : fn(f) {}
-            void exec(Args... arg) {fn(std::forward<Args>(arg)...);}
-            bool is_subs() const {return true;}
-        };
-        struct fn_watch : public fn_base
-        {
-            std::function<void(void)> fn;
-            fn_watch(std::function<void(void)> f) : fn(f) {}
-            void exec() {fn();}
-            bool is_subs() const {return false;}
-        };
-
-        struct entry
-        {
-            std::unique_ptr<fn_base> fn;
-            subscription s;
-        };
-
+    class subject
+    {   
         public:
+        using callback_type = std::function<void(Args...)>;
+
+        class subscription
+        {
+            public:
+            using id = unsigned int;
+            
+            constexpr static id invalid_id = 0;
+
+            subscription() : _id(++_id_count) {}
+            id get_id() const {return _id;}
+            
+            friend bool operator==(const subscription &lhs, const subscription &rhs)
+            {
+                return lhs.get_id() == rhs.get_id();
+            }
+            private:
+            id _id = invalid_id;
+            inline static id _id_count = invalid_id;
+        };
+
 
         subject() = default;
         subject(const subject &) = delete;
@@ -94,23 +61,11 @@ namespace sp
         subject & operator=(const subject &) = delete;
         subject & operator=(subject &&) = delete;
 
-        subscription watch(std::function<void(void)> fn)
+        subscription subscribe(callback_type fn)
         {
-            auto f = std::unique_ptr<fn_base>(new fn_watch(fn));
-            auto & t = _callbacks.emplace_back(std::move(f), subscription());
-            return t.s;
-        }
-
-        template<typename Class>
-        subscription watch(void(Class::*f)(), Class *instance) {
-            return watch(std::bind(f, static_cast<Class*>(instance)));
-        }
-
-        subscription subscribe(fn_type fn)
-        {
-            auto f = std::unique_ptr<fn_base>(new fn_subs(fn));
-            auto & t = _callbacks.emplace_back(std::move(f), subscription());
-            return t.s;
+            subscription s;
+            _callbacks.push_back(std::tuple<callback_type, subscription>(fn, s));
+            return s;
         }
 
         /* consider https://stackoverflow.com/questions/15024223/how-to-implement-an-easy-bind-that-automagically-inserts-implied-placeholders */
@@ -129,25 +84,19 @@ namespace sp
 
         void unsubscribe(subscription s)
         {
-            _callbacks.erase(
-                std::remove_if(_callbacks.begin(), _callbacks.end(), [&](const auto & e){return e.s == s;}),
-                _callbacks.end()
-            );
+            _callbacks.erase(std::remove_if(_callbacks.begin(), _callbacks.end(), [&](auto t){
+                return std::get<1>(t) == s;
+            }), _callbacks.end());
         }
 
         constexpr void emit(Args... arg) const
         {
-            for (auto& e : _callbacks)
-            {
-                if (e.fn->is_subs())
-                    e.fn->exec(std::forward<Args>(arg)...);
-                else
-                    e.fn->exec();
-            }
+            for (auto& c : _callbacks)
+                std::get<0>(c)(arg...);
         }
 
         private:
-        std::list<entry> _callbacks;
+        std::list<std::tuple<callback_type, subscription>> _callbacks;
     };
 
 

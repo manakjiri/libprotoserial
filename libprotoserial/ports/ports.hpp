@@ -177,7 +177,7 @@ namespace sp
                 if (i != _interfaces.end())
                 {
                     i->transfer_transmit_event.emit(
-                        transfer(std::move(p.get_transfer_metadata()), std::move(p.data()))
+                        transfer(p.get_transfer_metadata(), std::move(p.data()))
                     );
                 }
             }

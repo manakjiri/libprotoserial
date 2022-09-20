@@ -52,6 +52,8 @@ namespace sp
             command_connection(ports_handler & l, callback_type callback) :
                 service_base(l, l.get_free_port()), _callback(std::move(callback)) {}
 
+            virtual ~command_connection() {}
+
             /* implements service_base::receive */
             /* this will receive the output of the executed command on the other end
             at the time of reception we may not know yet from which port this data

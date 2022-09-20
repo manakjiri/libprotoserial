@@ -43,6 +43,9 @@ namespace sp
         {
             bytes data;
             object_id_type id;
+
+            serialized(bytes && d, object_id_type id):
+                data(std::move(d)), id(id) {}
         };
 
         public:
@@ -96,7 +99,7 @@ namespace sp
                 /* complete the fragment */
                 p.complete(get_address(), interface_id());
                 auto id = p.object_id();
-                _tx_queue.emplace(std::move(serialize_fragment(std::move(p))), id);
+                _tx_queue.emplace(serialize_fragment(std::move(p)), id);
             }
         }
 
