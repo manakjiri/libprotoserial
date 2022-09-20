@@ -26,6 +26,8 @@
 #include "libprotoserial/fragmentation/fragmentation.hpp"
 #include "libprotoserial/fragmentation/transfer_handler.hpp"
 
+#include <list>
+
 namespace sp::detail
 {
     template<typename Header>
@@ -39,6 +41,8 @@ namespace sp::detail
 
         using transfer_handler_type = transfer_handler<Header>;
         using transfer_list_type = std::list<transfer_handler_type>;
+
+        transfer_list_type _transfers;
 
         /* implementation of fragmentation_handler::do_receive */
         /* the callback handles the incoming fragments, it does not handle any timeouts, sending requests, 
@@ -166,7 +170,7 @@ namespace sp::detail
             auto ptr = _transfers.begin();
             while (ptr != _transfers.end())
             {
-                //if (ptr->)
+                //if (ptr->
             }
         }
         
@@ -202,7 +206,7 @@ namespace sp::detail
                 return std::nullopt;
         }
         /* can only accept pointers returned by the find_transfer() function */
-        void erase_transfer(transfer_list_type::iterator it)
+        void erase_transfer(typename transfer_list_type::iterator it)
         {
             _transfers.erase(it);
         }
@@ -236,11 +240,7 @@ namespace sp::detail
             for (const auto & t : _outgoing_transfers)
                 std::cout << static_cast<transfer>(t) << std::endl;
 #endif
-        } */
-
-        private:
-
-        transfer_list_type _transfers;
+        } */        
     };
 }
 
