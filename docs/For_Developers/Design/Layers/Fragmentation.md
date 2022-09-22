@@ -35,7 +35,8 @@ the status value should reflect the receiver's available capacity either in abso
 
 ## kroky odeslání transferu
 1. transmit_transfer zařadila transfer do fronty, jeho stav je NEW, current = 0
-2. stav NEW nebo NEXT, ale není RETRY, incrementuj current. V každém případě odešli current fragment, stav WAITING
+2. stav NEW nebo NEXT nebo RETRY -> odešli current fragment, stav WAITING
+  - inkrementuj current pokud NEW nebo NEXT
 3. stav WAITING 
   - přišla konfirmace odeslání, nastav stav na SENT a začni měřit čas
   - konfirmace selhala (interface odmítnul fragment), celý transfer se zahazuje

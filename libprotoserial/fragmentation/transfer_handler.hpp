@@ -23,9 +23,9 @@
 #ifndef _SP_FRAGMENTATION_TRANSFERHANDLER
 #define _SP_FRAGMENTATION_TRANSFERHANDLER
 
-#include "libprotoserial/fragmentation/transfer.hpp"
-
 #include <optional>
+
+#include "libprotoserial/fragmentation/transfer.hpp"
 
 namespace sp
 {
@@ -38,6 +38,7 @@ namespace sp
         {
             public:
             using header_type = Header;
+            using message_types = typename header_type::message_types;
 
             enum class state
             {
@@ -54,6 +55,7 @@ namespace sp
                 INCOMING
             };
 
+
             /* receive constructor, f is the first fragment of the transfer (maximum fragment size is derived
             from this fragment's size)
             note that this cannot infer the actual size of the final transfer based on this fragment (unless this
@@ -62,7 +64,7 @@ namespace sp
             is received */
             transfer_handler(fragment f, const Header & h) : 
                 transfer(transfer_metadata(f, h.get_id(), h.get_prev_id()), std::move(f.data())), last_tx_time(never()), 
-                last_rx_time(never()), max_fragment_size(0), fragments_total(h.fragments_total()), current_fragment(0),
+                last_rx_time(clock::now()), max_fragment_size(0), fragments_total(h.fragments_total()), current_fragment(0),
                 transfer_state(state::NEXT), transfer_purpose(purpose::INCOMING)
             {
                 /* reserve space for up to fragments_total fragments. There is no need to regard prealloc_size since this 
@@ -104,9 +106,8 @@ namespace sp
                 return end - start;
             }
 
-            /* returns a fragment containing the correct metadata with data copied from pos of the transfer,
-            the data does not contain handler's header! it does however have enough prealloc for it plus
-            the requested prealloc. Just use fragment.data().push_front(header_bytes) to add the header */
+            /* returns a fragment containing the correct metadata with data copied from pos of the transfer
+            and the templated fragmentation Header */
             std::optional<fragment> get_fragment(index_type pos, const prealloc_size & alloc)
             {
                 if (!is_outgoing())
@@ -116,6 +117,9 @@ namespace sp
                 if (data_size == 0)
                     return std::nullopt;
 
+                if (!prepare_for_transmit())
+                    return std::nullopt;
+
                 /* we are getting a fragment which is to be transmitted, increments its counter */
                 increment_fragment_status(pos);
                 
@@ -123,9 +127,46 @@ namespace sp
                 the fragmentation Header */
                 auto data = alloc.create(sizeof(Header), data_size, 0);
                 auto start = fragment_data_begin(pos);
-
+                
+                /* copy the data from the internal data buffer */
                 std::copy(start, start + data_size, data.begin());
-                return fragment(std::move(get_fragment_metadata()), std::move(data));
+
+                /* copy the header */
+                Header h = create_header(message_types::FRAGMENT, current_fragment);
+                data.push_front(to_bytes(h));
+
+                fragment ret(std::move(get_fragment_metadata()), std::move(data));
+                transmitted_fragment_id = ret.object_id();
+                
+                return ret;
+            }
+
+            /* returns the current fragment containing the correct metadata with data copied 
+            from the transfer and the templated fragmentation Header */
+            inline std::optional<fragment> get_current_fragment(const prealloc_size & alloc)
+            {
+                return get_fragment(current_fragment, alloc);
+            }
+
+            std::optional<fragment> get_ack_fragment(const prealloc_size & alloc)
+            {
+                if (!is_incoming() || transfer_state != state::NEXT)
+                    return std::nullopt;
+
+                if (current_fragment == 0 || current_fragment > fragments_total)
+                    return std::nullopt;
+
+                auto data = alloc.create(sizeof(Header), 0, 0);
+
+                Header h = create_header(message_types::ACK, current_fragment);
+                data.push_front(to_bytes(h));
+                
+                fragment ret(std::move(get_fragment_metadata()), std::move(data));
+                
+                transmitted_fragment_id = ret.object_id();
+                transfer_state = state::WAITING;
+
+                return ret;
             }
 
             /* this function assumes that this was created using the receive constructor, it only 
@@ -144,6 +185,7 @@ namespace sp
                 
                 /* we have inserted fragment at pos, increment its counter */
                 increment_fragment_status(pos);
+                current_fragment = pos;
 
                 /* resize the data() so it reflects the actual size now that we have received
                 the last fragment, more on that in the receive constructor comment */
@@ -153,7 +195,7 @@ namespace sp
                 return true;
             }
 
-            bool set_retransmit_request(index_type pos)
+            bool retransmit_request(index_type pos)
             {
                 /* the retransmit request can only come after we have transmitted the final
                 fragment of the transfer. Something is wrong if it comes sooner */
@@ -168,6 +210,19 @@ namespace sp
                 current_fragment = pos;
                 
                 return true;
+            }
+
+            /* call this when the interface acknowledges the transmission of sent fragment */
+            bool fragment_transmitted()
+            {
+                if (is_fragment_transmitted())
+                {
+                    transfer_state = state::SENT;
+                    last_tx_time = clock::now();
+
+                    return true;
+                }
+                return false;
             }
 
             bool is_incoming() const
@@ -206,31 +261,76 @@ namespace sp
                 return is_request_of(f, h);
             }
 
-            bool is_current_first() const
+            inline bool is_current_first() const
             {
                 return current_fragment == 1;
             }
 
-            bool is_current_last() const
+            inline bool is_current_last() const
             {
                 return current_fragment == fragments_total;
             }
 
-            bool is_current_bordering() const
+            inline bool is_current_bordering() const
             {
                 return is_current_first() || is_current_last();
             }
 
-            bool is_current_main() const
+            inline bool is_current_main() const
             {
                 return current_fragment > 1 && current_fragment < fragments_total;
             }
 
-            uint get_priority_score() const
+            /* for outgoing transfers, check if a fragment of this should be transmitted */
+            inline bool is_transmit_ready() const
             {
-                
+                return transfer_state == state::NEW || transfer_state == state::NEXT || transfer_state == state::RETRY;
             }
 
+            /* for outgoing and incoming transfers, true after a successful call 
+            of get_fragment(), get_current_fragment() or get_ack_fragment() */
+            inline bool is_fragment_transmitted() const
+            {
+                return transfer_state == state::WAITING;
+            }
+
+            /* for outgoing transfers, check if the transmit confirmation from interface belongs to this transfer */
+            inline bool is_fragment_transmitted_of(object_id_type id) const
+            {
+                return is_fragment_transmitted() && transmitted_fragment_id == id;
+            }
+            
+            /* for incoming transfers, check if a fragment ACK should be transmitted this transfer,
+            this should also be combined with some transmit hold-off */
+            inline bool is_ack_ready() const
+            {
+                return is_current_bordering() && transfer_state == state::NEXT;
+            }
+
+
+            /* fragment_transmitted() update this time */
+            inline auto get_last_tx_time() const
+            {
+                return last_tx_time;
+            }
+
+            /* put_fragment() update this time */
+            inline auto get_last_rx_time() const
+            {
+                return last_rx_time;
+            }
+
+            inline auto get_max_fragment_data_size() const
+            {
+                return max_fragment_size;
+            }
+
+            inline auto get_fragments_total() const
+            {
+                return fragments_total;
+            }
+
+            protected:
             /* this vector holds some status information about the fragments this transfer is made out of
             - INCOMING: counts how many times a certain fragment was received
             - OUTGOING: counts how many times a certain fragment was transmitted */
@@ -247,8 +347,7 @@ namespace sp
             /* state of the transmission/reception process */
             state transfer_state;
             purpose transfer_purpose;
-
-            protected:
+            object_id_type transmitted_fragment_id;
             
             inline data_type::iterator fragment_data_begin(index_type pos)
             {
@@ -257,6 +356,23 @@ namespace sp
             inline void increment_fragment_status(index_type pos)
             {
                 fragment_status.at(pos - 1) += 1;
+            }
+            inline Header create_header(message_types type, index_type pos) const
+            {
+                return Header(type, pos, fragments_total, get_id(), get_prev_id(), 0);
+            }
+            /* if this returns true, get the current fragment and transmit it */
+            bool prepare_for_transmit()
+            {
+                if (is_transmit_ready())
+                {
+                    if (transfer_state != state::RETRY && current_fragment < fragments_total)
+                        ++current_fragment;
+
+                    transfer_state = state::WAITING;
+                    return true;
+                }
+                return false;
             }
         };
     }

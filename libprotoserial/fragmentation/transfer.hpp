@@ -29,8 +29,6 @@
 
 namespace sp
 {
-    class fragmentation_handler;
-
     struct transfer_metadata : public fragment_metadata
     {
         /* as with interface::address_type this is a type that can hold all used 
@@ -131,7 +129,7 @@ namespace sp
         constexpr data_type& data() noexcept {return _data;}
 
         /* use only once for creating actual response, each transfer only holds one next_id */
-        transfer create_response_transfer() const
+        auto create_response_transfer() const
         {
             return transfer(create_response_transfer_metadata(), data_type());
         }

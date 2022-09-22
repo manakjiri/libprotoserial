@@ -44,7 +44,22 @@ namespace sp::detail
         using transfer_handler_type = transfer_handler<Header>;
         using transfer_list_type = std::list<transfer_handler_type>;
 
-        transfer_list_type _transfers;
+        transfer_list_type transfers;
+
+        
+        /* calculate priority score of the transfer, transfer with highest score is selected for transmit */
+        virtual int transfer_transmit_priority(const transfer_handler_type &) = 0;
+        /* this function is usually called before transfer_transmit_priority(), it disqualifies transfers
+        targeted at peers that risk overload */
+        virtual bool is_peer_ready_to_receive_data_fragment_of(const transfer_handler_type &) = 0;
+        /* this function is called to check whether it is desirable to initiate a data fragment transmit 
+        of some transfer (usually the one that has highest priority, see function prototype above). implement 
+        this function to prevent interface overload. note that this function returning true does not guarantee 
+        a fragment transmit */
+        virtual bool is_fragment_transmit_allowed() = 0;
+        /* this function is called when a response to bordering fragment of the transfer was received */
+        virtual void bordering_fragment_response_received(const transfer_handler_type &, message_types) = 0;
+
 
         /* implementation of fragmentation_handler::do_receive */
         /* the callback handles the incoming fragments, it does not handle any timeouts, sending requests, 
@@ -71,8 +86,8 @@ namespace sp::detail
                         {
                             /* branch for handling incoming transfers */
                             /* check if we already know that incoming transfer ID */
-                            auto ptr = find_transfer([&f, &h](const auto & tr){return tr.is_incoming() && tr.is_part_of(f, h);});
-                            if (ptr != _transfers.end())
+                            auto itr = find_transfer([&f, &h](const auto & tr){return tr.is_incoming() && tr.is_part_of(f, h);});
+                            if (itr != transfers.end())
                             {
                                 /* we know this ID, now we need to check if we have already received this transfer and
                                 is therefor duplicate, or whether we are in the process of receiving it */
@@ -83,7 +98,8 @@ namespace sp::detail
                                     std::cout << "assigning to existing incoming transfer id " << (int)h.get_id() << " at " << (int)h.fragment() << " of " << (int)h.fragments_total() << std::endl;
 #endif
                                     /* the ID is in known transfers, we need to add the incoming fragment to it */
-                                    ptr->put_fragment(h.fragment(), f);
+                                    itr->put_fragment(h.fragment(), f);
+                                    //TODO if we receive the first fragment multiple times, we were slow to ACK it, the ACK got lost or the source is too fast
 //                            }
 //                            else
 //                            {
@@ -99,12 +115,17 @@ namespace sp::detail
                             }
                             else
                             {
-    #ifdef SP_FRAGMENTATION_DEBUG
+#ifdef SP_FRAGMENTATION_DEBUG
                                 std::cout << "creating new incoming transfer id " << (int)h.get_id() << std::endl;
-    #endif
-                                /* we don't know this transfer ID, create new incoming transfer */
-                                _transfers.emplace_back(std::move(f), h);
+#endif
+                                /* we don't know this transfer ID, attempt to create new incoming transfer.
+                                we should always receive the first fragment of a transfer first, because we need to ACK
+                                it before the transfer can continue */
                                 //TODO limit the number of stored transfers
+                                if (h.fragment() == 1)
+                                {
+                                    transfers.emplace_back(std::move(f), h);
+                                }
                             }
                         }
                     }
@@ -113,14 +134,18 @@ namespace sp::detail
 #ifdef SP_FRAGMENTATION_WARNING
                         std::cout << "handling retransmit request of id " << (int)h.get_id() << " fragment " << (int)h.fragment() << " of " << (int)h.fragments_total() << std::endl;
 #endif
-                        auto ptr = find_transfer([&f, &h](const auto & tr){return tr.is_outgoing() && tr.is_request_of(f, h);});
-                        if (ptr != _transfers.end())
+                        auto itr = find_transfer([&f, &h](const auto & tr){return tr.is_outgoing() && tr.is_request_of(f, h);});
+                        if (itr != transfers.end())
                         {
+                            /* store the measurement of the round trip time */
+                            if (itr->is_current_bordering())
+                                bordering_fragment_response_received(*itr, h.type());
+
                             /* when we get a retransmit request, we should queue it and actually handle it in 
                             the main task, where we also decide what has the highest priority,
                             this information can be stored in the transfer_handler using existing variables, 
                             since we only need one fragment of the transfer to be retransmitted */
-                            if (ptr->set_retransmit_request(h.fragment()))
+                            if (itr->set_retransmit_request(h.fragment()))
                             {
                                 //TODO retransmit set
                             }
@@ -139,16 +164,20 @@ namespace sp::detail
 #ifdef SP_FRAGMENTATION_DEBUG
                         std::cout << "got fragment ACK for id " << (int)h.get_id() << std::endl;
 #endif
-                        auto ptr = find_transfer([&f, &h](const auto & tr){return tr.is_outgoing() && tr.is_ack_of(f, h);});
-                        if (ptr != _transfers.end())
+                        auto itr = find_transfer([&f, &h](const auto & tr){return tr.is_outgoing() && tr.is_ack_of(f, h);});
+                        if (itr != transfers.end())
                         {
+                            /* store the measurement of the round trip time */
+                            if (itr->is_current_bordering())
+                                bordering_fragment_response_received(*itr, h.type());
+
                             /* emit the ACK event for the sender and destroy this outgoing transfer
                             since we've done our job and don't need it anymore - in contrast to the 
                             incoming transfer where the transmitted ACK may not be received, here we
                             can be sure because if we receive another ACK for some reason, we'll 
                             just ignore it since we no longer store that transfer */
-                            transmit_complete_event.emit(ptr->object_id(), transmit_status::DONE);
-                            _transfers.erase(ptr);
+                            transmit_complete_event.emit(itr->object_id(), transmit_status::DONE);
+                            transfers.erase(itr);
                         }
                         else
                         {
@@ -169,12 +198,46 @@ namespace sp::detail
             /* go through all active transfers and perform housekeeping
             - purge old/inactive/finished transfers
             - send ACKs and REQUESTs */
-            auto ptr = _transfers.begin();
-            while (ptr != _transfers.end())
+            transfer_handler_type * itr = transfers.begin();
+            while (itr != transfers.end())
             {
-                if (ptr->is_outgoing())
+                if (itr->is_outgoing())
                 {
+                    
+                    
+                }
+                else if (itr->is_incoming())
+                {
+                    /*  */
+                }
+            }
 
+            if (!is_fragment_transmit_allowed())
+                return;
+
+            /* select transfer with highest priority */
+            transfer_handler_type * to_transmit = nullptr;
+            for (transfer_handler_type * t : transfers)
+            {
+                if (t->is_outgoing() && t->is_transmit_ready() && is_peer_ready_to_receive_data_fragment(*t))
+                {
+                    /* select the first one to pass the above, if there are more, select the max */
+                    if (!to_transmit)
+                        to_transmit = t;
+                    else if(transfer_transmit_priority(*to_transmit) < transfer_transmit_priority(*t))
+                        to_transmit = t;
+                }
+            }
+            
+            if (to_transmit)
+            {
+                if (auto f = to_transmit->get_current_fragment(_prealloc))
+                {
+                    transmit_fragment(std::move(*f));
+                }
+                else
+                {
+                    //TODO get_current_fragment failed - internal handling error
                 }
             }
         }
@@ -188,15 +251,25 @@ namespace sp::detail
             std::cout << "transmit got id " << (int)t.get_id() << std::endl;
 #endif
             //TODO limit the number of stored transfers
-            _transfers.emplace_back(std::move(t), max_fragment_data_size());
+            transfers.emplace_back(std::move(t), max_fragment_data_size());
         }
 
         /* implementation of fragmentation_handler::transmit_began_callback */
         void transmit_began_callback(object_id_type id)
         {
-
-
-            
+            auto ptr = find_transfer([&id](const auto & tr){return tr.is_fragment_transmitted_of(id);});
+            if (ptr != transfers.end())
+            {
+                /* start measuring Round Trip Time */
+                if (!ptr->fragment_transmitted())
+                {
+                    //TODO some transfer state error
+                }
+            }
+            else
+            {
+                //TODO transmit_began_callback of fragment we no longer have
+            }
         }
 
 
@@ -204,13 +277,9 @@ namespace sp::detail
         /* find first transfer in the internal transfer buffer that satisfies pred */
         inline typename transfer_list_type::iterator find_transfer(std::function<bool(const transfer_handler_type &)> pred)
         {
-            return std::find_if(_transfers.begin(), _transfers.end(), pred);
+            return std::find_if(transfers.begin(), transfers.end(), pred);
         }
 
-        inline Header create_header(message_types type, index_type fragment_pos, const transfer_handler_type & t) const
-        {
-            return Header(type, fragment_pos, t.fragments_count(), t.get_id(), t.get_prev_id(), 0);
-        }
         inline Header create_header(message_types type, const Header & h) const
         {
             return Header(type, h.fragment(), h.fragments_total(), h.get_id(), h.get_prev_id(), 0);
@@ -223,17 +292,22 @@ namespace sp::detail
             return _interface.max_data_size() - sizeof(Header);
         }
 
+        void transmit_fragment(fragment f)
+        {
+            transmit_event.emit(std::move(f));
+        }
+
         public:
 
 /*         void print_debug() const
         {
 #ifdef SP_ENABLE_IOSTREAM
-            std::cout << "incoming_transfers: " << _incoming_transfers.size() << std::endl;
-            for (const auto & t : _incoming_transfers)
+            std::cout << "incomingtransfers: " << _incomingtransfers.size() << std::endl;
+            for (const auto & t : _incomingtransfers)
                 std::cout << static_cast<transfer>(t) << std::endl;
             
-            std::cout << "outgoing_transfers: " << _outgoing_transfers.size() << std::endl;
-            for (const auto & t : _outgoing_transfers)
+            std::cout << "outgoingtransfers: " << _outgoingtransfers.size() << std::endl;
+            for (const auto & t : _outgoingtransfers)
                 std::cout << static_cast<transfer>(t) << std::endl;
 #endif
         } */        

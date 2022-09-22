@@ -554,8 +554,8 @@ TEST(Fragmentation, TransferHandler)
     th tr_rx(std::move(f), header);
 
     EXPECT_TRUE(tr_rx.data() == b1);
-    EXPECT_EQ(tr_rx.fragments_total, 1);
-    EXPECT_EQ(tr_rx.max_fragment_size, b1.size());
+    EXPECT_EQ(tr_rx.get_fragments_total(), 1);
+    EXPECT_EQ(tr_rx.get_max_fragment_data_size(), b1.size());
     EXPECT_EQ(tr_rx.fragment_size(1), b1.size());
 
     /* put should fail because of the tr_rx.max_fragment_size, data should be left untouched */
@@ -815,7 +815,7 @@ TEST(Services, CommandServer)
     sp::ports_handler ph;
     ph.register_interface(fh);
 
-    sp::detail::base_fragmentation_handler<sp::headers::fragment_8b8b> bhf(lo, lo.minimum_prealloc());
+    //sp::detail::base_fragmentation_handler<sp::headers::fragment_8b8b> bhf(lo, lo.minimum_prealloc());
 
     /* commands server on port 1 */
     sp::command_server cs(ph, 1);
