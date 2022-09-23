@@ -30,12 +30,15 @@
 #include "libprotoserial/fragmentation/transfer_handler.hpp"
 
 
-namespace sp::detail
+namespace sp
 {
-    template<typename Header>
+namespace detail
+{
+    //template<class Header>
     class base_fragmentation_handler : public fragmentation_handler
     {
         public:
+        using Header = headers::fragment_8b8b;
         using message_types = typename Header::message_types;
         using fragmentation_handler::fragmentation_handler;
 
@@ -51,7 +54,7 @@ namespace sp::detail
         virtual int transfer_transmit_priority(const transfer_handler_type &) = 0;
         /* this function is usually called before transfer_transmit_priority(), it disqualifies transfers
         targeted at peers that risk overload */
-        virtual bool is_peer_ready_to_receive_data_fragment_of(const transfer_handler_type &) = 0;
+        virtual bool is_peer_ready_to_receive_data_fragment(const transfer_handler_type &) = 0;
         /* this function is called to check whether it is desirable to initiate a data fragment transmit 
         of some transfer (usually the one that has highest priority, see function prototype above). implement 
         this function to prevent interface overload. note that this function returning true does not guarantee 
@@ -198,7 +201,7 @@ namespace sp::detail
             /* go through all active transfers and perform housekeeping
             - purge old/inactive/finished transfers
             - send ACKs and REQUESTs */
-            transfer_handler_type * itr = transfers.begin();
+            auto itr = transfers.begin();
             while (itr != transfers.end())
             {
                 if (itr->is_outgoing())
@@ -217,15 +220,15 @@ namespace sp::detail
 
             /* select transfer with highest priority */
             transfer_handler_type * to_transmit = nullptr;
-            for (transfer_handler_type * t : transfers)
+            for (auto & t : transfers)
             {
-                if (t->is_outgoing() && t->is_transmit_ready() && is_peer_ready_to_receive_data_fragment(*t))
+                if (t.is_outgoing() && t.is_transmit_ready() && is_peer_ready_to_receive_data_fragment(t))
                 {
                     /* select the first one to pass the above, if there are more, select the max */
                     if (!to_transmit)
-                        to_transmit = t;
-                    else if(transfer_transmit_priority(*to_transmit) < transfer_transmit_priority(*t))
-                        to_transmit = t;
+                        to_transmit = &t;
+                    else if(transfer_transmit_priority(*to_transmit) < transfer_transmit_priority(t))
+                        to_transmit = &t;
                 }
             }
             
@@ -312,6 +315,7 @@ namespace sp::detail
 #endif
         } */        
     };
+}
 }
 
 #endif

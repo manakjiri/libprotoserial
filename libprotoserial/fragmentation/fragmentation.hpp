@@ -23,8 +23,8 @@
 #ifndef _SP_FRAGMENTATION_HANDLER
 #define _SP_FRAGMENTATION_HANDLER
 
-#include "libprotoserial/interface/parsers.hpp"
 #include "libprotoserial/interface.hpp"
+#include "libprotoserial/interface/parsers.hpp"
 
 #include "libprotoserial/clock.hpp"
 
