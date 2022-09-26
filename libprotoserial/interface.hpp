@@ -34,8 +34,13 @@
 #endif
 
 #ifdef SP_STM32ZST
+#ifdef ZST_UART_ENABLED
 #include "libprotoserial/interface/stm32_zst/uart.hpp"
+#include "libprotoserial/interface/stm32_zst/rs485.hpp"
+#endif
+#ifdef ZST_USBCDC_ENABLED
 #include "libprotoserial/interface/stm32_zst/usbcdc.hpp"
+#endif
 #endif
 
 #ifdef SP_LINUX
@@ -72,9 +77,17 @@ namespace sp
     {
     	using env::uart_interface<sp::headers::interface_8b8b, sp::footers::crc32>::uart_interface;
     };
+#if defined(ZST_UART_ENABLED)
+#define SP_RS485_AVAILABLE
+    class rs485_interface:
+        public env::rs485_interface<sp::headers::interface_8b8b, sp::footers::crc32>
+    {
+        using env::rs485_interface<sp::headers::interface_8b8b, sp::footers::crc32>::rs485_interface;
+    };
+#endif
 #endif
 
-#if defined(SP_STM32ZST)
+#if defined(SP_STM32ZST) && defined(ZST_USBCDC_ENABLED)
 #define SP_USBCDC_AVAILABLE
     class usbcdc_interface:
         public env::usbcdc_interface<sp::headers::interface_8b8b, sp::footers::crc32>
