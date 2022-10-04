@@ -38,15 +38,32 @@ class kiss_protocol
         byte type;
         byte id;
         bytes data;
-        uint retries;
-        clock::time_point sent_at;
         fragment::address_type addr;
 
         data_handle(byte type, bytes data, fragment::address_type addr) :
             type(type), id(++id_counter), data(std::move(data)), 
             retries(0), sent_at(clock::now()), addr(addr) {}
 
+        void sent()
+        {
+            sent_at = clock::now();
+            ++retries;
+        }
+
+        bool transmit_expired(clock::duration holdoff) const
+        {
+            return sent_at + holdoff <= clock::now();
+        }
+
+        bool retries_exhausted(uint retries_max) const
+        {
+            return retries >= retries_max;
+        }
+
         private:
+
+        uint retries;
+        clock::time_point sent_at;
         static inline uint8_t id_counter = 0;
     };
 
@@ -65,10 +82,9 @@ class kiss_protocol
             byte type = f.data().at(0);
             byte id = f.data().at(1);
 
-            f.data().shrink(2, 0);
-
             if (type != 0)
             {
+                f.data().shrink(2, 0);
                 /* transmit the ACK fragment (the special 0 type) */
                 fragment resp(f.source(), bytes({0_BYTE, id}));
                 _interface.transmit(std::move(resp));
@@ -78,18 +94,14 @@ class kiss_protocol
             else
             {
                 /* we have received an ACK for this ID, remove it from the list */
-                remove_id(id);
+                std::remove_if(packet_list.begin(), packet_list.end(),
+                        [id](const auto & p){return p.id == id;});
             }
         }
     }
 
-    bool transmit_packet(data_handle & p)
+    bool transmit_packet(const data_handle & p)
     {
-        if (++p.retries > retries_max)
-            return false;
-
-        p.sent_at = clock::now();
-
         auto data = _interface.minimum_prealloc().create(0, 2, p.data.size());
         data[0] = p.type;
         data[1] = p.id;
@@ -97,12 +109,6 @@ class kiss_protocol
 
         _interface.transmit(fragment(p.addr, std::move(data)));
         return true;
-    }
-
-    void remove_id(uint8_t id)
-    {
-        std::remove_if(packet_list.begin(), packet_list.end(), 
-            [id](const auto & p){return p.id == id;});
     }
 
     public:
@@ -130,25 +136,39 @@ class kiss_protocol
             addr = default_addr;
         }
 
-        if (!type)
-            return;
-
         auto & p = packet_list.emplace_back(type, std::move(data), addr);
         
-        if (!transmit_packet(p))
-            remove_id(p.id);
+        if (transmit_packet(p))
+            p.sent();
+        else
+            packet_list.pop_back();
     }
 
     void main_task()
     {
-        for (auto & p : packet_list)
+        for (auto it = packet_list.begin(); it != packet_list.end(); ++it)
         {
-            if (p.sent_at + retry_holdoff <= clock::now())
+            if (it->transmit_expired(retry_holdoff))
             {
-                if (!transmit_packet(p))
-                    remove_id(p.id);
+                if (!it->retries_exhausted(retries_max))
+                {
+                    if (transmit_packet(*it))
+                    {
+                        it->sent();
+                        return;
+                    }
+                    else
+                        it = packet_list.erase(it);
+                }
+                else
+                    it = packet_list.erase(it);
             }
         }
+    }
+
+    auto pending_count() const
+    {
+        return packet_list.size();
     }
 
 };

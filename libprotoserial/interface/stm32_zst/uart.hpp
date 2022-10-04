@@ -68,12 +68,12 @@ namespace stm32_zst
 
         protected:
 
-        inline void isr_rx_done()
+        virtual void isr_rx_done()
         {
             next_receive();
         }
 
-        inline void isr_tx_done()
+        virtual void isr_tx_done()
         {
             _is_transmitting = false;
         }
@@ -83,7 +83,7 @@ namespace stm32_zst
             _uart.receive_it(reinterpret_cast<uint8_t*>(this->rx_buffer_future_write()), 1);
         }
 
-        bool do_transmit(bytes && buff) noexcept
+        virtual bool do_transmit(bytes && buff) noexcept
         {
             if (_is_transmitting)
                 return false;

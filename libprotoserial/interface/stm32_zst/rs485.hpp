@@ -41,7 +41,7 @@ namespace stm32_zst
     {
         using parent = uart_interface<Header, Footer>;
 
-        zst::gpio _nre_pin;
+        zst::gpio _de_pin, _nre_pin;
 
         public:
 
@@ -53,19 +53,21 @@ namespace stm32_zst
          * - max_queue_size sets the maximum number of fragments the transmit queue can hold
          * - buffer_size sets the size of the receive buffer in bytes
          */
-        rs485_interface(zst::uart & uart, zst::gpio nre_pin, interface_identifier::instance_type instance, interface::address_type address,
+        rs485_interface(zst::uart & uart, zst::gpio de_pin, zst::gpio nre_pin, interface_identifier::instance_type instance, interface::address_type address,
             interface::address_type broadcast_address, uint max_queue_size, uint max_fragment_size, uint buffer_size) :
-                parent(uart, instance, address, broadcast_address, max_queue_size, buffer_size, max_fragment_size), _nre_pin(nre_pin)
+                parent(uart, instance, address, broadcast_address, max_queue_size, buffer_size, max_fragment_size), _de_pin(de_pin), _nre_pin(nre_pin)
         {
             /* drive Receiver Output low to enable data receive */
             _nre_pin.reset();
+            /* drive Data Enable low since we are not transmitting */
+            _de_pin.reset();
         }
 
-        inline void isr_tx_done()
+        void isr_tx_done()
         {
             parent::isr_tx_done();
-            /* drive Receiver Output low to enable data receive */
             _nre_pin.reset();
+            _de_pin.reset();
         }
 
         bool do_transmit(bytes && buff) noexcept
@@ -73,6 +75,7 @@ namespace stm32_zst
             if (parent::do_transmit(std::move(buff)))
             {
                 _nre_pin.set();
+                _de_pin.set();
                 return true;
             }
             return false;
