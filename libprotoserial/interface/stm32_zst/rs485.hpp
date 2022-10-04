@@ -57,20 +57,22 @@ namespace stm32_zst
             interface::address_type broadcast_address, uint max_queue_size, uint max_fragment_size, uint buffer_size) :
                 parent(uart, instance, address, broadcast_address, max_queue_size, buffer_size, max_fragment_size), _nre_pin(nre_pin)
         {
+            /* drive Receiver Output low to enable data receive */
+            _nre_pin.reset();
         }
 
         inline void isr_tx_done()
         {
             parent::isr_tx_done();
-            _nre_pin.set();
+            /* drive Receiver Output low to enable data receive */
+            _nre_pin.reset();
         }
 
         bool do_transmit(bytes && buff) noexcept
         {
             if (parent::do_transmit(std::move(buff)))
             {
-                /* drive Receiver Output low to enable data receive */
-                _nre_pin.reset();
+                _nre_pin.set();
                 return true;
             }
             return false;
