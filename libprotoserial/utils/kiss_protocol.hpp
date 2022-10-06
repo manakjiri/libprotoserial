@@ -31,8 +31,22 @@
 namespace sp
 {
 
+/*
+ * The simplest practical protocol working directly above the interface layer.
+ * Exists mostly for testing purposes.
+ * It implements rudimentary ACK and keep-alive system.
+ *
+ * Allowed type range is 0 to 250, the rest is reserved.
+ */
 class kiss_protocol
 {
+    enum
+    {
+    ACK_TYPE,
+    PING_TYPE,
+    TYPE_OFFSET = 5
+    };
+
     struct data_handle
     {
         byte type;
@@ -42,7 +56,7 @@ class kiss_protocol
 
         data_handle(byte type, bytes data, fragment::address_type addr) :
             type(type), id(++id_counter), data(std::move(data)), 
-            retries(0), sent_at(clock::now()), addr(addr) {}
+            addr(addr), retries(0), sent_at(clock::now()) {}
 
         void sent()
         {
@@ -69,27 +83,33 @@ class kiss_protocol
 
     std::list<data_handle> packet_list;
     interface & _interface;
+
     uint retries_max;
     clock::duration retry_holdoff;
     fragment::address_type default_addr;
 
+    clock::duration ping_holdoff {};
+    clock::time_point last_transmitted {clock::now()}, last_received = never();
+
     void receive(fragment f)
     {
-        using namespace sp::literals;
-        
         if (f.data().size() >= 2)
         {
             byte type = f.data().at(0);
             byte id = f.data().at(1);
 
-            if (type != 0)
+            last_received = clock::now();
+
+            if (type >= TYPE_OFFSET)
             {
+                last_transmitted = clock::now();
+
                 f.data().shrink(2, 0);
-                /* transmit the ACK fragment (the special 0 type) */
-                fragment resp(f.source(), bytes({0_BYTE, id}));
+                /* transmit the ACK fragment */
+                fragment resp(f.source(), bytes({(byte)ACK_TYPE, id}));
                 _interface.transmit(std::move(resp));
 
-                receive_event.emit((uint8_t)type, std::move(f.data()));
+                receive_event.emit((uint8_t)type - TYPE_OFFSET, std::move(f.data()));
             }
             else
             {
@@ -102,6 +122,8 @@ class kiss_protocol
 
     bool transmit_packet(const data_handle & p)
     {
+        last_transmitted = clock::now();
+
         auto data = _interface.minimum_prealloc().create(0, 2, p.data.size());
         data[0] = p.type;
         data[1] = p.id;
@@ -126,17 +148,14 @@ class kiss_protocol
         default_addr = addr;
     }
 
-    void transmit(uint8_t type, bytes data, fragment::address_type addr = 0)
+    void enable_keepalive_ping(clock::duration max_silence_duration)
     {
-        if (!addr)
-        {
-            if (!default_addr)
-                return;
-            
-            addr = default_addr;
-        }
+        ping_holdoff = max_silence_duration;
+    }
 
-        auto & p = packet_list.emplace_back(type, std::move(data), addr);
+    void transmit(uint8_t type, bytes data)
+    {
+        auto & p = packet_list.emplace_back(type + TYPE_OFFSET, std::move(data), default_addr);
         
         if (transmit_packet(p))
             p.sent();
@@ -164,11 +183,26 @@ class kiss_protocol
                     it = packet_list.erase(it);
             }
         }
+
+        if (ping_holdoff != clock::duration{} && last_transmitted + ping_holdoff <= clock::now())
+        {
+            auto & p = packet_list.emplace_back(PING_TYPE, bytes(), default_addr);
+
+            if (transmit_packet(p))
+                p.sent();
+            else
+                packet_list.pop_back();
+        }
     }
 
     auto pending_count() const
     {
         return packet_list.size();
+    }
+
+    bool is_peer_alive() const
+    {
+        return last_received + (retries_max * retry_holdoff) > clock::now();
     }
 
 };
