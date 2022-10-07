@@ -216,9 +216,9 @@ class kiss_protocol
         return packet_list.size();
     }
 
-    bool is_peer_alive() const
+    bool is_peer_alive(clock::duration additional_holdoff = clock::duration{}) const
     {
-        return last_received + (retry_holdoff * retries_max) > clock::now();
+        return last_received + (ping_holdoff + additional_holdoff + (retry_holdoff * retries_max)) > clock::now();
     }
 
 };
