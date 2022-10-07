@@ -24,12 +24,16 @@
 
 #include "libprotoserial/libconfig.hpp"
 
+#if defined(SP_STM32ZST)
+#include <zst/clock.hpp>
+#else
 #include <chrono>
 #include <cstdint>
+#endif
 
 namespace sp
 {
-#ifdef SP_STM32
+#if defined(SP_STM32)
 
     struct clock
     {  
@@ -51,6 +55,10 @@ namespace sp
             return time_point{duration{HAL_GetTick()}};
         }
     };
+
+#elif defined(SP_STM32ZST)
+
+    using clock = zst::clock;
 
 #else
 

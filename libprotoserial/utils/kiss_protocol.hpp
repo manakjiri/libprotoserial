@@ -89,7 +89,7 @@ class kiss_protocol
     fragment::address_type default_addr;
 
     clock::duration ping_holdoff {};
-    clock::time_point last_transmitted {clock::now()}, last_received = never();
+    clock::time_point last_transmitted {clock::now()}, last_received {never()};
 
     void receive(fragment f)
     {
@@ -100,22 +100,32 @@ class kiss_protocol
 
             last_received = clock::now();
 
-            if (type >= TYPE_OFFSET)
+            if (type != 0)
             {
                 last_transmitted = clock::now();
 
-                f.data().shrink(2, 0);
                 /* transmit the ACK fragment */
                 fragment resp(f.source(), bytes({(byte)ACK_TYPE, id}));
                 _interface.transmit(std::move(resp));
 
-                receive_event.emit((uint8_t)type - TYPE_OFFSET, std::move(f.data()));
+                if (type >= TYPE_OFFSET)
+                {
+                    f.data().shrink(2, 0);
+                    /* convert back to user-facing type by off-setting it back */
+                    receive_event.emit((uint8_t)type - TYPE_OFFSET, std::move(f.data()));
+                }
             }
             else
             {
                 /* we have received an ACK for this ID, remove it from the list */
-                std::remove_if(packet_list.begin(), packet_list.end(),
-                        [id](const auto & p){return p.id == id;});
+                auto it = packet_list.begin();
+                while (it != packet_list.end())
+                {
+                    if (it->id == id)
+                        it = packet_list.erase(it);
+                    else
+                        ++it;
+                }
             }
         }
     }
@@ -155,6 +165,10 @@ class kiss_protocol
 
     void transmit(uint8_t type, bytes data)
     {
+        if (type > 255 - TYPE_OFFSET)
+            return;
+
+        /* add the TYPE_OFFSET since the type given to us is user facing and starts at 0 */
         auto & p = packet_list.emplace_back(type + TYPE_OFFSET, std::move(data), default_addr);
         
         if (transmit_packet(p))
@@ -186,6 +200,8 @@ class kiss_protocol
 
         if (ping_holdoff != clock::duration{} && last_transmitted + ping_holdoff <= clock::now())
         {
+            /* transmit the PING, since it behaves like a normal packet,
+            it should get ACKed, which will update last_received */
             auto & p = packet_list.emplace_back(PING_TYPE, bytes(), default_addr);
 
             if (transmit_packet(p))
@@ -202,7 +218,7 @@ class kiss_protocol
 
     bool is_peer_alive() const
     {
-        return last_received + (retries_max * retry_holdoff) > clock::now();
+        return last_received + (retry_holdoff * retries_max) > clock::now();
     }
 
 };

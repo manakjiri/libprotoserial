@@ -23,6 +23,7 @@
 #define _SP_INTERFACE_STM32ZST_UART
 
 #include "libprotoserial/interface/buffered.hpp"
+#include "libprotoserial/clock.hpp"
 
 #include "zst/uart.hpp"
 
@@ -41,6 +42,7 @@ namespace stm32_zst
         bytes _tx_buffer;
         zst::uart & _uart;
         std::atomic<bool> _is_transmitting;
+        clock::time_point _last_rx;
 
         using parent = buffered_parser_interface<Header, Footer>;
 
@@ -64,7 +66,10 @@ namespace stm32_zst
             next_receive();
         }
 
-        bool can_transmit() noexcept {return !_is_transmitting;} //FIXME
+        bool can_transmit() noexcept
+        {
+            return !_is_transmitting && _last_rx < clock::now();
+        }
 
         protected:
 
@@ -81,6 +86,7 @@ namespace stm32_zst
         inline void next_receive()
         {
             _uart.receive_it(reinterpret_cast<uint8_t*>(this->rx_buffer_future_write()), 1);
+            _last_rx = clock::now();
         }
 
         virtual bool do_transmit(bytes && buff) noexcept
