@@ -13,7 +13,7 @@
       <script>
         // Current page data
         var mkdocs_page_name = "Using MkDocs";
-        var mkdocs_page_input_path = "Developers/Using_MkDocs.md";
+        var mkdocs_page_input_path = "For_Developers/Using_MkDocs.md";
         var mkdocs_page_url = null;
       </script>
     
@@ -44,10 +44,40 @@
                 <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
                 </li>
               </ul>
-              <p class="caption"><span class="caption-text">Developers</span></p>
+              <p class="caption"><span class="caption-text">For Developers</span></p>
               <ul class="current">
                   <li class="toctree-l1 current"><a class="reference internal current" href="./">Using MkDocs</a>
     <ul class="current">
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="#">Design</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../Design/Callbacks/">Callbacks</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../Design/General/">prealokace</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="#">Data</a>
+    <ul>
+                <li class="toctree-l3"><a class="reference internal" href="../Design/Data/Bytes_Container/">Bytes Container</a>
+                </li>
+    </ul>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="#">Layers</a>
+    <ul>
+                <li class="toctree-l3"><a class="reference internal" href="../Design/Layers/Fragmentation/">Fragmentation</a>
+                </li>
+                <li class="toctree-l3"><a class="reference internal" href="../Design/Layers/Interface/">Interface</a>
+                </li>
+                <li class="toctree-l3"><a class="reference internal" href="../Design/Layers/Ports/">Ports</a>
+                </li>
+    </ul>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="#">Services</a>
+    <ul>
+                <li class="toctree-l3"><a class="reference internal" href="../Design/Services/Command/">Command</a>
+                </li>
+    </ul>
+                </li>
     </ul>
                   </li>
               </ul>
@@ -65,8 +95,10 @@
         <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
   <ul class="wy-breadcrumbs">
     <li><a href="../.." class="icon icon-home" alt="Docs"></a> &raquo;</li>
-          <li>Developers &raquo;</li><li>Using MkDocs</li>
+          <li>For Developers &raquo;</li><li>Using MkDocs</li>
     <li class="wy-breadcrumbs-aside">
+        <a href="https://github.com/georges-circuits/libprotoserial/edit/master/docs/For_Developers/Using_MkDocs.md"
+          class="icon icon-github"> Edit on GitHub</a>
     </li>
   </ul>
   <hr/>
@@ -75,15 +107,16 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <p>Install mkdocs if you haven't already, <a href="https://www.mkdocs.org/getting-started/#installation">here</a> are the instructions. For full documentation visit <a href="https://www.mkdocs.org">mkdocs.org</a>.</p>
+                <p>Install mkdocs if you haven&rsquo;t already, <a href="https://www.mkdocs.org/getting-started/#installation">here</a> are the instructions. For full documentation visit <a href="https://www.mkdocs.org">mkdocs.org</a>.</p>
 <h1 id="view-docs-locally">View Docs locally</h1>
-<p>Run <code>mkdocs serve</code> from the root project directory, this starts up a local server to which you can connect using your browser, usually at <a href="http://127.0.0.1:8000/"><code>http://127.0.0.1:8000/</code></a>. The server watches for changes and automatically refreshes the site.</p>
-<p>There is no need to use the <code>mkdocs build</code>, this creates all the html files needed for deployment and we use a different method for that.</p>
+<p>Run <code>mkdocs serve</code> from the root project directory, this starts up a local server to which you can connect using your browser, usually at <a href="http://localhost:8000/"><code>http://localhost:8000/</code></a>. The server watches for changes and automatically refreshes the site.</p>
+<p>There is no need to use the <code>mkdocs build</code> command, this creates all the html files needed for deployment and we use a different method for that.</p>
               
             </div>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
         <a href="../.." class="btn btn-neutral float-left" title="Home"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../Design/Callbacks/" class="btn btn-neutral float-right" title="Callbacks">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -105,9 +138,15 @@
   <div class="rst-versions" role="note" aria-label="Versions">
   <span class="rst-current-version" data-toggle="rst-current-version">
     
+        <span>
+          <a href="https://github.com/georges-circuits/libprotoserial" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
     
       <span><a href="../.." style="color: #fcfcfc">&laquo; Previous</a></span>
     
+    
+      <span><a href="../Design/Callbacks/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>

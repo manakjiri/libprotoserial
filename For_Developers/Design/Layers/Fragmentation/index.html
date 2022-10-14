@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../../../../img/favicon.ico" />
+    <title>Fragmentation - libprotoserial docs</title>
+    <link rel="stylesheet" href="../../../../css/theme.css" />
+    <link rel="stylesheet" href="../../../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Fragmentation";
+        var mkdocs_page_input_path = "For_Developers/Design/Layers/Fragmentation.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <script src="../../../../js/jquery-3.6.0.min.js" defer></script>
+    <!--[if lt IE 9]>
+      <script src="../../../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/highlight.min.js"></script>
+      <script>hljs.initHighlightingOnLoad();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../../../.." class="icon icon-home"> libprotoserial docs
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../../..">Home</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">For Developers</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../../../Using_MkDocs/">Using MkDocs</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Design</a>
+    <ul class="current">
+                <li class="toctree-l2"><a class="reference internal" href="../../Callbacks/">Callbacks</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../General/">prealokace</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="#">Data</a>
+    <ul>
+                <li class="toctree-l3"><a class="reference internal" href="../../Data/Bytes_Container/">Bytes Container</a>
+                </li>
+    </ul>
+                </li>
+                <li class="toctree-l2 current"><a class="reference internal current" href="#">Layers</a>
+    <ul class="current">
+                <li class="toctree-l3 current"><a class="reference internal current" href="./">Fragmentation</a>
+    <ul class="current">
+    <li class="toctree-l4"><a class="reference internal" href="#initial-thoughts">Initial thoughts</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#mereni-rtt">měření RTT</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#rizeni-provozu">řízení provozu</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#kroky-odeslani-transferu">kroky odeslání transferu</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#kroky-prijimani-transferu">kroky přijímaní transferu</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#transmit-priority-ordering">transmit priority ordering</a>
+    </li>
+    </ul>
+                </li>
+                <li class="toctree-l3"><a class="reference internal" href="../Interface/">Interface</a>
+                </li>
+                <li class="toctree-l3"><a class="reference internal" href="../Ports/">Ports</a>
+                </li>
+    </ul>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="#">Services</a>
+    <ul>
+                <li class="toctree-l3"><a class="reference internal" href="../../Services/Command/">Command</a>
+                </li>
+    </ul>
+                </li>
+    </ul>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../..">libprotoserial docs</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../.." class="icon icon-home" alt="Docs"></a> &raquo;</li>
+          <li>For Developers &raquo;</li>
+          <li>Design &raquo;</li>
+          <li>Layers &raquo;</li><li>Fragmentation</li>
+    <li class="wy-breadcrumbs-aside">
+        <a href="https://github.com/georges-circuits/libprotoserial/edit/master/docs/For_Developers/Design/Layers/Fragmentation.md"
+          class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="fragmentation">Fragmentation</h1>
+<h2 id="initial-thoughts">Initial thoughts</h2>
+<p>We can build the fragment fragmentation logic on top of the interface, this logic should have its own internal buffer for fragments received from events, because once the event fires, the fragment is forgotten on the interface side to avoid the need for direct access to the interface&rsquo;s RX queue.</p>
+<p>fragmentation handler needs to implement basic congestion and flow control. each handler manages only one interface, each interface can be connected to multiple different interfaces with different addresses, so it would be beneficial to broadcast the state information to share it with everybody, but in terms of total overhead this may not be the best solution (since we are sending data that aims to prevent congestion&hellip;)</p>
+<p>in order for this to be useful, the information needs to be up-to-date, so perhaps the most logical solution would be to embed it into the data itself. Perhaps a single additional byte in the fragmentation header might be sufficient to convey enough information about the receiver&rsquo;s state.</p>
+<p>handler should store the following information about peers - current holdoff times and capacity estimates</p>
+<p>the status value should reflect the receiver&rsquo;s available capacity either in absolute terms (which I do not find appealing) or using increase/decrease signaling - there will be other factors that collectively influence the rate of transmition. Reason why I think absolute would not work is because these systems are not necessarily linear.</p>
+<p><strong>terminologie</strong></p>
+<ul>
+<li>hraniční fragment = první nebo poslední fragment transferru</li>
+<li>hlavní fragment = fragment transferu, který není hraniční</li>
+<li>řídicí fragment = ACK, REQ, atd. Nenese data, je to jen hlavička</li>
+</ul>
+<h2 id="mereni-rtt">měření RTT</h2>
+<ol>
+<li>první (poslední) fragment předán interface </li>
+<li>od interface přijde konfirmace odeslání (tu interface generuje ve chvíli odeslání prvního byte)</li>
+<li>od protějšku přijde ACK fragment (nebo v případě posledního potenciálně ještě REQ) - ACK i REQ jsou malé prioritní fragmenty, které by měly obcházet omezení na rate, protože by neměly významně přispívat k provozu</li>
+</ol>
+<h2 id="rizeni-provozu">řízení provozu</h2>
+<ul>
+<li>po každém kroku se změní stav transferu aby reflektoval akci. Tímto se přidává omezující podmínka na transfer - žádný transfer nesmí mít více fragmentů &ldquo;ve vzduchu&rdquo;</li>
+<li>u hraničních fragmentů se čeká na odpověď, odesílání hlavních je řízeno peer.tx_rate a (?) potenciálními STATUS fragmenty. Hlavní fragmenty nejsou jednotlivě potvrzovány a vše je jištěno timouty. </li>
+<li>pokud se od konfirmace odeslání hraničního fragmentu překročí maximální mez RTT, musí se zahodit aktuální měření RTT a provést retransmit naposled odeslaného fragmentu.</li>
+<li>pokud víc těchto pokusů selže a je překročen inactivity timeout, celý transfer se zahazuje, stav peer něco ve smyslu (unreachable += 1) (TODO)</li>
+</ul>
+<h2 id="kroky-odeslani-transferu">kroky odeslání transferu</h2>
+<ol>
+<li>transmit_transfer zařadila transfer do fronty, jeho stav je NEW, current = 0</li>
+<li>stav NEW nebo NEXT nebo RETRY -&gt; odešli current fragment, stav WAITING
+  - inkrementuj current pokud NEW nebo NEXT</li>
+<li>stav WAITING 
+  - přišla konfirmace odeslání, nastav stav na SENT a začni měřit čas
+  - konfirmace selhala (interface odmítnul fragment), celý transfer se zahazuje</li>
+<li>stav SENT
+  - current je hraniční nebo retransmit_count &gt; 0
+  - přišel ACK fragment, ulož změřený rtt a nastav stav na NEXT nebo DONE, kde generujeme ack pro odesílatele a zahazujeme transfer
+  - přišel REQ fragment, poslední je v tom případě v pořádku a chybí některý z hlavních, nastaven stav RETRY a current na požadovaný fragment, retransmit_count++
+  - timeout přijetí ACK nebo REQ, nastav stav na RETRY (zde se může stát, že máme timeout moc striktní a ACK přijde o něco později, v takovém případě musíme prudce relaxovat tento timeout)
+  - je hlavní a uplynulo dostatek času od odeslání, stav NEXT</li>
+</ol>
+<h2 id="kroky-prijimani-transferu">kroky přijímaní transferu</h2>
+<ol>
+<li>přijat první fragment (bude vždy první v pořadí, jelikož odesílatel čeká na ACK od nás), vytvoříme nový transfer a odešleme ACK, stav NEXT</li>
+<li>jakýkoliv další fragment je zařazen, stav NEXT, pro poslední fragment odesláno ACK a stav DONE, generován receive_event a zahozena datová část</li>
+<li>stav NEXT dlouho bez aktivity, </li>
+<li>stav DONE a expirace drop period, zahozen celý transfer (držíme pro případ ztráty posledního)</li>
+</ol>
+<h2 id="transmit-priority-ordering">transmit priority ordering</h2>
+<p>the previous implementation suffered from a load balancing problem, where it treated transfers completely independently. We need a way to order currently outgoing transfers withing the fragmentation handler in terms of &ldquo;transmit priority&rdquo;. This should be a single metric that gives priority to certain transfers while pushing back others to prevent interface overload. </p>
+<p>Metrics that should play a role
+1. how close is this transfer to completion - we need to prioritize transfers that are almost finished and hold back transfers that haven&rsquo;t gone out yet
+  - the handler should attempt to minimize the number of transfers in progress (states NEXT, RETRY, WAITING and SENT)
+2. transfers that fit into a single fragment
+  - these carry little overhead - just one transmit and one ACK if everything goes smoothly
+  - it is also likely that small transfers carry timely data as opposed by the long ones
+3. time since the last transmit
+  - we need a push for transfers that are otherwise low priority (ie. long ones near the beginning)</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../../Data/Bytes_Container/" class="btn btn-neutral float-left" title="Bytes Container"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../Interface/" class="btn btn-neutral float-right" title="Interface">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/georges-circuits/libprotoserial" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../../Data/Bytes_Container/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../Interface/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script>var base_url = '../../../..';</script>
+    <script src="../../../../js/theme_extra.js" defer></script>
+    <script src="../../../../js/theme.js" defer></script>
+      <script src="../../../../search/main.js" defer></script>
+    <script defer>
+        window.onload = function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        };
+    </script>
+
+</body>
+</html>

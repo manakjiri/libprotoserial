@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../../../../img/favicon.ico" />
+    <title>Command - libprotoserial docs</title>
+    <link rel="stylesheet" href="../../../../css/theme.css" />
+    <link rel="stylesheet" href="../../../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Command";
+        var mkdocs_page_input_path = "For_Developers/Design/Services/Command.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <script src="../../../../js/jquery-3.6.0.min.js" defer></script>
+    <!--[if lt IE 9]>
+      <script src="../../../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/highlight.min.js"></script>
+      <script>hljs.initHighlightingOnLoad();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../../../.." class="icon icon-home"> libprotoserial docs
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../../..">Home</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">For Developers</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../../../Using_MkDocs/">Using MkDocs</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Design</a>
+    <ul class="current">
+                <li class="toctree-l2"><a class="reference internal" href="../../Callbacks/">Callbacks</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../General/">prealokace</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="#">Data</a>
+    <ul>
+                <li class="toctree-l3"><a class="reference internal" href="../../Data/Bytes_Container/">Bytes Container</a>
+                </li>
+    </ul>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="#">Layers</a>
+    <ul>
+                <li class="toctree-l3"><a class="reference internal" href="../../Layers/Fragmentation/">Fragmentation</a>
+                </li>
+                <li class="toctree-l3"><a class="reference internal" href="../../Layers/Interface/">Interface</a>
+                </li>
+                <li class="toctree-l3"><a class="reference internal" href="../../Layers/Ports/">Ports</a>
+                </li>
+    </ul>
+                </li>
+                <li class="toctree-l2 current"><a class="reference internal current" href="#">Services</a>
+    <ul class="current">
+                <li class="toctree-l3 current"><a class="reference internal current" href="./">Command</a>
+    <ul class="current">
+    <li class="toctree-l4"><a class="reference internal" href="#command_service">command_service</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#command-arguments">Command arguments</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#command-result">Command result</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#calling-commands">Calling commands</a>
+    </li>
+    </ul>
+                </li>
+    </ul>
+                </li>
+    </ul>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../..">libprotoserial docs</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../../.." class="icon icon-home" alt="Docs"></a> &raquo;</li>
+          <li>For Developers &raquo;</li>
+          <li>Design &raquo;</li>
+          <li>Services &raquo;</li><li>Command</li>
+    <li class="wy-breadcrumbs-aside">
+        <a href="https://github.com/georges-circuits/libprotoserial/edit/master/docs/For_Developers/Design/Services/Command.md"
+          class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="command">Command</h1>
+<p>Command service occupies one port of the port_handler. It is meant for short lived commands, primarily used during debugging and validation testing. Because of this it prioritizes ease of implementing commands above everything else.</p>
+<h2 id="command_service">command_service</h2>
+<ul>
+<li>měl by v kombinaci s podporou portů řešit většinu problémů s bývalým TestInterface</li>
+<li>příkazy nejsou jediná forma komunikace se zařízením, jelikož obsazují pouze jeden port</li>
+<li>každý příkaz je specializace <code>command_base</code> třídy, takže je mnohem jednodušší držet persistent stav</li>
+<li>příkazy si stále vybírají kdy se ukončí podle návratové hodnoty <code>{ DONE, CONTINUE, ERR_ARGS, ERR_RUNTIME }</code> funkce <code>run</code></li>
+<li>tady je právě další možné zlepšení, které aktuálně není implementováno - spuštění příkazu
+  1. odeslání json stringu ve formátu CBOR na port <code>command_service</code>
+  2. <code>command_service</code> kontroluje formát, hledá instanci podle názvu příkazu
+  3. odpovídá ACK odesílateli, spouští příkaz na náhodném volném portu, číslo portu je v ACK
+  4. spuštěný příkaz odesílá odpovědi z přiřazeného náhodného portu na požadovaný port odesílatele - předpokládá se, že odesílatel si tento port otevře před odesláním požadavku</li>
+</ul>
+<pre><code>zpráva z bodu 1.
+{
+  &quot;cmd&quot;: &quot;command name&quot;,
+  &quot;args&quot;: [&quot;arg0&quot;, 1.0, &quot;AwQF&quot;],
+  &quot;port&quot;: 42,
+  &quot;id&quot;: 512
+}
+</code></pre>
+<pre><code>možné odpovědi z bodu 2.
+{
+  &quot;cmd&quot;: &quot;command name&quot;,
+  &quot;port&quot;: 123,
+  &quot;id&quot;: 512
+}
+
+{
+  &quot;cmd&quot;: &quot;command name&quot;,
+  &quot;error&quot;: &quot;args format&quot;
+}
+</code></pre>
+<h2 id="command-arguments">Command arguments</h2>
+<h2 id="command-result">Command result</h2>
+<h2 id="calling-commands">Calling commands</h2>
+<ul>
+<li>command queries should be generated by instances of the command_client (also a service running on some other device for example)<ul>
+<li>this makes sense, commands should behave in this client </li>
+</ul>
+</li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../../Layers/Ports/" class="btn btn-neutral float-left" title="Ports"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/georges-circuits/libprotoserial" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../../Layers/Ports/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+  </span>
+</div>
+    <script>var base_url = '../../../..';</script>
+    <script src="../../../../js/theme_extra.js" defer></script>
+    <script src="../../../../js/theme.js" defer></script>
+      <script src="../../../../search/main.js" defer></script>
+    <script defer>
+        window.onload = function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        };
+    </script>
+
+</body>
+</html>
