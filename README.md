@@ -11,7 +11,7 @@ Library intended for rapid prototyping of embedded devices with support of stand
 - loopback interface does not behave as expected when it comes to addressing
 - harden upper layers against data corruption (now these mostly assume that the interface will catch all errors)
     - adding a checksum to transfers as well?
-- some "endpoint" object that holds all necessary information describing another device on the ports later
+- some "endpoint" object that holds all necessary information describing another device on the ports layer
 - simplify the observer implementation
     - consider creating observer_single variant where only one slot is available?
 - isolate more of the parser functionality from various interface implementations into the parsers namespace
@@ -24,18 +24,28 @@ Library intended for rapid prototyping of embedded devices with support of stand
 
 ## Setup for VS Code
 
+c_cpp_properties.json
 ```
-{
-    "name": "Linux",
-    "includePath": [
-        "${default}",
-        "${workspaceFolder}",
-        "${workspaceFolder}/submodules/etl/include",
-        "${workspaceFolder}/submodules/jsoncons/include"
-    ],
-    "defines": [],
-    "compilerPath": "/usr/bin/g++",
-    "cStandard": "c17",
-    "cppStandard": "c++20",
-}
+"configurations": [
+    {
+        "name": "Linux",
+        "includePath": [
+            "${default}",
+            "${workspaceFolder}",
+            "${workspaceFolder}/submodules/etl/include",
+            "${workspaceFolder}/submodules/jsoncons/include"
+        ],
+        "defines": [],
+        "compilerPath": "/usr/bin/clang",
+        "intelliSenseMode": "linux-clang-x64",
+        "cppStandard": "c++20"
+    }
+],
 ```
+
+## Unit-tests
+
+This project uses [googletest](https://github.com/google/googletest) as the testing framework, google provides an excellent [quick start guide](https://google.github.io/googletest/primer.html) if you are unfamiliar with it. Unit tests are built using cmake. 
+
+Setup and run unit tests by executing `./helpers/run_tests.sh` from the project root directory. More instructions are available at the beginning of the `tests/tests.cpp` file, this file also contains all the test cases.
+
