@@ -31,7 +31,7 @@ c_cpp_properties.json
         "name": "Linux",
         "includePath": [
             "${default}",
-            "${workspaceFolder}",
+            "${workspaceFolder}/include",
             "${workspaceFolder}/submodules/etl/include",
             "${workspaceFolder}/submodules/jsoncons/include"
         ],

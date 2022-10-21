@@ -148,7 +148,7 @@ namespace detail
                             the main task, where we also decide what has the highest priority,
                             this information can be stored in the transfer_handler using existing variables, 
                             since we only need one fragment of the transfer to be retransmitted */
-                            if (itr->set_retransmit_request(h.fragment()))
+                            if (itr->retransmit_request(h.fragment()))
                             {
                                 //TODO retransmit set
                             }
