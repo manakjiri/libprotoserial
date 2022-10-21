@@ -1,4 +1,11 @@
 
+/* 
+a simple example demonstrating the lowest communication layer - the interface.
+
+build and run using the run.sh script
+ */
+
+
 #include <libprotoserial/interface.hpp>
 #include <libprotoserial/testing/simulation.hpp>
 #include <libprotoserial/testing/random.hpp>
@@ -12,14 +19,13 @@ using namespace sp::literals;
 
 int main(int argc, char const *argv[])
 {
-    
-    /* setup the loop-back interface */
+    /* setup the loopback interface */
     sp::loopback_interface interface (
         0,   /* 0'th interface instance (if we had multiple loopback interfaces, we'd want to distinguish them somehow) */
         1,   /* address 1 (the interface only receives fragments where f.destination() == 1, more on that later) */
         255, /* broadcast address 255 (the interface also receives any fragment where f.destination() == 255) */
         10,  /* maximum transmit queue size is 10 (the interface will store up to 10 fragments pending transmit) */
-        64,  /* maximum fragment size is 64 bytes */
+        64,  /* maximum fragment size is 64 bytes - do not transmit more than about 50 bytes of data */
         256  /* the interface has a circular receive buffer of 256 bytes */
     );
 
