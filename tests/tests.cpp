@@ -19,9 +19,9 @@
 #include <jsoncons_ext/cbor/cbor.hpp>
 #include <jsoncons_ext/jsonpath/jsonpath.hpp>
 
-#include "helpers/random.hpp"
-#include "helpers/testers.hpp"
-#include "helpers/simulation.hpp"
+#include <libprotoserial/testing/random.hpp>
+#include <libprotoserial/testing/testers.hpp>
+#include <libprotoserial/testing/simulation.hpp>
 
 #include <map>
 #include <tuple>
