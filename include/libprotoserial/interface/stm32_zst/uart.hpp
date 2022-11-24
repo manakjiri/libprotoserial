@@ -73,7 +73,7 @@ namespace stm32_zst
 
         protected:
 
-        virtual void isr_rx_done()
+        void isr_rx_done()
         {
             next_receive();
         }
@@ -83,7 +83,7 @@ namespace stm32_zst
             _is_transmitting = false;
         }
 
-        inline void next_receive()
+        void next_receive()
         {
             _uart.receive_it(reinterpret_cast<uint8_t*>(this->rx_buffer_future_write()), 1);
             _last_rx = clock::now();
